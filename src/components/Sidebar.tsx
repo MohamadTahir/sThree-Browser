@@ -1,4 +1,5 @@
 import { Trash2, Plus, Folder, Pencil } from "lucide-react";
+import { useMemo } from "react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { BucketConfigs } from "../types";
@@ -21,6 +22,18 @@ export default function Sidebar({
   onDeleteBucket,
 }: SidebarProps) {
   const buckets = configs?.buckets || {};
+
+  // Create a stable sorted list of bucket entries to prevent reordering
+  // Use a stable key based on bucket IDs to prevent unnecessary recalculations
+  const bucketsKey = useMemo(() => {
+    return Object.keys(buckets).sort().join(',');
+  }, [buckets]);
+
+  const sortedBuckets = useMemo(() => {
+    const entries = Object.entries(buckets);
+    // Sort by bucketId to ensure consistent alphabetical order
+    return entries.sort(([idA], [idB]) => idA.localeCompare(idB));
+  }, [bucketsKey]); // Only recalculate when bucket IDs actually change
 
   return (
     <div className="glass flex w-64 flex-col border-r border-border">
@@ -52,25 +65,26 @@ export default function Sidebar({
           </div>
         ) : (
           <div className="space-y-1">
-            {Object.entries(buckets).map(([bucketId, config]) => (
+            {sortedBuckets.map(([bucketId, config]) => (
               <div
                 key={bucketId}
-                className={`group flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-accent/50 ${
+                className={`group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50 cursor-pointer ${
                   selectedBucket === bucketId
                     ? "bg-accent text-accent-foreground"
                     : ""
                 }`}
+                onClick={() => onBucketSelect(bucketId)}
               >
-                <button
-                  onClick={() => onBucketSelect(bucketId)}
-                  className="flex flex-1 items-center gap-2 text-left"
-                >
+                <div className="flex flex-1 items-center gap-2 p-2">
                   <Folder className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate text-sm font-medium">
                     {config.nickname}
                   </span>
-                </button>
-                <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                </div>
+                <div 
+                  className="flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Button
                     size="icon"
                     variant="ghost"

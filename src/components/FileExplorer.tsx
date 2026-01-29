@@ -1,18 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Folder, File, ChevronRight, Loader2 } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check } from "lucide-react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
 import { S3Object, ListObjectsResponse, BucketConfigs } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
 import Breadcrumb from "./Breadcrumb";
+import { cn } from "../lib/utils";
 
 interface FileExplorerProps {
   bucketId: string | null;
@@ -25,6 +19,8 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
   const [bucketName, setBucketName] = useState<string | null>(null);
   const [availableBuckets, setAvailableBuckets] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (bucketId) {
@@ -35,7 +31,8 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
       setAvailableBuckets([]);
       setCurrentPrefix("");
     }
-  }, [bucketId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bucketId]); // Only depend on bucketId, not bucketName
 
   useEffect(() => {
     if (bucketId && bucketName) {
@@ -54,17 +51,21 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
       const config = configs.buckets[bucketId];
       
       if (config && config.bucket_name) {
-        setBucketName(config.bucket_name);
+        const currentBucket = bucketName || config.bucket_name;
+        setBucketName(currentBucket);
+        // Maintain stable order - always show configured bucket first
         setAvailableBuckets([config.bucket_name]);
       } else {
         // Fallback: try to list buckets if bucket_name is not set
         const buckets = await invoke<string[]>("list_buckets", { bucketId });
         setAvailableBuckets(buckets);
         if (buckets.length > 0) {
-          if (!bucketName || !buckets.includes(bucketName)) {
-            setBucketName(buckets[0]);
-            setCurrentPrefix("");
-          }
+          // Preserve current selection if it exists, otherwise use first
+          const currentBucket = bucketName && buckets.includes(bucketName) 
+            ? bucketName 
+            : buckets[0];
+          setBucketName(currentBucket);
+          setCurrentPrefix("");
         } else {
           setError("No bucket name configured and no buckets found");
         }
@@ -77,10 +78,63 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     }
   };
 
+  // Create a stable sorted array that only changes when availableBuckets changes
+  // Use a ref to store the previous sorted array and key
+  const prevSortedRef = useRef<string[]>([]);
+  const prevBucketsKeyRef = useRef<string>('');
+  
+  const sortedBuckets = useMemo(() => {
+    if (availableBuckets.length === 0) {
+      prevBucketsKeyRef.current = '';
+      prevSortedRef.current = [];
+      return [];
+    }
+    
+    // Create a stable sorted key
+    const sorted = [...availableBuckets].sort((a, b) => a.localeCompare(b));
+    const currentKey = sorted.join('|');
+    
+    // Only return a new array if the buckets actually changed
+    if (prevBucketsKeyRef.current === currentKey && prevSortedRef.current.length > 0) {
+      // Return the previous sorted array to maintain reference stability
+      return prevSortedRef.current;
+    }
+    
+    prevBucketsKeyRef.current = currentKey;
+    prevSortedRef.current = sorted;
+    return sorted;
+  }, [availableBuckets]); // Depend on the array itself, but use ref to prevent unnecessary updates
+
   const handleBucketChange = (newBucketName: string) => {
-    setBucketName(newBucketName);
-    setCurrentPrefix(""); // Reset prefix when switching buckets
+    // Prevent unnecessary updates if selecting the same bucket
+    if (newBucketName === bucketName) {
+      setIsDropdownOpen(false);
+      return;
+    }
+    // Close dropdown first to prevent re-render issues
+    setIsDropdownOpen(false);
+    // Use setTimeout to ensure dropdown closes before state updates
+    setTimeout(() => {
+      setBucketName(newBucketName);
+      setCurrentPrefix(""); // Reset prefix when switching buckets
+    }, 0);
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [isDropdownOpen]);
 
   const loadObjects = async () => {
     if (!bucketId || !bucketName) return;
@@ -140,19 +194,49 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
         <div className="flex items-center justify-between">
           <div className="flex-1">
             {availableBuckets.length > 1 ? (
-              <div className="mb-2">
-                <Select value={bucketName || ""} onValueChange={handleBucketChange}>
-                  <SelectTrigger className="w-[300px]">
-                    <SelectValue placeholder="Select a bucket" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableBuckets.map((bucket) => (
-                      <SelectItem key={bucket} value={bucket}>
-                        {bucket}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mb-2 relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex h-10 w-[300px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="truncate">{bucketName || "Select a bucket"}</span>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </button>
+                {isDropdownOpen && sortedBuckets.length > 0 && (
+                  <div 
+                    className="absolute z-50 mt-1 w-[300px] rounded-md border bg-popover text-popover-foreground shadow-md"
+                    key={`dropdown-${prevBucketsKeyRef.current}`}
+                  >
+                    <div className="max-h-[300px] overflow-auto p-1">
+                      {sortedBuckets.map((bucket) => {
+                        const isSelected = bucketName === bucket;
+                        return (
+                          <button
+                            key={`${bucket}`}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleBucketChange(bucket);
+                            }}
+                            className={cn(
+                              "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+                              isSelected && "bg-accent text-accent-foreground"
+                            )}
+                          >
+                            {isSelected && (
+                              <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                                <Check className="h-4 w-4" />
+                              </span>
+                            )}
+                            <span>{bucket}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <h1 className="text-2xl font-bold">{bucketName || "Loading..."}</h1>
