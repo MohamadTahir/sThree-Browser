@@ -70,7 +70,34 @@ npm run tauri build
 pnpm tauri build
 ```
 
-The built application will be in `src-tauri/target/release/`.
+The built application will be in `src-tauri/target/release/bundle/`.
+
+### macOS Installation
+
+After building, you'll find the following in `src-tauri/target/release/bundle/`:
+
+1. **`.app` bundle** (e.g., `S3 Browser.app`):
+   - Double-click to run directly, or
+   - Drag to `/Applications` folder to install system-wide
+
+2. **`.dmg` file** (Disk Image):
+   - Double-click to mount
+   - Drag the app to Applications folder
+   - Eject the disk image when done
+
+**Note**: On macOS, you may need to allow the app to run:
+- Right-click the `.app` → "Open" → Click "Open" in the security dialog
+- Or go to System Settings → Privacy & Security → Allow the app
+
+### Development Build (Faster)
+
+For faster builds during development (without code signing):
+
+```bash
+npm run tauri build -- --debug
+```
+
+This creates a debug build in `src-tauri/target/debug/bundle/`.
 
 ## Usage
 

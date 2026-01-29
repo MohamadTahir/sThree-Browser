@@ -25,7 +25,7 @@ export default function Breadcrumb({ prefix, onNavigate }: BreadcrumbProps) {
       >
         <Home className="h-4 w-4" />
       </Button>
-      {parts.map((part, index) => (
+      {parts.map((part) => (
         <div key={part.prefix} className="flex items-center gap-1">
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
           <Button

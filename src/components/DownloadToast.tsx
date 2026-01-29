@@ -14,7 +14,7 @@ interface DownloadToastProps {
 
 export default function DownloadToast({
   fileName,
-  filePath,
+  filePath: _filePath, // Used by parent component but not displayed in UI
   onOpen,
   onOpenLocation,
   onClose,

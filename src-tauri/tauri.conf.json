@@ -1,7 +1,7 @@
 {
   "productName": "S3 Browser",
   "version": "1.0.0",
-  "identifier": "com.s3browser.app",
+  "identifier": "com.s3browser",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
