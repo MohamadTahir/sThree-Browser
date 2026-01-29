@@ -4,7 +4,9 @@ import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft } 
 import { Button } from "./ui/button";
 import { S3Object, ListObjectsResponse, BucketConfigs } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
+import { isPreviewableFileType } from "../lib/fileUtils";
 import Breadcrumb from "./Breadcrumb";
+import FilePreview from "./FilePreview";
 import { cn } from "../lib/utils";
 
 interface FileExplorerProps {
@@ -26,6 +28,9 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
   const [isTruncated, setIsTruncated] = useState(false);
   const [pageSize] = useState(100); // Items per page
   const [pageHistory, setPageHistory] = useState<string[]>([]); // Stack of continuation tokens for "Previous"
+  // Preview state
+  const [previewFile, setPreviewFile] = useState<S3Object | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (bucketId) {
@@ -197,7 +202,13 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
   const handleObjectClick = (object: S3Object) => {
     if (object.is_folder) {
       setCurrentPrefix(object.key);
+    } else if (isPreviewableFileType(object.key)) {
+      // Open preview for previewable files
+      setPreviewFile(object);
+      setIsPreviewOpen(true);
     }
+    // For non-previewable files, clicking does nothing
+    // You could add a toast notification here if desired
   };
 
   const handleBreadcrumbClick = (prefix: string) => {
@@ -375,6 +386,15 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
           </div>
         )}
       </div>
+      
+      {/* File Preview Modal */}
+      <FilePreview
+        open={isPreviewOpen}
+        onOpenChange={setIsPreviewOpen}
+        file={previewFile}
+        bucketId={bucketId}
+        bucketName={bucketName}
+      />
     </div>
   );
 }

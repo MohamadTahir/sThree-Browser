@@ -4,6 +4,7 @@ use aws_credential_types::Credentials;
 use aws_sdk_s3::primitives::DateTime;
 use aws_sdk_s3::Client as S3Client;
 use aws_types::sdk_config::SharedCredentialsProvider;
+use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -276,6 +277,56 @@ pub async fn list_objects(
         next_continuation_token: response.next_continuation_token().map(|s| s.to_string()),
         is_truncated: response.is_truncated().unwrap_or(false),
         max_keys: page_size,
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ObjectContentResponse {
+    pub data: String, // Base64 encoded
+    pub size: usize,
+}
+
+#[tauri::command]
+pub async fn get_object_content(
+    app: AppHandle,
+    bucket_id: String,
+    bucket_name: String,
+    key: String,
+) -> Result<ObjectContentResponse, String> {
+    eprintln!("get_object_content called - bucket_id: {}, bucket_name: {}, key: {}", bucket_id, bucket_name, key);
+
+    let client = get_or_create_client(&app, &bucket_id).await?;
+
+    let response = client
+        .get_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get object: {}", e))?;
+
+    eprintln!("Got response, collecting body...");
+
+    // Collect the body into a Vec<u8>
+    let body_bytes = response
+        .body
+        .collect()
+        .await
+        .map_err(|e| {
+            let err_msg = format!("Failed to read stream: {}", e);
+            eprintln!("Stream error: {}", err_msg);
+            err_msg
+        })?
+        .into_bytes();
+
+    eprintln!("Collected {} bytes", body_bytes.len());
+
+    // Encode as base64 for reliable transmission
+    let base64_data = general_purpose::STANDARD.encode(&body_bytes);
+
+    Ok(ObjectContentResponse {
+        data: base64_data,
+        size: body_bytes.len(),
     })
 }
 

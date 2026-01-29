@@ -16,7 +16,8 @@ fn main() {
             update_bucket_config,
             get_bucket_configs,
             delete_bucket_config,
-            set_active_bucket
+            set_active_bucket,
+            get_object_content
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
