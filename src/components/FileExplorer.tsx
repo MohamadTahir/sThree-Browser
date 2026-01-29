@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Folder, File, ChevronRight, Loader2, ChevronDown, Check } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft } from "lucide-react";
 import { Button } from "./ui/button";
-import { Separator } from "./ui/separator";
 import { S3Object, ListObjectsResponse, BucketConfigs } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
 import Breadcrumb from "./Breadcrumb";
@@ -21,6 +20,12 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Pagination state
+  const [continuationToken, setContinuationToken] = useState<string | null>(null);
+  const [nextContinuationToken, setNextContinuationToken] = useState<string | null>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [pageSize] = useState(100); // Items per page
+  const [pageHistory, setPageHistory] = useState<string[]>([]); // Stack of continuation tokens for "Previous"
 
   useEffect(() => {
     if (bucketId) {
@@ -36,7 +41,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
 
   useEffect(() => {
     if (bucketId && bucketName) {
-      loadObjects();
+      // Reset pagination when prefix or bucket changes
+      setContinuationToken(null);
+      setNextContinuationToken(null);
+      setPageHistory([]);
+      loadObjects(null);
     }
   }, [bucketId, bucketName, currentPrefix]);
 
@@ -136,7 +145,7 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     }
   }, [isDropdownOpen]);
 
-  const loadObjects = async () => {
+  const loadObjects = async (token: string | null = null) => {
     if (!bucketId || !bucketName) return;
 
     try {
@@ -146,14 +155,42 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
         bucketId,
         bucketName,
         prefix: currentPrefix || null,
+        maxKeys: pageSize,
+        continuationToken: token || null,
       });
       setObjects(response.objects);
+      setNextContinuationToken(response.next_continuation_token || null);
+      setIsTruncated(response.is_truncated);
+      setContinuationToken(token);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(`Failed to load objects: ${errorMsg}`);
       console.error("Full error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (nextContinuationToken) {
+      // Add current token to history for "Previous" functionality
+      if (continuationToken) {
+        setPageHistory([...pageHistory, continuationToken]);
+      }
+      loadObjects(nextContinuationToken);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (pageHistory.length > 0) {
+      const previousTokens = [...pageHistory];
+      const previousToken = previousTokens.pop() || null;
+      setPageHistory(previousTokens);
+      loadObjects(previousToken);
+    } else {
+      // Go back to first page
+      setPageHistory([]);
+      loadObjects(null);
     }
   };
 
@@ -304,6 +341,36 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Pagination Controls */}
+        {(pageHistory.length > 0 || isTruncated) && (
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={pageHistory.length === 0 && continuationToken === null}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={!isTruncated || !nextContinuationToken}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Showing {objects.length} item{objects.length !== 1 ? 's' : ''}
+              {isTruncated && ` (more available)`}
             </div>
           </div>
         )}

@@ -22,6 +22,9 @@ pub struct ListObjectsResponse {
     pub objects: Vec<S3Object>,
     pub prefix: String,
     pub common_prefixes: Vec<String>,
+    pub next_continuation_token: Option<String>,
+    pub is_truncated: bool,
+    pub max_keys: i32,
 }
 
 // Global state to cache S3 clients
@@ -193,6 +196,8 @@ pub async fn list_objects(
     bucket_id: String,
     bucket_name: String,
     prefix: Option<String>,
+    max_keys: Option<i32>,
+    continuation_token: Option<String>,
 ) -> Result<ListObjectsResponse, String> {
     eprintln!("list_objects called - bucket_id: {}, bucket_name: {}", bucket_id, bucket_name);
 
@@ -205,15 +210,21 @@ pub async fn list_objects(
     let client = get_or_create_client(&app, &bucket_id).await?;
 
     let prefix = prefix.unwrap_or_default();
-    eprintln!("Listing objects in bucket '{}' with prefix '{}'", bucket_name, prefix);
+    let page_size = max_keys.unwrap_or(100); // Default to 100 items per page
+    eprintln!("Listing objects in bucket '{}' with prefix '{}', max_keys: {}", bucket_name, prefix, page_size);
 
     let mut request = client
         .list_objects_v2()
         .bucket(&bucket_name)
-        .delimiter("/");
+        .delimiter("/")
+        .max_keys(page_size);
 
     if !prefix.is_empty() {
         request = request.prefix(&prefix);
+    }
+
+    if let Some(token) = continuation_token {
+        request = request.continuation_token(&token);
     }
 
     let response = request
@@ -262,6 +273,9 @@ pub async fn list_objects(
         objects,
         prefix: prefix.clone(),
         common_prefixes,
+        next_continuation_token: response.next_continuation_token().map(|s| s.to_string()),
+        is_truncated: response.is_truncated().unwrap_or(false),
+        max_keys: page_size,
     })
 }
 

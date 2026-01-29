@@ -23,4 +23,7 @@ export interface ListObjectsResponse {
   objects: S3Object[];
   prefix: string;
   common_prefixes: string[];
+  next_continuation_token?: string | null;
+  is_truncated: boolean;
+  max_keys: number;
 }
