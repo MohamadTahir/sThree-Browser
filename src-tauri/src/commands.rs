@@ -34,7 +34,7 @@ async fn get_or_create_client(
     // Check if client exists first (release guard before await)
     {
         let clients_guard = S3_CLIENTS.lock().map_err(|e| format!("Failed to lock clients: {}", e))?;
-        
+
         if let Some(clients) = clients_guard.as_ref() {
             if let Some(client) = clients.get(bucket_id) {
                 return Ok(client.clone());
@@ -97,7 +97,7 @@ async fn get_or_create_client(
         if !trimmed.is_empty() && trimmed != "null" && trimmed != "undefined" {
             // Normalize endpoint URL: add https:// if no protocol specified
             let clean_endpoint = trimmed.trim_end_matches('/').trim();
-            
+
             // Parse and validate the endpoint URL
             let final_endpoint = if clean_endpoint.starts_with("http://") || clean_endpoint.starts_with("https://") {
                 // Already has protocol - use as-is but ensure it's clean
@@ -115,15 +115,15 @@ async fn get_or_create_client(
                 }
                 format!("https://{}", clean_endpoint)
             };
-            
+
             eprintln!("Normalized endpoint: '{}'", final_endpoint);
             eprintln!("Setting endpoint_url to: '{}'", final_endpoint);
-            
+
             // Validate the URL format
             if !final_endpoint.starts_with("http://") && !final_endpoint.starts_with("https://") {
                 return Err(format!("Invalid endpoint URL format: '{}'", final_endpoint));
             }
-            
+
             config_builder = config_builder.endpoint_url(&final_endpoint);
             use_custom_endpoint = true;
         } else {
@@ -140,23 +140,23 @@ async fn get_or_create_client(
     } else {
         eprintln!("  Endpoint URL: (will be auto-constructed by SDK)");
     }
-    
+
     // For S3-compatible storage (MinIO, etc.), use path-style addressing
     // AWS S3 uses virtual-hosted-style by default, but MinIO requires path-style
     let mut client_config_builder = aws_sdk_s3::config::Builder::from(&config);
-    
+
     // Enable path-style addressing if using a custom endpoint (MinIO/R2)
     if use_custom_endpoint {
         eprintln!("  Enabling path-style addressing for S3-compatible storage");
         client_config_builder = client_config_builder.force_path_style(true);
     }
-    
+
     let client = S3Client::from_conf(client_config_builder.build());
 
     // Re-acquire lock to store the client
     {
         let mut clients_guard = S3_CLIENTS.lock().map_err(|e| format!("Failed to lock clients: {}", e))?;
-        
+
         if clients_guard.is_none() {
             *clients_guard = Some(HashMap::new());
         }
@@ -195,13 +195,13 @@ pub async fn list_objects(
     prefix: Option<String>,
 ) -> Result<ListObjectsResponse, String> {
     eprintln!("list_objects called - bucket_id: {}, bucket_name: {}", bucket_id, bucket_name);
-    
+
     // Debug: Check what config we have
     let configs = load_configs(&app).await.map_err(|e| e.to_string())?;
     if let Some(config) = configs.buckets.get(&bucket_id) {
         eprintln!("Config endpoint: {:?}", config.endpoint);
     }
-    
+
     let client = get_or_create_client(&app, &bucket_id).await?;
 
     let prefix = prefix.unwrap_or_default();
@@ -278,7 +278,7 @@ pub async fn add_bucket_config(
     let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
 
     let bucket_id = format!("bucket_{}", nickname.to_lowercase().replace(' ', "_"));
-    
+
     let config = BucketConfig {
         nickname: nickname.clone(),
         bucket_name,
@@ -289,7 +289,7 @@ pub async fn add_bucket_config(
     };
 
     configs.buckets.insert(bucket_id.clone(), config);
-    
+
     // Set as active if it's the first bucket
     if configs.active_bucket.is_none() {
         configs.active_bucket = Some(bucket_id.clone());

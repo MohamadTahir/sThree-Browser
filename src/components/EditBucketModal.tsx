@@ -164,7 +164,7 @@ export default function EditBucketModal({
                 }
               />
               <p className="text-xs text-muted-foreground">
-                S3-compatible endpoint (e.g., s3.dev.krd or https://s3.dev.krd for MinIO). 
+                S3-compatible endpoint (e.g., s3.dev.krd or https://s3.dev.krd for MinIO).
                 Leave empty for AWS S3 (will auto-detect from region).
               </p>
             </div>
