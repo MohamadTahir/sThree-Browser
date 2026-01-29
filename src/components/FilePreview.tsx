@@ -138,6 +138,7 @@ export default function FilePreview({
     onOpenChange(false);
   };
 
+
   if (!file) return null;
 
   const fileType = getFileType(file.key);

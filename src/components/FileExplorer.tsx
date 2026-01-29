@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, Download } from "lucide-react";
 import { Button } from "./ui/button";
 import { S3Object, ListObjectsResponse, BucketConfigs } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
 import { isPreviewableFileType } from "../lib/fileUtils";
 import Breadcrumb from "./Breadcrumb";
 import FilePreview from "./FilePreview";
+import DownloadToast from "./DownloadToast";
 import { cn } from "../lib/utils";
 
 interface FileExplorerProps {
@@ -31,6 +32,12 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
   // Preview state
   const [previewFile, setPreviewFile] = useState<S3Object | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  // Download toast state
+  const [downloadToast, setDownloadToast] = useState<{
+    fileName: string;
+    filePath: string;
+    open: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (bucketId) {
@@ -211,6 +218,84 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     // You could add a toast notification here if desired
   };
 
+  const handleDownload = async (object: S3Object, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the file click handler
+    
+    if (!bucketId || !bucketName) return;
+
+    try {
+      setLoading(true);
+      const response = await invoke<{ data: string; size: number }>("get_object_content", {
+        bucketId,
+        bucketName,
+        key: object.key,
+      });
+
+      // Decode base64 to Uint8Array
+      const binaryString = atob(response.data);
+      const uint8Array = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+      }
+
+      // Get file name
+      const fileName = object.key.split('/').pop() || object.key;
+      
+      // Convert Uint8Array to Vec<u8> for Rust
+      const fileData = Array.from(uint8Array);
+      
+      // Save file to downloads directory using Tauri command
+      const filePath = await invoke<string>("save_file_to_downloads", {
+        fileName,
+        fileData,
+      });
+      
+      // Show download toast with the actual file path
+      setDownloadToast({
+        fileName,
+        filePath,
+        open: true,
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to download file: ${errorMsg}`);
+      console.error("Download error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenFile = async () => {
+    if (!downloadToast) return;
+    try {
+      console.log("Opening file:", downloadToast.filePath);
+      // Use Rust command to open the file with default application
+      await invoke("open_file", {
+        path: downloadToast.filePath,
+      });
+    } catch (err) {
+      console.error("Failed to open file:", err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to open file: ${errorMsg}`);
+    }
+  };
+
+  const handleOpenFileLocation = async () => {
+    if (!downloadToast) return;
+    try {
+      console.log("Opening file location for path:", downloadToast.filePath);
+      // Open the folder containing the file using a Rust command
+      // This avoids opener plugin security restrictions
+      await invoke("open_folder", {
+        path: downloadToast.filePath,
+      });
+    } catch (err) {
+      console.error("Failed to open file location:", err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to open file location: ${errorMsg}`);
+    }
+  };
+
   const handleBreadcrumbClick = (prefix: string) => {
     setCurrentPrefix(prefix);
   };
@@ -314,43 +399,58 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
           <div className="rounded-xl border border-border bg-card">
             <div className="divide-y divide-border">
               {objects.map((object) => (
-                <button
+                <div
                   key={object.key}
-                  onClick={() => handleObjectClick(object)}
-                  className="flex w-full items-center gap-4 p-4 transition-colors hover:bg-accent/50"
+                  className="group flex w-full items-center gap-4 p-4 transition-colors hover:bg-accent/50"
                 >
-                  <div className="flex-shrink-0">
-                    {object.is_folder ? (
-                      <Folder className="h-5 w-5 text-primary" />
-                    ) : (
-                      <File className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex flex-1 items-center justify-between gap-4">
-                    <div className="flex-1 text-left">
-                      <div className="font-medium">
-                        {object.is_folder
-                          ? object.key
-                              .replace(currentPrefix, "")
-                              .replace(/\/$/, "")
-                          : object.key.replace(currentPrefix, "")}
-                      </div>
-                      {!object.is_folder && (
-                        <div className="text-sm text-muted-foreground">
-                          {formatBytes(object.size)}
-                        </div>
+                  <button
+                    onClick={() => handleObjectClick(object)}
+                    className="flex flex-1 items-center gap-4"
+                  >
+                    <div className="flex-shrink-0">
+                      {object.is_folder ? (
+                        <Folder className="h-5 w-5 text-primary" />
+                      ) : (
+                        <File className="h-5 w-5 text-muted-foreground" />
                       )}
                     </div>
-                    {!object.is_folder && object.last_modified && (
-                      <div className="text-sm text-muted-foreground">
-                        {formatDate(object.last_modified)}
+                    <div className="flex flex-1 items-center justify-between gap-4">
+                      <div className="flex-1 text-left">
+                        <div className="font-medium">
+                          {object.is_folder
+                            ? object.key
+                                .replace(currentPrefix, "")
+                                .replace(/\/$/, "")
+                            : object.key.replace(currentPrefix, "")}
+                        </div>
+                        {!object.is_folder && (
+                          <div className="text-sm text-muted-foreground">
+                            {formatBytes(object.size)}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {object.is_folder && (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </button>
+                      {!object.is_folder && object.last_modified && (
+                        <div className="text-sm text-muted-foreground">
+                          {formatDate(object.last_modified)}
+                        </div>
+                      )}
+                      {object.is_folder && (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </button>
+                  {!object.is_folder && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={(e) => handleDownload(object, e)}
+                      title="Download file"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -395,6 +495,18 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
         bucketId={bucketId}
         bucketName={bucketName}
       />
+
+      {/* Download Toast */}
+      {downloadToast && (
+        <DownloadToast
+          fileName={downloadToast.fileName}
+          filePath={downloadToast.filePath}
+          onOpen={handleOpenFile}
+          onOpenLocation={handleOpenFileLocation}
+          onClose={() => setDownloadToast(null)}
+          open={downloadToast.open}
+        />
+      )}
     </div>
   );
 }

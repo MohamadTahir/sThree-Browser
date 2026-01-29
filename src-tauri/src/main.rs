@@ -9,6 +9,7 @@ use commands::*;
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             list_buckets,
             list_objects,
@@ -17,7 +18,12 @@ fn main() {
             get_bucket_configs,
             delete_bucket_config,
             set_active_bucket,
-            get_object_content
+            get_object_content,
+            get_download_dir,
+            get_dirname,
+            save_file_to_downloads,
+            open_folder,
+            open_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

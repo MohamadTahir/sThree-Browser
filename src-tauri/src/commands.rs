@@ -7,6 +7,9 @@ use aws_types::sdk_config::SharedCredentialsProvider;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::AppHandle;
 
@@ -328,6 +331,195 @@ pub async fn get_object_content(
         data: base64_data,
         size: body_bytes.len(),
     })
+}
+
+#[tauri::command]
+pub fn get_download_dir() -> Result<serde_json::Value, String> {
+    let download_dir = dirs::download_dir()
+        .ok_or_else(|| "Failed to get download directory".to_string())?
+        .to_string_lossy()
+        .to_string();
+    
+    Ok(serde_json::json!({ "downloadDir": download_dir }))
+}
+
+#[tauri::command]
+pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
+    eprintln!("get_dirname called with path: {}", path);
+    let path_buf = PathBuf::from(&path);
+    
+    // Normalize the path - ensure it's absolute
+    let normalized_path = if path_buf.is_absolute() {
+        path_buf
+    } else {
+        // If relative, try to make it absolute
+        std::env::current_dir()
+            .map_err(|e| format!("Failed to get current directory: {}", e))?
+            .join(path_buf)
+    };
+    
+    // Canonicalize to resolve any symlinks and get the absolute path
+    let canonical_path = normalized_path.canonicalize()
+        .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
+    
+    eprintln!("Canonicalized path: {:?}", canonical_path);
+    
+    let dirname = canonical_path
+        .parent()
+        .ok_or_else(|| "Failed to get directory name".to_string())?
+        .to_string_lossy()
+        .to_string();
+    
+    eprintln!("Extracted dirname: {}", dirname);
+    
+    Ok(serde_json::json!({ "dirname": dirname }))
+}
+
+#[tauri::command]
+pub async fn open_folder(path: String) -> Result<(), String> {
+    use std::process::Command;
+    
+    eprintln!("open_folder called with path: {}", path);
+    
+    // Get the directory containing the file
+    let path_buf = PathBuf::from(&path);
+    
+    // Check if it's a file or directory
+    let dir_path = if let Ok(metadata) = fs::metadata(&path_buf) {
+        if metadata.is_file() {
+            // It's a file, get its parent directory
+            path_buf.parent()
+                .ok_or_else(|| "Failed to get parent directory".to_string())?
+                .to_path_buf()
+        } else {
+            // It's already a directory
+            path_buf
+        }
+    } else {
+        // If we can't check metadata, assume it's a file and get parent
+        path_buf.parent()
+            .ok_or_else(|| "Failed to get parent directory".to_string())?
+            .to_path_buf()
+    };
+    
+    // Canonicalize the path
+    let canonical_dir = dir_path.canonicalize()
+        .map_err(|e| format!("Failed to canonicalize directory path: {}", e))?;
+    
+    let dir_str = canonical_dir.to_string_lossy().to_string();
+    eprintln!("Opening folder: {}", dir_str);
+    
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&dir_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&dir_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&dir_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn save_file_to_downloads(
+    file_name: String,
+    file_data: Vec<u8>,
+) -> Result<String, String> {
+    let download_dir = dirs::download_dir()
+        .ok_or_else(|| "Failed to get download directory".to_string())?;
+    
+    let file_path = download_dir.join(&file_name);
+    
+    // Handle duplicate file names by appending a number
+    let mut final_path = file_path.clone();
+    let mut counter = 1;
+    while final_path.exists() {
+        let stem = file_path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        let extension = file_path.extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        
+        let new_name = if extension.is_empty() {
+            format!("{} ({})", stem, counter)
+        } else {
+            format!("{} ({}).{}", stem, counter, extension)
+        };
+        
+        final_path = download_dir.join(new_name);
+        counter += 1;
+    }
+    
+    // Write the file
+    let mut file = fs::File::create(&final_path)
+        .map_err(|e| format!("Failed to create file: {}", e))?;
+    
+    file.write_all(&file_data)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    file.sync_all()
+        .map_err(|e| format!("Failed to sync file: {}", e))?;
+    
+    // Return the absolute path as a string
+    Ok(final_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn open_file(path: String) -> Result<(), String> {
+    use std::process::Command;
+    
+    eprintln!("open_file called with path: {}", path);
+    
+    // Canonicalize the path to ensure it's absolute and exists
+    let path_buf = PathBuf::from(&path);
+    let canonical_path = path_buf.canonicalize()
+        .map_err(|e| format!("Failed to canonicalize file path: {}", e))?;
+    
+    let file_str = canonical_path.to_string_lossy().to_string();
+    eprintln!("Opening file: {}", file_str);
+    
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", &file_str])
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+    
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&file_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+    
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&file_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+    
+    Ok(())
 }
 
 #[tauri::command]
