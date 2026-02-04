@@ -51,6 +51,25 @@ export default function MasterPasswordModal({
     }
   }, [open]);
 
+  const validatePassword = (pwd: string): string | null => {
+    if (pwd.length < 8) {
+      return "Password must be at least 8 characters long";
+    }
+    if (!/[A-Z]/.test(pwd)) {
+      return "Password must contain at least one capital letter";
+    }
+    if (!/[a-z]/.test(pwd)) {
+      return "Password must contain at least one small letter";
+    }
+    if (!/[0-9]/.test(pwd)) {
+      return "Password must contain at least one number";
+    }
+    if (!/[^A-Za-z0-9]/.test(pwd)) {
+      return "Password must contain at least one special character";
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -59,8 +78,9 @@ export default function MasterPasswordModal({
     try {
       if (mode === "setup") {
         // Setup mode: create new master password
-        if (password.length < 8) {
-          setError("Password must be at least 8 characters long");
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+          setError(passwordError);
           setLoading(false);
           return;
         }
@@ -152,7 +172,7 @@ export default function MasterPasswordModal({
           </DialogTitle>
           <DialogDescription>
             {mode === "setup"
-              ? "Create a master password to encrypt your bucket credentials. You'll need this password to access your credentials."
+              ? "Create a master password to encrypt your bucket credentials. Password must contain at least 8 characters, including uppercase, lowercase, number, and special character."
               : "Enter your master password to decrypt and access your bucket credentials."}
           </DialogDescription>
         </DialogHeader>
@@ -169,6 +189,11 @@ export default function MasterPasswordModal({
                 autoFocus
                 required
               />
+              {mode === "setup" && (
+                <p className="text-xs text-muted-foreground">
+                  Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.
+                </p>
+              )}
             </div>
             {mode === "setup" && (
               <div className="grid gap-2">
