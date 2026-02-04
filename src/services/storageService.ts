@@ -1,0 +1,329 @@
+import { BucketConfig, BucketConfigs, Group } from "../types";
+import {
+  encrypt,
+  decrypt,
+  getMasterPasswordFromMemory,
+  isMasterPasswordUnlocked,
+} from "./encryptionService";
+
+const STORAGE_KEY = "bucket-configs";
+
+// Encrypted version of BucketConfig (access_key and secret_key are encrypted)
+interface EncryptedBucketConfig {
+  nickname: string;
+  bucket_name: string;
+  access_key: string; // Encrypted
+  secret_key: string; // Encrypted
+  region: string;
+  endpoint?: string;
+  group_id?: string | null;
+}
+
+interface EncryptedBucketConfigs {
+  buckets: Record<string, EncryptedBucketConfig>;
+  groups: Record<string, Group>;
+  active_bucket: string | null;
+}
+
+// Check if we're running in Tauri
+function isTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+export async function loadConfigs(): Promise<BucketConfigs> {
+  try {
+    if (isTauri()) {
+      // Use Tauri store for desktop (encryption handled in Rust)
+      const { invoke } = await import("@tauri-apps/api/core");
+      return await invoke<BucketConfigs>("get_bucket_configs");
+    } else {
+      // Use localStorage for web (with encryption)
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) {
+        return { buckets: {}, groups: {}, active_bucket: null };
+      }
+
+      const encryptedConfigs: EncryptedBucketConfigs = JSON.parse(stored);
+
+      // Check if master password is unlocked
+      if (!isMasterPasswordUnlocked()) {
+        // Return encrypted configs (will need to be decrypted later)
+        // For now, return empty to force password unlock
+        return { buckets: {}, groups: {}, active_bucket: null };
+      }
+
+      const masterPassword = getMasterPasswordFromMemory();
+      if (!masterPassword) {
+        return { buckets: {}, groups: {}, active_bucket: null };
+      }
+
+      // Decrypt all bucket configs
+      const decryptedConfigs: BucketConfigs = {
+        buckets: {},
+        groups: encryptedConfigs.groups || {},
+        active_bucket: encryptedConfigs.active_bucket,
+      };
+
+      for (const [bucketId, encryptedConfig] of Object.entries(
+        encryptedConfigs.buckets
+      )) {
+        try {
+          const decryptedAccessKey = await decrypt(
+            encryptedConfig.access_key,
+            masterPassword
+          );
+          const decryptedSecretKey = await decrypt(
+            encryptedConfig.secret_key,
+            masterPassword
+          );
+
+          decryptedConfigs.buckets[bucketId] = {
+            nickname: encryptedConfig.nickname,
+            bucket_name: encryptedConfig.bucket_name,
+            access_key: decryptedAccessKey,
+            secret_key: decryptedSecretKey,
+            region: encryptedConfig.region,
+            endpoint: encryptedConfig.endpoint,
+            group_id: encryptedConfig.group_id || null,
+          };
+        } catch (error) {
+          console.error(`Failed to decrypt config for ${bucketId}:`, error);
+          // Skip this bucket if decryption fails
+        }
+      }
+
+      return decryptedConfigs;
+    }
+  } catch (error) {
+    console.error("Error loading configs:", error);
+    // Fallback to empty configs if there's an error
+    return { buckets: {}, groups: {}, active_bucket: null };
+  }
+}
+
+export async function saveConfigs(configs: BucketConfigs): Promise<void> {
+  if (isTauri()) {
+    // Tauri commands handle saving automatically, so we don't need to do anything here
+    // The individual commands (add/update/delete) handle saving
+    // Just ensure active_bucket is set if needed
+    if (configs.active_bucket !== null) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("set_active_bucket", { bucketId: configs.active_bucket });
+    }
+  } else {
+    // Use localStorage for web (with encryption)
+    const masterPassword = getMasterPasswordFromMemory();
+    if (!masterPassword) {
+      throw new Error("Master password not unlocked. Please unlock first.");
+    }
+
+    // Encrypt all bucket configs
+    const encryptedConfigs: EncryptedBucketConfigs = {
+      buckets: {},
+      groups: configs.groups || {},
+      active_bucket: configs.active_bucket,
+    };
+
+    for (const [bucketId, config] of Object.entries(configs.buckets)) {
+      const encryptedAccessKey = await encrypt(
+        config.access_key,
+        masterPassword
+      );
+      const encryptedSecretKey = await encrypt(
+        config.secret_key,
+        masterPassword
+      );
+
+      encryptedConfigs.buckets[bucketId] = {
+        nickname: config.nickname,
+        bucket_name: config.bucket_name,
+        access_key: encryptedAccessKey,
+        secret_key: encryptedSecretKey,
+        region: config.region,
+        endpoint: config.endpoint,
+        group_id: config.group_id || null,
+      };
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedConfigs));
+  }
+}
+
+export async function addBucketConfig(config: BucketConfig): Promise<string> {
+  if (isTauri()) {
+    // Use Tauri Rust command for desktop
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<string>("add_bucket_config", {
+      nickname: config.nickname,
+      bucketName: config.bucket_name,
+      accessKey: config.access_key,
+      secretKey: config.secret_key,
+      region: config.region,
+      endpoint: config.endpoint || null,
+    });
+  } else {
+    // Use localStorage for web
+    const configs = await loadConfigs();
+    
+    // Check for duplicate connection names (case-insensitive)
+    const nicknameLower = config.nickname.toLowerCase().trim();
+    const existingBucket = Object.entries(configs.buckets).find(
+      ([_, cfg]) => cfg.nickname.toLowerCase().trim() === nicknameLower
+    );
+    
+    if (existingBucket) {
+      throw new Error(`A connection with the name "${config.nickname}" already exists. Please use a different name.`);
+    }
+    
+    const bucketId = `bucket_${config.nickname.toLowerCase().replace(/\s+/g, "_")}`;
+    configs.buckets[bucketId] = {
+      ...config,
+      group_id: config.group_id || null,
+    };
+    if (!configs.active_bucket) {
+      configs.active_bucket = bucketId;
+    }
+    await saveConfigs(configs);
+    return bucketId;
+  }
+}
+
+export async function updateBucketConfig(bucketId: string, config: BucketConfig): Promise<void> {
+  if (isTauri()) {
+    // Use Tauri Rust command for desktop
+    // Note: group_id is handled separately for Tauri (Rust commands don't support it yet)
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("update_bucket_config", {
+      bucketId,
+      nickname: config.nickname,
+      bucketName: config.bucket_name,
+      accessKey: config.access_key,
+      secretKey: config.secret_key,
+      region: config.region,
+      endpoint: config.endpoint || null,
+    });
+
+    // Handle group_id separately for Tauri (if needed, update via addBucketToGroup)
+    if (config.group_id !== undefined) {
+      await addBucketToGroup(bucketId, config.group_id);
+    }
+  } else {
+    // Use localStorage for web
+    try {
+      const configs = await loadConfigs();
+      if (!configs.buckets[bucketId]) {
+        throw new Error(`Bucket ${bucketId} not found`);
+      }
+      
+      // Check for duplicate connection names (excluding current bucket)
+      const nicknameLower = config.nickname.toLowerCase().trim();
+      const existingBucket = Object.entries(configs.buckets).find(
+        ([id, cfg]) => 
+          id !== bucketId && 
+          cfg.nickname.toLowerCase().trim() === nicknameLower
+      );
+      
+      if (existingBucket) {
+        throw new Error(`A connection with the name "${config.nickname}" already exists. Please use a different name.`);
+      }
+      
+      console.log("Updating bucket config:", { bucketId, config });
+      
+      // Update the bucket config with all fields
+      configs.buckets[bucketId] = {
+        nickname: config.nickname,
+        bucket_name: config.bucket_name,
+        access_key: config.access_key,
+        secret_key: config.secret_key,
+        region: config.region,
+        endpoint: config.endpoint,
+        group_id: config.group_id || null,
+      };
+      
+      console.log("Saving configs...");
+      await saveConfigs(configs);
+      console.log("Configs saved successfully");
+    } catch (error) {
+      console.error("Error in updateBucketConfig:", error);
+      throw error;
+    }
+  }
+}
+
+export async function deleteBucketConfig(bucketId: string): Promise<void> {
+  if (isTauri()) {
+    // Use Tauri Rust command for desktop
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("delete_bucket_config", { bucketId });
+  } else {
+    // Use localStorage for web
+    const configs = await loadConfigs();
+    delete configs.buckets[bucketId];
+    if (configs.active_bucket === bucketId) {
+      configs.active_bucket = null;
+    }
+    await saveConfigs(configs);
+  }
+}
+
+export async function setActiveBucket(bucketId: string | null): Promise<void> {
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("set_active_bucket", { bucketId });
+  } else {
+    const configs = await loadConfigs();
+    configs.active_bucket = bucketId;
+    await saveConfigs(configs);
+  }
+}
+
+// Group management functions
+export async function createGroup(name: string, color?: string): Promise<string> {
+  const configs = await loadConfigs();
+  const groupId = `group_${name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
+
+  configs.groups[groupId] = {
+    id: groupId,
+    name,
+    color,
+  };
+
+  await saveConfigs(configs);
+  return groupId;
+}
+
+export async function updateGroup(groupId: string, name: string, color?: string): Promise<void> {
+  const configs = await loadConfigs();
+  if (configs.groups[groupId]) {
+    configs.groups[groupId] = {
+      ...configs.groups[groupId],
+      name,
+      color,
+    };
+    await saveConfigs(configs);
+  }
+}
+
+export async function deleteGroup(groupId: string): Promise<void> {
+  const configs = await loadConfigs();
+
+  // Remove group
+  delete configs.groups[groupId];
+
+  // Remove group_id from all buckets in this group
+  for (const bucketId in configs.buckets) {
+    if (configs.buckets[bucketId].group_id === groupId) {
+      configs.buckets[bucketId].group_id = null;
+    }
+  }
+
+  await saveConfigs(configs);
+}
+
+export async function addBucketToGroup(bucketId: string, groupId: string | null): Promise<void> {
+  const configs = await loadConfigs();
+  if (configs.buckets[bucketId]) {
+    configs.buckets[bucketId].group_id = groupId;
+    await saveConfigs(configs);
+  }
+}

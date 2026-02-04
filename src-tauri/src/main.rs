@@ -11,14 +11,14 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            list_buckets,
-            list_objects,
+            // Storage operations (still use Rust for secure Tauri store)
             add_bucket_config,
             update_bucket_config,
             get_bucket_configs,
             delete_bucket_config,
             set_active_bucket,
-            get_object_content,
+            clear_all_configs,
+            // Desktop-specific file operations
             get_download_dir,
             get_dirname,
             save_file_to_downloads,

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Loader2, FileText, Image as ImageIcon } from "lucide-react";
 import {
   Dialog,
@@ -9,6 +8,8 @@ import {
 } from "./ui/dialog";
 import { getFileType, getMimeType } from "../lib/fileUtils";
 import { S3Object } from "../types";
+import { getObjectContent } from "../services/s3Service";
+import { loadConfigs } from "../services/storageService";
 
 interface FilePreviewProps {
   open: boolean;
@@ -68,33 +69,28 @@ export default function FilePreview({
       const fileType = getFileType(file.key);
       console.log("Loading file:", { key: file.key, fileType, size: file.size });
 
-      const response = await invoke<{ data: string; size: number }>("get_object_content", {
-        bucketId,
-        bucketName,
-        key: file.key,
-      });
+      // Get config to use with S3 service
+      const configs = await loadConfigs();
+      const config = configs.buckets[bucketId];
 
-      console.log("Received response:", { size: response.size, dataLength: response.data.length });
-
-      if (!response.data || response.size === 0) {
-        setError("File is empty or could not be loaded");
+      if (!config) {
+        setError("Bucket configuration not found");
         setLoading(false);
         return;
       }
 
-      // Decode base64 to Uint8Array
-      const binaryString = atob(response.data);
-      const uint8Array = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        uint8Array[i] = binaryString.charCodeAt(i);
-      }
-      console.log("Decoded to Uint8Array:", uint8Array.length);
+      // Get file content using client-side S3 SDK
+      const uint8Array = await getObjectContent(config, bucketName, file.key);
+
+      console.log("Received file content:", uint8Array.length);
 
       if (fileType === 'image') {
         // Create blob URL for images
         const mimeType = getMimeType(file.key);
         console.log("Creating image blob with mime type:", mimeType);
-        const blob = new Blob([uint8Array], { type: mimeType });
+        // Create a new Uint8Array copy to ensure proper typing
+        const dataCopy = new Uint8Array(uint8Array);
+        const blob = new Blob([dataCopy], { type: mimeType });
         const url = URL.createObjectURL(blob);
         console.log("Created blob URL:", url);
         setImageUrl(url);
@@ -112,7 +108,9 @@ export default function FilePreview({
       } else if (fileType === 'pdf') {
         // Create blob URL for PDF
         console.log("Creating PDF blob");
-        const blob = new Blob([uint8Array], { type: 'application/pdf' });
+        // Create a new Uint8Array copy to ensure proper typing
+        const dataCopy = new Uint8Array(uint8Array);
+        const blob = new Blob([dataCopy], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         console.log("Created PDF blob URL:", url);
         setImageUrl(url); // Reuse imageUrl for PDF viewer

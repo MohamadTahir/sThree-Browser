@@ -26,7 +26,7 @@ export function isPreviewableFileType(filename: string): boolean {
 
 export function getFileType(filename: string): 'image' | 'text' | 'pdf' | 'unknown' {
   const extension = getFileExtension(filename);
-  
+
   const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
   const textExtensions = [
     'txt', 'md', 'json', 'xml', 'yaml', 'yml', 'csv', 'log',
@@ -34,7 +34,7 @@ export function getFileType(filename: string): 'image' | 'text' | 'pdf' | 'unkno
     'py', 'java', 'cpp', 'c', 'h', 'hpp', 'go', 'rs', 'rb',
     'php', 'sh', 'bash', 'zsh', 'fish', 'ps1'
   ];
-  
+
   if (imageExtensions.includes(extension)) return 'image';
   if (textExtensions.includes(extension)) return 'text';
   if (extension === 'pdf') return 'pdf';

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +10,16 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { BucketConfig } from "../types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { BucketConfig, Group } from "../types";
+import { updateBucketConfig, loadConfigs } from "../services/storageService";
+import { useToast } from "./ui/use-toast";
 
 interface EditBucketModalProps {
   open: boolean;
@@ -28,7 +36,9 @@ export default function EditBucketModal({
   config,
   onSuccess,
 }: EditBucketModalProps) {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [formData, setFormData] = useState({
     nickname: "",
     bucket_name: "",
@@ -36,11 +46,23 @@ export default function EditBucketModal({
     secret_key: "",
     region: "us-east-1",
     endpoint: "",
+    group_id: "",
   });
 
-  // Populate form when config changes
   useEffect(() => {
-    if (config) {
+    if (open) {
+      loadGroups();
+    }
+  }, [open]);
+
+  const loadGroups = async () => {
+    const configs = await loadConfigs();
+    setGroups(Object.values(configs.groups || {}));
+  };
+
+  // Populate form when config changes or modal opens
+  useEffect(() => {
+    if (open && config) {
       setFormData({
         nickname: config.nickname,
         bucket_name: config.bucket_name,
@@ -48,31 +70,66 @@ export default function EditBucketModal({
         secret_key: config.secret_key,
         region: config.region,
         endpoint: config.endpoint || "",
+        group_id: config.group_id || "",
       });
     }
-  }, [config]);
+  }, [config, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bucketId) return;
+    if (!bucketId || !config) {
+      console.error("Missing bucketId or config", { bucketId, config });
+      return;
+    }
 
     setLoading(true);
 
     try {
-      await invoke("update_bucket_config", {
-        bucketId,
+      // Check for duplicate connection names (excluding current bucket)
+      const configs = await loadConfigs();
+      const nicknameLower = formData.nickname.toLowerCase().trim();
+      const existingBucket = Object.entries(configs.buckets).find(
+        ([id, cfg]) => 
+          id !== bucketId && 
+          cfg.nickname.toLowerCase().trim() === nicknameLower
+      );
+
+      if (existingBucket) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Connection Name",
+          description: `A connection with the name "${formData.nickname}" already exists. Please use a different name.`,
+        });
+        setLoading(false);
+        return;
+      }
+
+      console.log("Updating bucket:", bucketId, formData);
+      await updateBucketConfig(bucketId, {
         nickname: formData.nickname,
-        bucketName: formData.bucket_name,
-        accessKey: formData.access_key,
-        secretKey: formData.secret_key,
+        bucket_name: formData.bucket_name,
+        access_key: formData.access_key,
+        secret_key: formData.secret_key,
         region: formData.region,
-        endpoint: formData.endpoint.trim() ? formData.endpoint.trim() : null,
+        endpoint: formData.endpoint.trim() || undefined,
+        group_id: formData.group_id || null,
       });
 
+      console.log("Bucket updated successfully");
+      toast({
+        variant: "success",
+        title: "Bucket Updated",
+        description: `Connection "${formData.nickname}" has been updated successfully.`,
+      });
       onSuccess();
     } catch (error) {
       console.error("Failed to update bucket:", error);
-      alert(`Failed to update bucket: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Update Bucket",
+        description: errorMessage,
+      });
     } finally {
       setLoading(false);
     }
@@ -86,16 +143,16 @@ export default function EditBucketModal({
         <DialogHeader>
           <DialogTitle>Edit S3 Bucket</DialogTitle>
           <DialogDescription>
-            Update the configuration for this S3 bucket or S3-compatible storage (MinIO, AWS S3, etc.).
+            Update the configuration for this S3 bucket or S3-compatible storage.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-nickname">Account Nickname</Label>
+              <Label htmlFor="edit-nickname">Connection Name</Label>
               <Input
                 id="edit-nickname"
-                placeholder="My AWS Account"
+                placeholder="My S3 Connection"
                 value={formData.nickname}
                 onChange={(e) =>
                   setFormData({ ...formData, nickname: e.target.value })
@@ -157,15 +214,44 @@ export default function EditBucketModal({
               <Label htmlFor="edit-endpoint">Endpoint (Optional)</Label>
               <Input
                 id="edit-endpoint"
-                placeholder="s3.dev.krd or https://s3.dev.krd"
+                placeholder="https://storage.example.com"
                 value={formData.endpoint}
                 onChange={(e) =>
                   setFormData({ ...formData, endpoint: e.target.value })
                 }
               />
               <p className="text-xs text-muted-foreground">
-                S3-compatible endpoint (e.g., s3.dev.krd or https://s3.dev.krd for MinIO).
-                Leave empty for AWS S3 (will auto-detect from region).
+                Leave empty for AWS S3. For S3-compatible storage, enter the endpoint URL.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-group">Folder (Optional)</Label>
+              <Select
+                value={formData.group_id || "none"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, group_id: value === "none" ? "" : value })
+                }
+              >
+                <SelectTrigger id="edit-group">
+                  <SelectValue placeholder="No folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No folder</SelectItem>
+                  {groups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: group.color || "#6b7280" }}
+                        />
+                        {group.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Optionally assign this bucket to a folder for better organization.
               </p>
             </div>
           </div>

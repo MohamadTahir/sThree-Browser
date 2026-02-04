@@ -21,6 +21,7 @@ export default function DownloadToast({
   open,
 }: DownloadToastProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
   useEffect(() => {
     if (open) {
@@ -41,7 +42,7 @@ export default function DownloadToast({
   return (
     <div
       className={cn(
-        "fixed bottom-4 right-4 z-50 flex w-96 items-start gap-4 rounded-lg border border-border bg-card p-4 shadow-lg transition-all duration-300",
+        "fixed bottom-4 right-4 z-50 flex w-[calc(100vw-2rem)] max-w-96 items-start gap-4 rounded-lg border border-border bg-card p-4 shadow-lg transition-all duration-300",
         isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
       )}
     >
@@ -68,26 +69,28 @@ export default function DownloadToast({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onOpen}
-            className="flex items-center gap-2 text-xs"
-          >
-            <File className="h-3 w-3" />
-            Open file
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onOpenLocation}
-            className="flex items-center gap-2 text-xs"
-          >
-            <FolderOpen className="h-3 w-3" />
-            Open location
-          </Button>
-        </div>
+        {isTauri && (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpen}
+              className="flex items-center gap-2 text-xs"
+            >
+              <File className="h-3 w-3" />
+              Open file
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenLocation}
+              className="flex items-center gap-2 text-xs"
+            >
+              <FolderOpen className="h-3 w-3" />
+              Open location
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 # S3 Browser
 
-A modern, slick desktop application for browsing S3 buckets and S3-compatible storage (MinIO, Cloudflare R2, etc.) built with Tauri v2, React, TypeScript, and Rust.
+A modern, slick desktop application for browsing S3 buckets and S3-compatible storage built with Tauri v2, React, TypeScript, and Rust.
 
 ## Features
 
@@ -9,7 +9,7 @@ A modern, slick desktop application for browsing S3 buckets and S3-compatible st
 - 📁 **File Explorer**: Modern grid/list view with folder navigation
 - 🍞 **Breadcrumb Navigation**: Easy path traversal through bucket folders
 - 🎨 **Dark Mode UI**: Beautiful glassmorphism design with smooth animations
-- 🔄 **S3-Compatible**: Works with AWS S3, MinIO, Cloudflare R2, and other S3-compatible services
+- 🔄 **S3-Compatible**: Works with AWS S3 and other S3-compatible storage services
 
 ## Tech Stack
 
@@ -60,6 +60,38 @@ This will:
 - Build and run the Tauri application
 - Enable hot-reload for both frontend and backend changes
 
+## Docker Deployment
+
+### Building and Running with Docker
+
+Build the Docker image:
+```bash
+docker build -t s3-browser .
+```
+
+Run the container:
+```bash
+docker run -d -p 8888:8888 --name s3-browser s3-browser
+```
+
+Or use docker-compose:
+```bash
+docker-compose up -d
+```
+
+The application will be available at `http://localhost:8888`
+
+### Docker Image Details
+
+- **Base Image**: `joseluisq/static-web-server:2-alpine` (lightweight static web server)
+- **Port**: 8888 (runs as non-root user for security)
+- **Security**: 
+  - Runs as `nobody` user (UID 65534, GID 65534)
+  - No new privileges allowed
+  - Minimal attack surface
+  - Read-only file system where possible
+- **Build Output**: Served from `/public` directory
+
 ## Building
 
 Build the application for production:
@@ -103,8 +135,8 @@ This creates a debug build in `src-tauri/target/debug/bundle/`.
 
 1. **Add a Bucket**:
    - Click the "+" button in the sidebar
-   - Enter your account nickname, access key, secret key, and region
-   - Optionally provide an endpoint URL for S3-compatible storage (e.g., MinIO, R2)
+   - Enter your connection name, access key, secret key, and region
+   - Optionally provide an endpoint URL for S3-compatible storage
    - Click "Add Bucket"
 
 2. **Browse Files**:

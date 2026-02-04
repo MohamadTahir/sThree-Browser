@@ -1,26 +1,57 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, Download } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, Download, AlertCircle, PanelLeftOpen } from "lucide-react";
 import { Button } from "./ui/button";
-import { S3Object, ListObjectsResponse, BucketConfigs } from "../types";
+import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
 import { isPreviewableFileType } from "../lib/fileUtils";
+import { listBuckets, listObjects, getObjectContent } from "../services/s3Service";
+import { loadConfigs } from "../services/storageService";
 import Breadcrumb from "./Breadcrumb";
 import FilePreview from "./FilePreview";
 import DownloadToast from "./DownloadToast";
 import { cn } from "../lib/utils";
+import { useToast } from "./ui/use-toast";
 
 interface FileExplorerProps {
   bucketId: string | null;
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
-export default function FileExplorer({ bucketId }: FileExplorerProps) {
+export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }: FileExplorerProps) {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
   const [objects, setObjects] = useState<S3Object[]>([]);
   const [currentPrefix, setCurrentPrefix] = useState("");
   const [bucketName, setBucketName] = useState<string | null>(null);
+  const [accountNickname, setAccountNickname] = useState<string | null>(null);
   const [availableBuckets, setAvailableBuckets] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Track the bucketId when errors occur to prevent showing stale error toasts
+  const errorBucketIdRef = useRef<string | null>(null);
+  // Track loading start time to ensure minimum display duration
+  const loadingStartTimeRef = useRef<number | null>(null);
+  const MIN_LOADING_DURATION = 300; // Minimum 300ms display time
+  // Track previous bucketId to detect bucket switches
+  const prevBucketIdRef = useRef<string | null>(null);
+  // Track if we're currently switching buckets (to show loading immediately)
+  const isSwitchingBucketsRef = useRef(false);
+  
+  // Helper function to set error with minimum loading duration
+  const setErrorWithDelay = (errorMessage: string | null) => {
+    if (errorMessage === null) {
+      setError(null);
+      return;
+    }
+    
+    const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+    const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+    
+    setTimeout(() => {
+      setError(errorMessage);
+    }, remaining);
+  };
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   // Pagination state
@@ -40,23 +71,58 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
   } | null>(null);
 
   useEffect(() => {
+    // Detect bucket switch
+    const wasBucketSwitch = prevBucketIdRef.current !== null && prevBucketIdRef.current !== bucketId;
+    
     if (bucketId) {
+      // If switching buckets, mark it immediately so render can detect it
+      if (wasBucketSwitch) {
+        isSwitchingBucketsRef.current = true;
+        // Immediately clear bucketName and accountNickname to trigger loading state
+        setBucketName(null);
+        setAccountNickname(null);
+        setAvailableBuckets([]);
+      }
+      
+      prevBucketIdRef.current = bucketId;
+      
+      // Clear any previous errors when switching buckets
+      setError(null);
+      errorBucketIdRef.current = null;
+      
+      // Set loading state FIRST before clearing objects to prevent empty state flash
+      setInitialLoading(true);
+      loadingStartTimeRef.current = Date.now();
+      setLoading(true);
+      // Clear objects and error after setting loading state
+      setError(null);
+      setObjects([]);
       loadBuckets();
     } else {
+      prevBucketIdRef.current = null;
+      isSwitchingBucketsRef.current = false;
       setObjects([]);
       setBucketName(null);
+      setAccountNickname(null);
       setAvailableBuckets([]);
       setCurrentPrefix("");
+      setInitialLoading(false);
+      setLoading(false);
+      loadingStartTimeRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucketId]); // Only depend on bucketId, not bucketName
 
   useEffect(() => {
     if (bucketId && bucketName) {
+      // Clear any previous errors when loading new bucket content
+      setError(null);
+      errorBucketIdRef.current = null;
       // Reset pagination when prefix or bucket changes
       setContinuationToken(null);
       setNextContinuationToken(null);
       setPageHistory([]);
+      // Keep initialLoading true until objects are loaded
       loadObjects(null);
     }
   }, [bucketId, bucketName, currentPrefix]);
@@ -67,33 +133,80 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     try {
       setLoading(true);
       setError(null);
-      // Get the bucket name from the config
-      const configs = await invoke<BucketConfigs>("get_bucket_configs");
+      // Get the config
+      const configs = await loadConfigs();
       const config = configs.buckets[bucketId];
-      
-      if (config && config.bucket_name) {
+
+      if (!config) {
+        setErrorWithDelay("Bucket configuration not found");
+        // Clear initial loading even on early return, but ensure minimum display duration
+        const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+        const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+        setTimeout(() => {
+          setInitialLoading(false);
+          loadingStartTimeRef.current = null;
+        }, remaining);
+        return;
+      }
+
+      // Store account nickname
+      setAccountNickname(config.nickname);
+      // Clear switching flag once we have the nickname
+      isSwitchingBucketsRef.current = false;
+
+      if (config.bucket_name) {
         const currentBucket = bucketName || config.bucket_name;
         setBucketName(currentBucket);
         // Maintain stable order - always show configured bucket first
         setAvailableBuckets([config.bucket_name]);
       } else {
         // Fallback: try to list buckets if bucket_name is not set
-        const buckets = await invoke<string[]>("list_buckets", { bucketId });
+        const buckets = await listBuckets(config);
         setAvailableBuckets(buckets);
         if (buckets.length > 0) {
           // Preserve current selection if it exists, otherwise use first
-          const currentBucket = bucketName && buckets.includes(bucketName) 
-            ? bucketName 
+          const currentBucket = bucketName && buckets.includes(bucketName)
+            ? bucketName
             : buckets[0];
           setBucketName(currentBucket);
           setCurrentPrefix("");
         } else {
-          setError("No bucket name configured and no buckets found");
+          setErrorWithDelay("No bucket name configured and no buckets found");
+          // Clear initial loading even on error, but ensure minimum display duration
+          const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+          const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+          setTimeout(() => {
+            setInitialLoading(false);
+            loadingStartTimeRef.current = null;
+          }, remaining);
         }
       }
     } catch (err) {
-      setError(`Failed to load bucket: ${err}`);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      // Only show toast if this error is for the current bucketId
+      // Store the bucketId when error occurs, and only show toast if it matches current bucketId
+      const currentBucketId = bucketId;
+      errorBucketIdRef.current = currentBucketId;
+      setErrorWithDelay(`Failed to load bucket: ${errorMsg}`);
       console.error(err);
+      
+      // Use setTimeout to ensure bucketId hasn't changed by the time toast is shown
+      setTimeout(() => {
+        if (bucketId === currentBucketId && errorBucketIdRef.current === currentBucketId) {
+          toast({
+            variant: "destructive",
+            title: "Failed to Load Bucket",
+            description: errorMsg,
+          });
+        }
+      }, 0);
+      // Clear initial loading even on error, but ensure minimum display duration
+      const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+      const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+      setTimeout(() => {
+        setInitialLoading(false);
+        loadingStartTimeRef.current = null;
+      }, remaining);
     } finally {
       setLoading(false);
     }
@@ -103,24 +216,24 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
   // Use a ref to store the previous sorted array and key
   const prevSortedRef = useRef<string[]>([]);
   const prevBucketsKeyRef = useRef<string>('');
-  
+
   const sortedBuckets = useMemo(() => {
     if (availableBuckets.length === 0) {
       prevBucketsKeyRef.current = '';
       prevSortedRef.current = [];
       return [];
     }
-    
+
     // Create a stable sorted key
     const sorted = [...availableBuckets].sort((a, b) => a.localeCompare(b));
     const currentKey = sorted.join('|');
-    
+
     // Only return a new array if the buckets actually changed
     if (prevBucketsKeyRef.current === currentKey && prevSortedRef.current.length > 0) {
       // Return the previous sorted array to maintain reference stability
       return prevSortedRef.current;
     }
-    
+
     prevBucketsKeyRef.current = currentKey;
     prevSortedRef.current = sorted;
     return sorted;
@@ -163,21 +276,76 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await invoke<ListObjectsResponse>("list_objects", {
-        bucketId,
+
+      // Get config to use with S3 service
+      const configs = await loadConfigs();
+      const config = configs.buckets[bucketId];
+
+      if (!config) {
+        setErrorWithDelay("Bucket configuration not found");
+        // Clear initial loading even on early return, but ensure minimum display duration
+        const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+        const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+        setTimeout(() => {
+          setInitialLoading(false);
+          loadingStartTimeRef.current = null;
+        }, remaining);
+        return;
+      }
+
+      const response = await listObjects(config, {
         bucketName,
-        prefix: currentPrefix || null,
+        prefix: currentPrefix || undefined,
         maxKeys: pageSize,
-        continuationToken: token || null,
+        continuationToken: token || undefined,
       });
-      setObjects(response.objects);
-      setNextContinuationToken(response.next_continuation_token || null);
-      setIsTruncated(response.is_truncated);
+
+      // Convert to S3Object format
+      const s3Objects: S3Object[] = response.objects.map(obj => ({
+        key: obj.key,
+        size: obj.size,
+        last_modified: obj.lastModified,
+        is_folder: obj.isFolder,
+      }));
+
+      setObjects(s3Objects);
+      setNextContinuationToken(response.nextContinuationToken || null);
+      setIsTruncated(response.isTruncated);
       setContinuationToken(token);
+      // Clear initial loading once objects are loaded, but ensure minimum display duration
+      const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+      const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+      setTimeout(() => {
+        setInitialLoading(false);
+        loadingStartTimeRef.current = null;
+      }, remaining);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to load objects: ${errorMsg}`);
+      // Only show toast if this error is for the current bucketId
+      // Store the bucketId when error occurs, and only show toast if it matches current bucketId
+      const currentBucketId = bucketId;
+      const currentBucketName = bucketName;
+      errorBucketIdRef.current = currentBucketId;
+      setErrorWithDelay(`Failed to load objects: ${errorMsg}`);
       console.error("Full error:", err);
+      
+      // Use setTimeout to ensure bucketId hasn't changed by the time toast is shown
+      setTimeout(() => {
+        if (bucketId === currentBucketId && bucketName === currentBucketName && errorBucketIdRef.current === currentBucketId) {
+          toast({
+            variant: "destructive",
+            title: "Failed to Load Objects",
+            description: errorMsg,
+          });
+        }
+      }, 0);
+      // Clear initial loading even on error, but ensure minimum display duration
+      const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+      const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+      setTimeout(() => {
+        setInitialLoading(false);
+        loadingStartTimeRef.current = null;
+      }, remaining);
     } finally {
       setLoading(false);
     }
@@ -220,45 +388,73 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
 
   const handleDownload = async (object: S3Object, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the file click handler
-    
+
     if (!bucketId || !bucketName) return;
 
     try {
       setLoading(true);
-      const response = await invoke<{ data: string; size: number }>("get_object_content", {
-        bucketId,
-        bucketName,
-        key: object.key,
-      });
 
-      // Decode base64 to Uint8Array
-      const binaryString = atob(response.data);
-      const uint8Array = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        uint8Array[i] = binaryString.charCodeAt(i);
+      // Get config to use with S3 service
+      const configs = await loadConfigs();
+      const config = configs.buckets[bucketId];
+
+      if (!config) {
+        setError("Bucket configuration not found");
+        return;
       }
+
+      // Get file content using client-side S3 SDK
+      const uint8Array = await getObjectContent(config, bucketName, object.key);
 
       // Get file name
       const fileName = object.key.split('/').pop() || object.key;
-      
-      // Convert Uint8Array to Vec<u8> for Rust
-      const fileData = Array.from(uint8Array);
-      
-      // Save file to downloads directory using Tauri command
-      const filePath = await invoke<string>("save_file_to_downloads", {
-        fileName,
-        fileData,
-      });
-      
-      // Show download toast with the actual file path
-      setDownloadToast({
-        fileName,
-        filePath,
-        open: true,
-      });
+
+      // Check if we're in Tauri (desktop) or browser (web)
+      const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+      if (isTauri) {
+        // Desktop: Save to downloads folder using Tauri
+        const { invoke } = await import("@tauri-apps/api/core");
+        const fileData = Array.from(uint8Array);
+        const filePath = await invoke<string>("save_file_to_downloads", {
+          fileName,
+          fileData,
+        });
+
+        // Show download toast with the actual file path
+        setDownloadToast({
+          fileName,
+          filePath,
+          open: true,
+        });
+      } else {
+        // Web: Use browser download
+        // Create a new Uint8Array copy to ensure proper typing
+        const dataCopy = new Uint8Array(uint8Array);
+        const blob = new Blob([dataCopy]);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // Show toast (web version could show a simple notification)
+        setDownloadToast({
+          fileName,
+          filePath: fileName, // Web doesn't have a file path
+          open: true,
+        });
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to download file: ${errorMsg}`);
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: errorMsg,
+      });
       console.error("Download error:", err);
     } finally {
       setLoading(false);
@@ -267,32 +463,65 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
 
   const handleOpenFile = async () => {
     if (!downloadToast) return;
+
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+    if (!isTauri) {
+      // Web: Can't open files directly, show message
+      toast({
+        variant: "warning",
+        title: "Desktop Only",
+        description: "File opening is only available in the desktop app",
+      });
+      return;
+    }
+
     try {
       console.log("Opening file:", downloadToast.filePath);
-      // Use Rust command to open the file with default application
+      const { invoke } = await import("@tauri-apps/api/core");
       await invoke("open_file", {
         path: downloadToast.filePath,
       });
     } catch (err) {
       console.error("Failed to open file:", err);
       const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to open file: ${errorMsg}`);
+      toast({
+        variant: "destructive",
+        title: "Failed to Open File",
+        description: errorMsg,
+      });
     }
   };
 
   const handleOpenFileLocation = async () => {
     if (!downloadToast) return;
+
+    const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+    if (!isTauri) {
+      // Web: Can't open folders directly, show message
+      toast({
+        variant: "warning",
+        title: "Desktop Only",
+        description: "Opening file location is only available in the desktop app",
+      });
+      return;
+    }
+
     try {
       console.log("Opening file location for path:", downloadToast.filePath);
-      // Open the folder containing the file using a Rust command
-      // This avoids opener plugin security restrictions
+      const { invoke } = await import("@tauri-apps/api/core");
       await invoke("open_folder", {
         path: downloadToast.filePath,
       });
     } catch (err) {
       console.error("Failed to open file location:", err);
       const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`Failed to open file location: ${errorMsg}`);
+      toast({
+        variant: "destructive",
+        title: "Failed to Open File Location",
+        description: errorMsg,
+      });
     }
   };
 
@@ -311,86 +540,131 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     );
   }
 
+  // Show loading state if:
+  // 1. Loading states are true, OR
+  // 2. We have a bucketId but no bucketName yet (initial load - haven't loaded bucket config), OR
+  // 3. We're currently switching buckets (detected by ref)
+  const shouldShowLoading = loading || initialLoading || 
+    (bucketId && !bucketName) || 
+    isSwitchingBucketsRef.current;
+
+  if (shouldShowLoading) {
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden bg-background">
+        {/* Loading bar */}
+        {initialLoading && (
+          <div className="h-1 w-full bg-muted overflow-hidden relative">
+            <div className="h-full bg-primary loading-bar" />
+          </div>
+        )}
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <div className="text-center text-destructive">
-          <p className="text-lg">{error}</p>
+        <div className="flex flex-col items-center justify-center text-center">
+          <AlertCircle className="h-24 w-24 text-destructive/60 mb-4" />
+          <p className="text-sm text-muted-foreground">Unable to load content</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="border-b border-border p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            {availableBuckets.length > 1 ? (
-              <div className="mb-2 relative" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex h-10 w-[300px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      <div className="flex flex-1 flex-col overflow-hidden bg-background">
+        <div className="border-b border-border p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
+              {/* Sidebar toggle button - only show on mobile when sidebar is closed */}
+              {!sidebarOpen && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={onToggleSidebar}
+                  className="md:hidden h-9 w-9 shrink-0"
+                  title="Open sidebar"
                 >
-                  <span className="truncate">{bucketName || "Select a bucket"}</span>
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </button>
-                {isDropdownOpen && sortedBuckets.length > 0 && (
-                  <div 
-                    className="absolute z-50 mt-1 w-[300px] rounded-md border bg-popover text-popover-foreground shadow-md"
-                    key={`dropdown-${prevBucketsKeyRef.current}`}
-                  >
-                    <div className="max-h-[300px] overflow-auto p-1">
-                      {sortedBuckets.map((bucket) => {
-                        const isSelected = bucketName === bucket;
-                        return (
-                          <button
-                            key={`${bucket}`}
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleBucketChange(bucket);
-                            }}
-                            className={cn(
-                              "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-                              isSelected && "bg-accent text-accent-foreground"
-                            )}
-                          >
-                            {isSelected && (
-                              <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                                <Check className="h-4 w-4" />
-                              </span>
-                            )}
-                            <span>{bucket}</span>
-                          </button>
-                        );
-                      })}
+                  <PanelLeftOpen className="h-4 w-4" />
+                </Button>
+              )}
+              <div className="flex-1 min-w-0">
+                {availableBuckets.length > 1 ? (
+                  <>
+                    <h1 className="text-xl sm:text-2xl font-bold mb-2">{accountNickname || ""}</h1>
+                    <div className="mb-2 relative" ref={dropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="flex h-10 w-full max-w-[300px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="truncate">{bucketName || "Select a bucket"}</span>
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </button>
+                      {isDropdownOpen && sortedBuckets.length > 0 && (
+                        <div
+                          className="absolute z-50 mt-1 w-full max-w-[300px] rounded-md border bg-popover text-popover-foreground shadow-md"
+                          key={`dropdown-${prevBucketsKeyRef.current}`}
+                        >
+                          <div className="max-h-[300px] overflow-auto p-1">
+                            {sortedBuckets.map((bucket) => {
+                              const isSelected = bucketName === bucket;
+                              return (
+                                <button
+                                  key={`${bucket}`}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleBucketChange(bucket);
+                                  }}
+                                  className={cn(
+                                    "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+                                    isSelected && "bg-accent text-accent-foreground"
+                                  )}
+                                >
+                                  {isSelected && (
+                                    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                                      <Check className="h-4 w-4" />
+                                    </span>
+                                  )}
+                                  <span>{bucket}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <h1 className="text-xl sm:text-2xl font-bold">{accountNickname || ""}</h1>
+                    <p className="text-sm text-muted-foreground">
+                      {bucketName || ""}
+                    </p>
+                  </>
+                )}
+                {availableBuckets.length > 1 && (
+                  <p className="text-sm text-muted-foreground">
+                    {bucketId ? `Account: ${bucketId}` : ""}
+                  </p>
                 )}
               </div>
-            ) : (
-              <h1 className="text-2xl font-bold">{bucketName || "Loading..."}</h1>
-            )}
-            <p className="text-sm text-muted-foreground">
-              {bucketId ? `Account: ${bucketId}` : ""}
-            </p>
+            </div>
           </div>
         </div>
         <Breadcrumb
           prefix={currentPrefix}
           onNavigate={handleBreadcrumbClick}
         />
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : objects.length === 0 ? (
+        <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+        {!error && objects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
             <Folder className="mb-4 h-12 w-12 opacity-50" />
             <p>This folder is empty</p>
@@ -401,50 +675,54 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
               {objects.map((object) => (
                 <div
                   key={object.key}
-                  className="group flex w-full items-center gap-4 p-4 transition-colors hover:bg-accent/50"
+                  onClick={() => handleObjectClick(object)}
+                  className="group flex w-full cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 transition-colors hover:bg-accent/50"
                 >
-                  <button
-                    onClick={() => handleObjectClick(object)}
-                    className="flex flex-1 items-center gap-4"
-                  >
+                  <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
                     <div className="flex-shrink-0">
                       {object.is_folder ? (
-                        <Folder className="h-5 w-5 text-primary" />
+                        <Folder className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       ) : (
-                        <File className="h-5 w-5 text-muted-foreground" />
+                        <File className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                       )}
                     </div>
-                    <div className="flex flex-1 items-center justify-between gap-4">
-                      <div className="flex-1 text-left">
-                        <div className="font-medium">
+                    <div className="flex flex-1 items-center justify-between gap-2 sm:gap-4 min-w-0">
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="font-medium text-sm sm:text-base truncate">
                           {object.is_folder
                             ? object.key
-                                .replace(currentPrefix, "")
-                                .replace(/\/$/, "")
+                              .replace(currentPrefix, "")
+                              .replace(/\/$/, "")
                             : object.key.replace(currentPrefix, "")}
                         </div>
                         {!object.is_folder && (
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-xs sm:text-sm text-muted-foreground">
                             {formatBytes(object.size)}
+                            {object.last_modified && (
+                              <span className="ml-2 sm:hidden">• {formatDate(object.last_modified)}</span>
+                            )}
                           </div>
                         )}
                       </div>
                       {!object.is_folder && object.last_modified && (
-                        <div className="text-sm text-muted-foreground">
+                        <div className="hidden sm:block text-sm text-muted-foreground flex-shrink-0">
                           {formatDate(object.last_modified)}
                         </div>
                       )}
                       {object.is_folder && (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       )}
                     </div>
-                  </button>
+                  </div>
                   {!object.is_folder && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                      onClick={(e) => handleDownload(object, e)}
+                      className="h-8 w-8 flex-shrink-0 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(object, e);
+                      }}
                       title="Download file"
                     >
                       <Download className="h-4 w-4" />
@@ -455,16 +733,17 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
             </div>
           </div>
         )}
-        
+
         {/* Pagination Controls */}
         {(pageHistory.length > 0 || isTruncated) && (
-          <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-card p-4">
+          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handlePreviousPage}
                 disabled={pageHistory.length === 0 && continuationToken === null}
+                className="flex-1 sm:flex-initial"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Previous
@@ -474,19 +753,20 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
                 size="sm"
                 onClick={handleNextPage}
                 disabled={!isTruncated || !nextContinuationToken}
+                className="flex-1 sm:flex-initial"
               >
                 Next
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
               Showing {objects.length} item{objects.length !== 1 ? 's' : ''}
               {isTruncated && ` (more available)`}
             </div>
           </div>
         )}
       </div>
-      
+
       {/* File Preview Modal */}
       <FilePreview
         open={isPreviewOpen}
@@ -507,6 +787,6 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
           open={downloadToast.open}
         />
       )}
-    </div>
+      </div>
   );
 }

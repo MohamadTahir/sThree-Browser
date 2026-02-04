@@ -94,7 +94,7 @@ async fn get_or_create_client(
         .region(region.clone())
         .credentials_provider(credentials_provider);
 
-    // Only set endpoint URL if explicitly provided and valid (for S3-compatible storage like MinIO/R2)
+    // Only set endpoint URL if explicitly provided and valid (for S3-compatible storage)
     // For AWS S3, DO NOT set endpoint_url - the SDK will automatically construct it from the region
     // IMPORTANT: Never set an empty endpoint URL as it causes DNS resolution errors
     let mut use_custom_endpoint = false;
@@ -148,8 +148,8 @@ async fn get_or_create_client(
         eprintln!("  Endpoint URL: (will be auto-constructed by SDK)");
     }
 
-    // For S3-compatible storage (MinIO, etc.), use path-style addressing
-    // AWS S3 uses virtual-hosted-style by default, but MinIO requires path-style
+    // For S3-compatible storage, use path-style addressing
+    // AWS S3 uses virtual-hosted-style by default, but S3-compatible storage requires path-style
     let mut client_config_builder = aws_sdk_s3::config::Builder::from(&config);
 
     // Enable path-style addressing if using a custom endpoint (MinIO/R2)
@@ -339,7 +339,7 @@ pub fn get_download_dir() -> Result<serde_json::Value, String> {
         .ok_or_else(|| "Failed to get download directory".to_string())?
         .to_string_lossy()
         .to_string();
-    
+
     Ok(serde_json::json!({ "downloadDir": download_dir }))
 }
 
@@ -347,7 +347,7 @@ pub fn get_download_dir() -> Result<serde_json::Value, String> {
 pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
     eprintln!("get_dirname called with path: {}", path);
     let path_buf = PathBuf::from(&path);
-    
+
     // Normalize the path - ensure it's absolute
     let normalized_path = if path_buf.is_absolute() {
         path_buf
@@ -357,33 +357,33 @@ pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
             .map_err(|e| format!("Failed to get current directory: {}", e))?
             .join(path_buf)
     };
-    
+
     // Canonicalize to resolve any symlinks and get the absolute path
     let canonical_path = normalized_path.canonicalize()
         .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
-    
+
     eprintln!("Canonicalized path: {:?}", canonical_path);
-    
+
     let dirname = canonical_path
         .parent()
         .ok_or_else(|| "Failed to get directory name".to_string())?
         .to_string_lossy()
         .to_string();
-    
+
     eprintln!("Extracted dirname: {}", dirname);
-    
+
     Ok(serde_json::json!({ "dirname": dirname }))
 }
 
 #[tauri::command]
 pub async fn open_folder(path: String) -> Result<(), String> {
     use std::process::Command;
-    
+
     eprintln!("open_folder called with path: {}", path);
-    
+
     // Get the directory containing the file
     let path_buf = PathBuf::from(&path);
-    
+
     // Check if it's a file or directory
     let dir_path = if let Ok(metadata) = fs::metadata(&path_buf) {
         if metadata.is_file() {
@@ -401,14 +401,14 @@ pub async fn open_folder(path: String) -> Result<(), String> {
             .ok_or_else(|| "Failed to get parent directory".to_string())?
             .to_path_buf()
     };
-    
+
     // Canonicalize the path
     let canonical_dir = dir_path.canonicalize()
         .map_err(|e| format!("Failed to canonicalize directory path: {}", e))?;
-    
+
     let dir_str = canonical_dir.to_string_lossy().to_string();
     eprintln!("Opening folder: {}", dir_str);
-    
+
     #[cfg(target_os = "windows")]
     {
         Command::new("explorer")
@@ -416,7 +416,7 @@ pub async fn open_folder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to open folder: {}", e))?;
     }
-    
+
     #[cfg(target_os = "macos")]
     {
         Command::new("open")
@@ -424,7 +424,7 @@ pub async fn open_folder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to open folder: {}", e))?;
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         Command::new("xdg-open")
@@ -432,7 +432,7 @@ pub async fn open_folder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to open folder: {}", e))?;
     }
-    
+
     Ok(())
 }
 
@@ -443,9 +443,9 @@ pub async fn save_file_to_downloads(
 ) -> Result<String, String> {
     let download_dir = dirs::download_dir()
         .ok_or_else(|| "Failed to get download directory".to_string())?;
-    
+
     let file_path = download_dir.join(&file_name);
-    
+
     // Handle duplicate file names by appending a number
     let mut final_path = file_path.clone();
     let mut counter = 1;
@@ -456,27 +456,27 @@ pub async fn save_file_to_downloads(
         let extension = file_path.extension()
             .and_then(|s| s.to_str())
             .unwrap_or("");
-        
+
         let new_name = if extension.is_empty() {
             format!("{} ({})", stem, counter)
         } else {
             format!("{} ({}).{}", stem, counter, extension)
         };
-        
+
         final_path = download_dir.join(new_name);
         counter += 1;
     }
-    
+
     // Write the file
     let mut file = fs::File::create(&final_path)
         .map_err(|e| format!("Failed to create file: {}", e))?;
-    
+
     file.write_all(&file_data)
         .map_err(|e| format!("Failed to write file: {}", e))?;
-    
+
     file.sync_all()
         .map_err(|e| format!("Failed to sync file: {}", e))?;
-    
+
     // Return the absolute path as a string
     Ok(final_path.to_string_lossy().to_string())
 }
@@ -484,17 +484,17 @@ pub async fn save_file_to_downloads(
 #[tauri::command]
 pub async fn open_file(path: String) -> Result<(), String> {
     use std::process::Command;
-    
+
     eprintln!("open_file called with path: {}", path);
-    
+
     // Canonicalize the path to ensure it's absolute and exists
     let path_buf = PathBuf::from(&path);
     let canonical_path = path_buf.canonicalize()
         .map_err(|e| format!("Failed to canonicalize file path: {}", e))?;
-    
+
     let file_str = canonical_path.to_string_lossy().to_string();
     eprintln!("Opening file: {}", file_str);
-    
+
     #[cfg(target_os = "windows")]
     {
         Command::new("cmd")
@@ -502,7 +502,7 @@ pub async fn open_file(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to open file: {}", e))?;
     }
-    
+
     #[cfg(target_os = "macos")]
     {
         Command::new("open")
@@ -510,7 +510,7 @@ pub async fn open_file(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to open file: {}", e))?;
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         Command::new("xdg-open")
@@ -518,7 +518,7 @@ pub async fn open_file(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| format!("Failed to open file: {}", e))?;
     }
-    
+
     Ok(())
 }
 
@@ -533,6 +533,19 @@ pub async fn add_bucket_config(
     endpoint: Option<String>,
 ) -> Result<String, String> {
     let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
+
+    // Check for duplicate connection names (case-insensitive)
+    let nickname_lower = nickname.to_lowercase().trim().to_string();
+    let existing_bucket = configs.buckets.iter().find(|(_, cfg)| {
+        cfg.nickname.to_lowercase().trim() == nickname_lower
+    });
+
+    if existing_bucket.is_some() {
+        return Err(format!(
+            "A connection with the name \"{}\" already exists. Please use a different name.",
+            nickname
+        ));
+    }
 
     let bucket_id = format!("bucket_{}", nickname.to_lowercase().replace(' ', "_"));
 
@@ -608,6 +621,19 @@ pub async fn update_bucket_config(
         return Err(format!("Bucket config not found: {}", bucket_id));
     }
 
+    // Check for duplicate connection names (excluding current bucket)
+    let nickname_lower = nickname.to_lowercase().trim().to_string();
+    let existing_bucket = configs.buckets.iter().find(|(id, cfg)| {
+        *id != &bucket_id && cfg.nickname.to_lowercase().trim() == nickname_lower
+    });
+
+    if existing_bucket.is_some() {
+        return Err(format!(
+            "A connection with the name \"{}\" already exists. Please use a different name.",
+            nickname
+        ));
+    }
+
     let config = BucketConfig {
         nickname: nickname.clone(),
         bucket_name,
@@ -640,6 +666,22 @@ pub async fn set_active_bucket(app: AppHandle, bucket_id: String) -> Result<(), 
 
     configs.active_bucket = Some(bucket_id);
     save_configs(&app, &configs).await.map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn clear_all_configs(app: AppHandle) -> Result<(), String> {
+    // Clear all bucket configs by saving empty/default configs
+    let empty_configs = BucketConfigs::default();
+    save_configs(&app, &empty_configs).await.map_err(|e| e.to_string())?;
+
+    // Clear cached S3 clients
+    if let Ok(mut clients_guard) = S3_CLIENTS.lock() {
+        if let Some(clients) = clients_guard.as_mut() {
+            clients.clear();
+        }
+    }
 
     Ok(())
 }

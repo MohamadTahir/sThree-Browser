@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +10,16 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { addBucketConfig, loadConfigs } from "../services/storageService";
+import { Group } from "../types";
+import { useToast } from "./ui/use-toast";
 
 interface AddBucketModalProps {
   open: boolean;
@@ -23,7 +32,9 @@ export default function AddBucketModal({
   onOpenChange,
   onSuccess,
 }: AddBucketModalProps) {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [formData, setFormData] = useState({
     nickname: "",
     bucket_name: "",
@@ -31,20 +42,50 @@ export default function AddBucketModal({
     secret_key: "",
     region: "us-east-1",
     endpoint: "",
+    group_id: "",
   });
+
+  useEffect(() => {
+    if (open) {
+      loadGroups();
+    }
+  }, [open]);
+
+  const loadGroups = async () => {
+    const configs = await loadConfigs();
+    setGroups(Object.values(configs.groups || {}));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await invoke("add_bucket_config", {
+      // Check for duplicate connection names
+      const configs = await loadConfigs();
+      const nicknameLower = formData.nickname.toLowerCase().trim();
+      const existingBucket = Object.entries(configs.buckets).find(
+        ([_, config]) => config.nickname.toLowerCase().trim() === nicknameLower
+      );
+
+      if (existingBucket) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Connection Name",
+          description: `A connection with the name "${formData.nickname}" already exists. Please use a different name.`,
+        });
+        setLoading(false);
+        return;
+      }
+
+      await addBucketConfig({
         nickname: formData.nickname,
-        bucketName: formData.bucket_name,
-        accessKey: formData.access_key,
-        secretKey: formData.secret_key,
+        bucket_name: formData.bucket_name,
+        access_key: formData.access_key,
+        secret_key: formData.secret_key,
         region: formData.region,
-        endpoint: formData.endpoint.trim() ? formData.endpoint.trim() : null,
+        endpoint: formData.endpoint.trim() || undefined,
+        group_id: formData.group_id || null,
       });
 
       setFormData({
@@ -54,11 +95,21 @@ export default function AddBucketModal({
         secret_key: "",
         region: "us-east-1",
         endpoint: "",
+        group_id: "",
+      });
+      toast({
+        variant: "success",
+        title: "Bucket Added",
+        description: `Connection "${formData.nickname}" has been added successfully.`,
       });
       onSuccess();
     } catch (error) {
       console.error("Failed to add bucket:", error);
-      alert(`Failed to add bucket: ${error}`);
+      toast({
+        variant: "destructive",
+        title: "Failed to Add Bucket",
+        description: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setLoading(false);
     }
@@ -70,16 +121,16 @@ export default function AddBucketModal({
         <DialogHeader>
           <DialogTitle>Add S3 Bucket</DialogTitle>
           <DialogDescription>
-            Configure access to an S3 bucket or S3-compatible storage (MinIO, AWS S3, etc.).
+            Configure access to an S3 bucket or S3-compatible storage.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="nickname">Account Nickname</Label>
+              <Label htmlFor="nickname">Connection Name</Label>
               <Input
                 id="nickname"
-                placeholder="My AWS Account"
+                placeholder="My S3 Connection"
                 value={formData.nickname}
                 onChange={(e) =>
                   setFormData({ ...formData, nickname: e.target.value })
@@ -141,15 +192,44 @@ export default function AddBucketModal({
               <Label htmlFor="endpoint">Endpoint (Optional)</Label>
               <Input
                 id="endpoint"
-                placeholder="s3.dev.krd or https://s3.dev.krd"
+                placeholder="https://storage.example.com"
                 value={formData.endpoint}
                 onChange={(e) =>
                   setFormData({ ...formData, endpoint: e.target.value })
                 }
               />
               <p className="text-xs text-muted-foreground">
-                S3-compatible endpoint (e.g., s3.dev.krd or https://s3.dev.krd for MinIO).
-                Leave empty for AWS S3 (will auto-detect from region).
+                Leave empty for AWS S3. For S3-compatible storage, enter the endpoint URL.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="group">Folder (Optional)</Label>
+              <Select
+                value={formData.group_id || "none"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, group_id: value === "none" ? "" : value })
+                }
+              >
+                <SelectTrigger id="group">
+                  <SelectValue placeholder="No folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No folder</SelectItem>
+                  {groups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: group.color || "#6b7280" }}
+                        />
+                        {group.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Optionally assign this bucket to a folder for better organization.
               </p>
             </div>
           </div>
