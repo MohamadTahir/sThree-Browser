@@ -164,17 +164,17 @@ export async function addBucketConfig(config: BucketConfig): Promise<string> {
   } else {
     // Use localStorage for web
     const configs = await loadConfigs();
-    
+
     // Check for duplicate connection names (case-insensitive)
     const nicknameLower = config.nickname.toLowerCase().trim();
     const existingBucket = Object.entries(configs.buckets).find(
       ([_, cfg]) => cfg.nickname.toLowerCase().trim() === nicknameLower
     );
-    
+
     if (existingBucket) {
       throw new Error(`A connection with the name "${config.nickname}" already exists. Please use a different name.`);
     }
-    
+
     const bucketId = `bucket_${config.nickname.toLowerCase().replace(/\s+/g, "_")}`;
     configs.buckets[bucketId] = {
       ...config,
@@ -214,21 +214,19 @@ export async function updateBucketConfig(bucketId: string, config: BucketConfig)
       if (!configs.buckets[bucketId]) {
         throw new Error(`Bucket ${bucketId} not found`);
       }
-      
+
       // Check for duplicate connection names (excluding current bucket)
       const nicknameLower = config.nickname.toLowerCase().trim();
       const existingBucket = Object.entries(configs.buckets).find(
-        ([id, cfg]) => 
-          id !== bucketId && 
+        ([id, cfg]) =>
+          id !== bucketId &&
           cfg.nickname.toLowerCase().trim() === nicknameLower
       );
-      
+
       if (existingBucket) {
         throw new Error(`A connection with the name "${config.nickname}" already exists. Please use a different name.`);
       }
-      
-      console.log("Updating bucket config:", { bucketId, config });
-      
+
       // Update the bucket config with all fields
       configs.buckets[bucketId] = {
         nickname: config.nickname,
@@ -239,10 +237,8 @@ export async function updateBucketConfig(bucketId: string, config: BucketConfig)
         endpoint: config.endpoint,
         group_id: config.group_id || null,
       };
-      
-      console.log("Saving configs...");
+
       await saveConfigs(configs);
-      console.log("Configs saved successfully");
     } catch (error) {
       console.error("Error in updateBucketConfig:", error);
       throw error;

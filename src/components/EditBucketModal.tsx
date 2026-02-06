@@ -104,7 +104,6 @@ export default function EditBucketModal({
         return;
       }
 
-      console.log("Updating bucket:", bucketId, formData);
       await updateBucketConfig(bucketId, {
         nickname: formData.nickname,
         bucket_name: formData.bucket_name,
@@ -115,7 +114,6 @@ export default function EditBucketModal({
         group_id: formData.group_id || null,
       });
 
-      console.log("Bucket updated successfully");
       // Refresh groups list in case a new folder was created elsewhere
       await loadGroups();
       // Call onSuccess to refresh the sidebar immediately - this will reload configs

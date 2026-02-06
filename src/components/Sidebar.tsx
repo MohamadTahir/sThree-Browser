@@ -1,11 +1,11 @@
-import { Trash2, Plus, Folder, Pencil, FolderOpen, ChevronDown, ChevronRight, Search, X, PanelLeftClose, PanelLeftOpen, Check } from "lucide-react";
+import { Trash2, Plus, Folder, Pencil, FolderOpen, ChevronDown, ChevronRight, Search, X, PanelLeftClose, PanelLeftOpen, Check, Database, GripVertical } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
 import { BucketConfigs, Group } from "../types";
 import { cn } from "../lib/utils";
-import { updateGroup, deleteGroup } from "../services/storageService";
+import { updateGroup, deleteGroup, addBucketToGroup } from "../services/storageService";
 import { useToast } from "./ui/use-toast";
 
 const GROUP_COLORS = [
@@ -56,6 +56,8 @@ export default function Sidebar({
   const [editingGroupName, setEditingGroupName] = useState("");
   const [editingGroupColor, setEditingGroupColor] = useState("");
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
+  const [draggedBucketId, setDraggedBucketId] = useState<string | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
   // Create a stable sorted list of bucket entries to prevent reordering
   // Include group_id in the key to detect when buckets move between folders
@@ -170,38 +172,138 @@ export default function Sidebar({
     }
   };
 
+  const handleDragStart = (e: React.DragEvent, bucketId: string) => {
+    setDraggedBucketId(bucketId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", bucketId);
+    // Prevent click event during drag
+    e.stopPropagation();
+    // Set drag image to a custom element for better visual feedback
+    const dragElement = e.currentTarget as HTMLElement;
+    if (dragElement) {
+      dragElement.style.opacity = "0.5";
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Reset opacity
+    const dragElement = e.currentTarget as HTMLElement;
+    if (dragElement) {
+      dragElement.style.opacity = "1";
+    }
+    setDraggedBucketId(null);
+    setDragOverGroupId(null);
+    e.stopPropagation();
+  };
+
+  const handleDragOver = (e: React.DragEvent, groupId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverGroupId(groupId);
+  };
+
+  const handleDragLeave = (e?: React.DragEvent) => {
+    // Small delay to prevent flickering when moving between drop zones
+    setTimeout(() => {
+      setDragOverGroupId(null);
+    }, 50);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetGroupId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const bucketId = draggedBucketId || e.dataTransfer.getData("text/plain");
+
+    if (!bucketId) {
+      setDraggedBucketId(null);
+      setDragOverGroupId(null);
+      return;
+    }
+
+    // Get current group_id for this bucket
+    const currentConfig = buckets[bucketId];
+    if (!currentConfig) {
+      setDraggedBucketId(null);
+      setDragOverGroupId(null);
+      return;
+    }
+
+    // If dropping on the same group, do nothing
+    if (currentConfig.group_id === targetGroupId) {
+      setDraggedBucketId(null);
+      setDragOverGroupId(null);
+      return;
+    }
+
+    try {
+      await addBucketToGroup(bucketId, targetGroupId);
+      toast({
+        variant: "success",
+        title: "Bucket Moved",
+        description: targetGroupId
+          ? `Bucket moved to folder successfully.`
+          : `Bucket removed from folder.`,
+      });
+      // Trigger parent to refresh configs
+      onGroupsChanged();
+    } catch (error) {
+      console.error("Failed to move bucket:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Move Bucket",
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setDraggedBucketId(null);
+      setDragOverGroupId(null);
+    }
+  };
+
   return (
     <div className="flex w-full flex-col h-full">
-      {/* Header - always rendered, hidden on mobile when closed */}
+      {/* Header - show compact version when collapsed on desktop */}
       <div className={cn(
-        "flex items-center justify-between p-3 sm:p-4 transition-opacity duration-300",
+        "flex items-center justify-between transition-all duration-300",
+        sidebarOpen
+          ? "p-3 sm:p-4 mt-2"
+          : "p-2 md:justify-center md:mt-2",
         sidebarOpen ? "opacity-100" : "opacity-0 md:opacity-100 pointer-events-none md:pointer-events-auto"
       )}>
-        <h2 className="text-base sm:text-lg font-semibold">Buckets</h2>
-        <div className="flex gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onManageGroups}
-            className="h-8 w-8"
-            title="Manage Folders"
-          >
-            <FolderOpen className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onAddBucket}
-            className="h-8 w-8"
-            title="Add Bucket"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
+        {sidebarOpen ? (
+          <>
+            <h2 className="text-base sm:text-lg font-semibold">Buckets</h2>
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onManageGroups}
+                className="h-8 w-8"
+                title="Manage Folders"
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onAddBucket}
+                className="h-8 w-8"
+                title="Add Bucket"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </>
+        ) : (
+          // Collapsed header - show icon only
+          <div className="hidden md:flex items-center justify-center">
+            <Database className="h-5 w-5 text-muted-foreground" />
+          </div>
+        )}
       </div>
-      {/* Collapsed icons - only on desktop */}
+      {/* Collapsed icons - only on desktop when closed */}
       {!sidebarOpen && (
-        <div className="hidden md:flex flex-col items-center gap-2 p-2 flex-1">
+        <div className="hidden md:flex flex-col items-center gap-2 p-2 flex-1 overflow-y-auto">
           <Button
             size="icon"
             variant="ghost"
@@ -249,7 +351,7 @@ export default function Sidebar({
             </div>
           </div>
           <Separator />
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto p-2 space-y-3">
             {Object.keys(buckets).length === 0 && sortedGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
                 <Folder className="mb-2 h-8 w-8 opacity-50" />
@@ -264,12 +366,20 @@ export default function Sidebar({
                 </Button>
               </div>
             ) : (
-              <div className="space-y-1">
-                {/* Grouped buckets - ALWAYS show all folders, even empty ones */}
-                {sortedGroups.length > 0 && sortedGroups.map((group) => {
+              <>
+                {/* Folders Section */}
+                {sortedGroups.length > 0 && (
+                  <div 
+                    className={cn(
+                      "space-y-2 p-3 rounded-lg border transition-all",
+                      draggedBucketId ? "border-border" : "border-border/30"
+                    )}
+                  >
+                    <div className="space-y-1">
+                      {sortedGroups.map((group) => {
                   const groupBuckets = bucketsByGroup.grouped[group.id] || [];
                   const isExpanded = expandedGroups.has(group.id);
-                  
+
                   // Always show the folder, even if it has no buckets
 
                   const isEditing = editingGroupId === group.id;
@@ -298,8 +408,8 @@ export default function Sidebar({
                                       setShowColorPicker(null);
                                     }}
                                     className={`h-6 w-6 rounded-full border-2 transition-all ${editingGroupColor === color.value
-                                        ? "border-foreground scale-110"
-                                        : "border-border hover:border-foreground/50"
+                                      ? "border-foreground scale-110"
+                                      : "border-border hover:border-foreground/50"
                                       }`}
                                     style={{ backgroundColor: color.value }}
                                     title={color.name}
@@ -347,8 +457,29 @@ export default function Sidebar({
                         </div>
                       ) : (
                         <div
-                          className="group/folder flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer"
+                          className={cn(
+                            "group/folder flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer transition-all",
+                            dragOverGroupId === group.id && draggedBucketId 
+                              ? "bg-blue-500/20 border-2 border-blue-500 border-solid shadow-lg rounded-lg" 
+                              : ""
+                          )}
                           onClick={() => onToggleGroup(group.id)}
+                          onDragOver={(e) => {
+                            // Only handle if dragging a bucket
+                            if (draggedBucketId) {
+                              handleDragOver(e, group.id);
+                            }
+                          }}
+                          onDragLeave={(e) => {
+                            // Only clear if we're actually leaving this element
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX;
+                            const y = e.clientY;
+                            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                              handleDragLeave();
+                            }
+                          }}
+                          onDrop={(e) => handleDrop(e, group.id)}
                         >
                           {isExpanded ? (
                             <ChevronDown className="h-4 w-4" />
@@ -391,25 +522,69 @@ export default function Sidebar({
                         </div>
                       )}
                       {isExpanded && (
-                        <div className="ml-4 space-y-1">
+                        <div
+                          className={cn(
+                            "ml-4 space-y-1 transition-all rounded-lg min-h-[20px] mt-1",
+                            dragOverGroupId === group.id && draggedBucketId && "bg-blue-500/20 border-2 border-blue-500 border-dashed p-2"
+                          )}
+                          onDragOver={(e) => {
+                            // Only handle if dragging a bucket
+                            if (draggedBucketId) {
+                              handleDragOver(e, group.id);
+                            }
+                          }}
+                          onDragLeave={(e) => {
+                            // Only clear if we're actually leaving this element
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX;
+                            const y = e.clientY;
+                            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                              handleDragLeave();
+                            }
+                          }}
+                          onDrop={(e) => handleDrop(e, group.id)}
+                        >
                           {groupBuckets.length === 0 ? (
-                            <div className="px-2 py-1 text-xs text-muted-foreground">
-                              No buckets in this folder
+                            <div className={cn(
+                              "px-2 py-1 text-xs text-muted-foreground transition-all",
+                              dragOverGroupId === group.id && draggedBucketId && "text-blue-600 dark:text-blue-400 font-medium"
+                            )}>
+                              {dragOverGroupId === group.id && draggedBucketId ? "Drop here to add bucket" : "No buckets in this folder"}
                             </div>
                           ) : (
                             groupBuckets.map(([bucketId, config]) => (
                               <div
                                 key={bucketId}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, bucketId)}
+                                onDragEnd={handleDragEnd}
                                 className={cn(
-                                  "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50 cursor-pointer",
+                                  "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
                                   selectedBucket === bucketId
                                     ? "bg-accent text-accent-foreground"
-                                    : ""
+                                    : "",
+                                  draggedBucketId === bucketId && "opacity-50"
                                 )}
-                                onClick={() => onBucketSelect(bucketId)}
+                                onClick={(e) => {
+                                  // Don't select if we just finished dragging
+                                  if (draggedBucketId !== bucketId) {
+                                    onBucketSelect(bucketId);
+                                  }
+                                }}
                                 title={config.nickname}
                               >
                                 <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
+                                  <GripVertical
+                                    className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                                    onMouseDown={(e) => {
+                                      e.stopPropagation();
+                                      // Start drag from grip icon
+                                      const bucketElement = e.currentTarget.closest('[draggable="true"]') as HTMLElement;
+                                      if (bucketElement) {
+                                        // Trigger drag start manually if needed
+                                      }
+                                    }}
+                                  />
                                   <Folder className="h-4 w-4 flex-shrink-0" />
                                   <span className="truncate text-sm font-medium min-w-0">
                                     {config.nickname}
@@ -449,27 +624,76 @@ export default function Sidebar({
                       )}
                     </div>
                   );
-                })}
+                      })}
+                    </div>
+                  </div>
+                )}
 
-                {/* Ungrouped buckets */}
-                {bucketsByGroup.ungrouped.length > 0 && (
-                  <>
-                    {sortedGroups.length > 0 && (
-                      <div className="my-2 border-t border-border" />
+                {/* Ungrouped Buckets Section - Always show when dragging */}
+                {(bucketsByGroup.ungrouped.length > 0 || draggedBucketId) && (
+                  <div 
+                    className={cn(
+                      "space-y-1 p-3 rounded-lg border transition-all",
+                      dragOverGroupId === null && draggedBucketId 
+                        ? "border-blue-500 bg-blue-500/10 border-2 border-dashed" 
+                        : draggedBucketId ? "border-border" : "border-border/30",
+                      bucketsByGroup.ungrouped.length === 0 && draggedBucketId && "min-h-[60px] flex items-center justify-center"
                     )}
-                    {bucketsByGroup.ungrouped.map(([bucketId, config]) => (
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (draggedBucketId) {
+                        handleDragOver(e, null);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      // Only clear if we're actually leaving this element
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX;
+                      const y = e.clientY;
+                      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                        handleDragLeave();
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDrop(e, null);
+                    }}
+                  >
+                    {bucketsByGroup.ungrouped.length === 0 && draggedBucketId ? (
+                      <div className="text-xs text-muted-foreground text-center py-4">
+                        Drop here to remove from folder
+                      </div>
+                    ) : (
+                      bucketsByGroup.ungrouped.map(([bucketId, config]) => (
                       <div
                         key={bucketId}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, bucketId)}
+                        onDragEnd={handleDragEnd}
                         className={cn(
-                          "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50 cursor-pointer",
+                          "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
                           selectedBucket === bucketId
                             ? "bg-accent text-accent-foreground"
-                            : ""
+                            : "",
+                          draggedBucketId === bucketId && "opacity-50"
                         )}
-                        onClick={() => onBucketSelect(bucketId)}
+                        onClick={(e) => {
+                          // Don't select if we just finished dragging
+                          if (draggedBucketId !== bucketId) {
+                            onBucketSelect(bucketId);
+                          }
+                        }}
                         title={config.nickname}
                       >
                         <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
+                          <GripVertical
+                            className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                            }}
+                          />
                           <Folder className="h-4 w-4 flex-shrink-0" />
                           <span className="truncate text-sm font-medium min-w-0">
                             {config.nickname}
@@ -499,12 +723,13 @@ export default function Sidebar({
                               onDeleteBucket(bucketId);
                             }}
                           >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
-                    ))}
-                  </>
+                    </div>
+                  ))
+                    )}
+                  </div>
                 )}
                 
                 {/* Show "No buckets found" message only if searching and no buckets match AND no folders exist */}
@@ -515,7 +740,7 @@ export default function Sidebar({
                     <p className="text-xs">Try a different search term</p>
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </>

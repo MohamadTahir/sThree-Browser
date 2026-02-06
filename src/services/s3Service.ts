@@ -1,8 +1,9 @@
 import { BucketConfig } from "../types";
 import { isTauri } from "./encryptionService";
 
-// Proxy server URL (for web mode)
-const PROXY_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
+// API base URL (for web mode - Next.js API routes)
+// In Next.js, API routes are relative to the same origin, so we can use relative paths
+const API_BASE_URL = typeof window !== 'undefined' ? '' : 'http://localhost:1420';
 
 // Helper to get bucketId from config (for Tauri mode)
 async function getBucketIdFromConfig(config: BucketConfig): Promise<string> {
@@ -20,10 +21,11 @@ async function getBucketIdFromConfig(config: BucketConfig): Promise<string> {
   return bucketId;
 }
 
-// Proxy API helpers (for web mode)
-async function proxyRequest(endpoint: string, body: any): Promise<any> {
+// API request helpers (for web mode - Next.js API routes)
+async function apiRequest(endpoint: string, body: any): Promise<any> {
   try {
-    const response = await fetch(`${PROXY_URL}${endpoint}`, {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -67,11 +69,11 @@ async function proxyRequest(endpoint: string, body: any): Promise<any> {
 
     return await response.json();
   } catch (error: any) {
-    // Handle network errors (proxy server not running, CORS, etc.)
+    // Handle network errors
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       throw new Error(
-        `Failed to connect to proxy server at ${PROXY_URL}. ` +
-        `Make sure the proxy server is running (npm run dev:proxy). ` +
+        `Failed to connect to API server. ` +
+        `Make sure Next.js dev server is running (pnpm run dev). ` +
         `Original error: ${error.message}`
       );
     }
@@ -85,7 +87,7 @@ export async function listBuckets(config: BucketConfig): Promise<string[]> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
-      const result = await proxyRequest('/api/s3/list-buckets', { config });
+      const result = await apiRequest('/api/s3/list-buckets', { config });
       return result.buckets || [];
     } catch (error: any) {
       // Provide helpful error messages
@@ -151,13 +153,7 @@ export async function listObjects(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
-      console.log('Proxy request - listObjects:', {
-        nickname: config.nickname,
-        bucketName,
-        configBucketName: config.bucket_name,
-        prefix,
-      });
-      const result = await proxyRequest('/api/s3/list-objects', {
+      const result = await apiRequest('/api/s3/list-objects', {
         config,
         bucketName,
         prefix,
@@ -237,7 +233,7 @@ export async function getObjectContent(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
-      const result = await proxyRequest('/api/s3/get-object', {
+      const result = await apiRequest('/api/s3/get-object', {
         config,
         bucketName,
         key,
@@ -286,7 +282,7 @@ export async function getPresignedUrl(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
-      const result = await proxyRequest('/api/s3/presigned-url', {
+      const result = await apiRequest('/api/s3/presigned-url', {
         config,
         bucketName,
         key,
@@ -325,7 +321,7 @@ export async function deleteObject(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
-      await proxyRequest('/api/s3/delete-object', {
+      await apiRequest('/api/s3/delete-object', {
         config,
         bucketName,
         key,

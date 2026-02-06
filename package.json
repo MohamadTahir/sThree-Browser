@@ -4,13 +4,13 @@
   "description": "Modern S3 Bucket Browser Desktop Application",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:proxy": "tsx watch server/proxy.ts",
-    "dev:all": "concurrently \"npm run dev\" \"npm run dev:proxy\"",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "next dev -p 1420",
+    "build": "next build --webpack",
+    "build:tauri": "next build --config-file next.config.tauri.js",
+    "start": "next start",
     "tauri": "tauri",
-    "proxy": "tsx server/proxy.ts"
+    "tauri:dev": "tauri dev",
+    "tauri:build": "pnpm run build:tauri && tauri build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.982.0",
@@ -24,32 +24,26 @@
     "@radix-ui/react-separator": "^1.0.3",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-toast": "^1.2.15",
-    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/api": "2.9.1",
     "@tauri-apps/plugin-opener": "^2.5.3",
     "@tauri-apps/plugin-store": "^2.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "lucide-react": "^0.344.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "lucide-react": "^0.563.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0",
-    "@types/express": "^4.17.21",
+    "@tauri-apps/cli": "2.9.1",
     "@types/node": "^25.2.0",
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.16",
-    "concurrently": "^8.2.2",
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
+    "next": "^16.1.0",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.8"
+    "typescript": "^5.3.3"
   }
 }

@@ -81,12 +81,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         isSwitchingBucketsRef.current = true;
         // Increment request ID to invalidate any in-flight requests
         currentRequestIdRef.current++;
-        console.log('Bucket switch detected:', {
-          from: prevBucketIdRef.current,
-          to: bucketId,
-          clearingBucketName: bucketName,
-          newRequestId: currentRequestIdRef.current,
-        });
         // Immediately clear bucketName and accountNickname to trigger loading state
         // This prevents using stale bucket names from previous buckets
         setBucketName(null);
@@ -127,7 +121,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
   useEffect(() => {
     if (bucketId && bucketName) {
-      console.log('Loading objects for:', { bucketId, bucketName, currentPrefix });
       // Clear any previous errors when loading new bucket content
       setError(null);
       errorBucketIdRef.current = null;
@@ -145,16 +138,10 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     const requestBucketId = bucketId;
 
     if (!requestBucketId) {
-      console.log('loadBuckets: No bucketId');
       return;
     }
 
     const requestId = ++currentRequestIdRef.current;
-    console.log('loadBuckets: Starting', {
-      requestId,
-      requestBucketId,
-      currentBucketId: bucketId,
-    });
 
     try {
       setLoading(true);
@@ -165,11 +152,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
       // Validate bucketId hasn't changed
       if (bucketId !== requestBucketId) {
-        console.log('loadBuckets: BucketId changed during request, cancelling', {
-          requestId,
-          originalBucketId: requestBucketId,
-          currentBucketId: bucketId,
-        });
         return;
       }
 
@@ -190,7 +172,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
       // Final validation before updating state
       if (bucketId !== requestBucketId) {
-        console.log('loadBuckets: BucketId changed before updating state, cancelling', { requestId });
         return;
       }
 
@@ -203,13 +184,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         // Always use the bucket_name from config, not the previous state
         // This ensures we use the correct bucket when switching between accounts
         const currentBucket = config.bucket_name;
-        console.log('loadBuckets: Setting bucket name', {
-          requestId,
-          bucketId: requestBucketId,
-          configBucketName: config.bucket_name,
-          previousBucketName: bucketName,
-          newBucketName: currentBucket
-        });
 
         // Final check before setting state
         if (bucketId === requestBucketId) {
@@ -223,7 +197,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
         // Validate bucketId hasn't changed
         if (bucketId !== requestBucketId) {
-          console.log('loadBuckets: BucketId changed after listing buckets, cancelling', { requestId });
           return;
         }
 
@@ -231,12 +204,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         if (buckets.length > 0) {
           // Use first bucket from list (don't preserve old bucketName)
           const currentBucket = buckets[0];
-          console.log('loadBuckets: Setting bucket name from list', {
-            requestId,
-            bucketId: requestBucketId,
-            selectedBucket: currentBucket,
-            availableBuckets: buckets,
-          });
 
           // Final check before setting state
           if (bucketId === requestBucketId) {
@@ -255,15 +222,9 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         }
       }
 
-      console.log('loadBuckets: Completed successfully', { requestId, bucketId: requestBucketId });
     } catch (err) {
       // Check if this error is for a stale request
       if (bucketId !== requestBucketId) {
-        console.log('loadBuckets: Error occurred but bucket changed, ignoring', {
-          requestId,
-          originalBucketId: requestBucketId,
-          currentBucketId: bucketId,
-        });
         return;
       }
 
@@ -367,20 +328,11 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     const requestBucketName = bucketName;
 
     if (!requestBucketId || !requestBucketName) {
-      console.log('loadObjects: Missing bucketId or bucketName', { requestBucketId, requestBucketName });
       return;
     }
 
     // Generate a unique request ID for this call
     const requestId = ++currentRequestIdRef.current;
-    console.log('loadObjects: Starting request', {
-      requestId,
-      requestBucketId,
-      requestBucketName,
-      currentBucketId: bucketId,
-      currentBucketName: bucketName,
-      prefix: currentPrefix
-    });
 
     try {
       setLoading(true);
@@ -391,11 +343,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
       // Validate that bucketId hasn't changed during the async operation
       if (bucketId !== requestBucketId) {
-        console.log('loadObjects: BucketId changed during request, cancelling', {
-          requestId,
-          originalBucketId: requestBucketId,
-          currentBucketId: bucketId,
-        });
         return;
       }
 
@@ -416,17 +363,11 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
       // Validate bucketName matches config
       if (requestBucketName !== config.bucket_name && config.bucket_name) {
-        console.warn('loadObjects: Bucket name mismatch', {
-          requestId,
-          requestBucketName,
-          configBucketName: config.bucket_name,
-        });
         // Use config's bucket name if it's different
         const correctBucketName = config.bucket_name;
 
         // Double-check bucketId hasn't changed
         if (bucketId !== requestBucketId) {
-          console.log('loadObjects: BucketId changed, cancelling');
           return;
         }
 
@@ -438,16 +379,8 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
       // Validate one more time before making the request
       if (bucketId !== requestBucketId) {
-        console.log('loadObjects: BucketId changed before request, cancelling', { requestId });
         return;
       }
-
-      console.log('loadObjects: Making S3 request', {
-        requestId,
-        nickname: config.nickname,
-        bucketName: requestBucketName,
-        prefix: currentPrefix,
-      });
 
       const response = await listObjects(config, {
         bucketName: requestBucketName,
@@ -458,13 +391,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
       // Final validation - check if this request is still valid
       if (bucketId !== requestBucketId || bucketName !== requestBucketName) {
-        console.log('loadObjects: Request completed but bucket changed, ignoring result', {
-          requestId,
-          originalBucketId: requestBucketId,
-          currentBucketId: bucketId,
-          originalBucketName: requestBucketName,
-          currentBucketName: bucketName,
-        });
         return;
       }
 
@@ -475,13 +401,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         last_modified: obj.lastModified,
         is_folder: obj.isFolder,
       }));
-
-      console.log('loadObjects: Request completed successfully', {
-        requestId,
-        objectsCount: s3Objects.length,
-        bucketId: requestBucketId,
-        bucketName: requestBucketName,
-      });
 
       setObjects(s3Objects);
       setNextContinuationToken(response.nextContinuationToken || null);
@@ -497,11 +416,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     } catch (err) {
       // Check if this error is for a stale request
       if (bucketId !== requestBucketId || bucketName !== requestBucketName) {
-        console.log('loadObjects: Error occurred but bucket changed, ignoring', {
-          requestId,
-          originalBucketId: requestBucketId,
-          currentBucketId: bucketId,
-        });
         return;
       }
 
@@ -669,7 +583,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     }
 
     try {
-      console.log("Opening file:", downloadToast.filePath);
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("open_file", {
         path: downloadToast.filePath,
@@ -701,7 +614,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     }
 
     try {
-      console.log("Opening file location for path:", downloadToast.filePath);
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("open_folder", {
         path: downloadToast.filePath,

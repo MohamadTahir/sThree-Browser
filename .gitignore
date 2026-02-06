@@ -7,13 +7,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Server
-server/node_modules
-server/dist
+# Server (removed - now using Next.js API routes)
+# server/node_modules
+# server/dist
 
 node_modules
 dist
 dist-ssr
+.next
+out
+standalone
 *.local
 
 # Editor directories and files

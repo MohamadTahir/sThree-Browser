@@ -18,7 +18,7 @@ You can generate these icons using tools like:
 To generate icons from a source image:
 ```bash
 # Install tauri-icon if you haven't already
-npm install -g @tauri-apps/cli
+pnpm add -g @tauri-apps/cli
 
 # Generate icons from a source image (e.g., icon.png)
 tauri icon icon.png

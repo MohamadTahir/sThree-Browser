@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "identifier": "com.s3browser",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "pnpm run build:tauri",
+    "frontendDist": "../out"
   },
   "app": {
     "windows": [

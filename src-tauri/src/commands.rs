@@ -101,7 +101,6 @@ async fn get_or_create_client(
     let mut use_custom_endpoint = false;
     if let Some(endpoint) = &bucket_config.endpoint {
         let trimmed = endpoint.trim();
-        eprintln!("Raw endpoint from config: '{}'", trimmed);
         if !trimmed.is_empty() && trimmed != "null" && trimmed != "undefined" {
             // Normalize endpoint URL: add https:// if no protocol specified
             let clean_endpoint = trimmed.trim_end_matches('/').trim();
@@ -111,21 +110,16 @@ async fn get_or_create_client(
                 // Already has protocol - use as-is but ensure it's clean
                 let url = clean_endpoint.trim_start_matches("http://").trim_start_matches("https://");
                 if url.is_empty() {
-                    eprintln!("ERROR: Endpoint URL has protocol but no hostname!");
                     return Err(format!("Invalid endpoint URL: '{}'", clean_endpoint));
                 }
                 clean_endpoint.to_string()
             } else {
                 // No protocol - add https://
                 if clean_endpoint.is_empty() {
-                    eprintln!("ERROR: Endpoint is empty after trimming!");
                     return Err("Invalid endpoint: empty value".to_string());
                 }
                 format!("https://{}", clean_endpoint)
             };
-
-            eprintln!("Normalized endpoint: '{}'", final_endpoint);
-            eprintln!("Setting endpoint_url to: '{}'", final_endpoint);
 
             // Validate the URL format
             if !final_endpoint.starts_with("http://") && !final_endpoint.starts_with("https://") {
@@ -134,20 +128,10 @@ async fn get_or_create_client(
 
             config_builder = config_builder.endpoint_url(&final_endpoint);
             use_custom_endpoint = true;
-        } else {
-            eprintln!("Endpoint '{}' is invalid, skipping (will use AWS S3 default for region: {})", trimmed, bucket_config.region);
         }
-    } else {
-        eprintln!("No endpoint provided, SDK will use AWS S3 default for region: {}", bucket_config.region);
     }
 
     let config = config_builder.build();
-    eprintln!("S3 Config built - Region: {:?}", config.region());
-    if let Some(endpoint) = config.endpoint_url() {
-        eprintln!("  Endpoint URL: {}", endpoint);
-    } else {
-        eprintln!("  Endpoint URL: (will be auto-constructed by SDK)");
-    }
 
     // For S3-compatible storage, use path-style addressing
     // AWS S3 uses virtual-hosted-style by default, but S3-compatible storage requires path-style
@@ -155,7 +139,6 @@ async fn get_or_create_client(
 
     // Enable path-style addressing if using a custom endpoint (MinIO/R2)
     if use_custom_endpoint {
-        eprintln!("  Enabling path-style addressing for S3-compatible storage");
         client_config_builder = client_config_builder.force_path_style(true);
     }
 
@@ -204,19 +187,10 @@ pub async fn list_objects(
     max_keys: Option<i32>,
     continuation_token: Option<String>,
 ) -> Result<ListObjectsResponse, String> {
-    eprintln!("list_objects called - bucket_id: {}, bucket_name: {}", bucket_id, bucket_name);
-
-    // Debug: Check what config we have
-    let configs = load_configs(&app).await.map_err(|e| e.to_string())?;
-    if let Some(config) = configs.buckets.get(&bucket_id) {
-        eprintln!("Config endpoint: {:?}", config.endpoint);
-    }
-
     let client = get_or_create_client(&app, &bucket_id).await?;
 
     let prefix = prefix.unwrap_or_default();
     let page_size = max_keys.unwrap_or(100); // Default to 100 items per page
-    eprintln!("Listing objects in bucket '{}' with prefix '{}', max_keys: {}", bucket_name, prefix, page_size);
 
     let mut request = client
         .list_objects_v2()
@@ -235,11 +209,7 @@ pub async fn list_objects(
     let response = request
         .send()
         .await
-        .map_err(|e| {
-            let error_msg = format!("Failed to list objects: {:?}", e);
-            eprintln!("S3 Error details: {}", error_msg);
-            error_msg
-        })?;
+        .map_err(|e| format!("Failed to list objects: {:?}", e))?;
 
     let mut objects = Vec::new();
     let mut common_prefixes = Vec::new();
@@ -297,8 +267,6 @@ pub async fn get_object_content(
     bucket_name: String,
     key: String,
 ) -> Result<ObjectContentResponse, String> {
-    eprintln!("get_object_content called - bucket_id: {}, bucket_name: {}, key: {}", bucket_id, bucket_name, key);
-
     let client = get_or_create_client(&app, &bucket_id).await?;
 
     let response = client
@@ -309,21 +277,13 @@ pub async fn get_object_content(
         .await
         .map_err(|e| format!("Failed to get object: {}", e))?;
 
-    eprintln!("Got response, collecting body...");
-
     // Collect the body into a Vec<u8>
     let body_bytes = response
         .body
         .collect()
         .await
-        .map_err(|e| {
-            let err_msg = format!("Failed to read stream: {}", e);
-            eprintln!("Stream error: {}", err_msg);
-            err_msg
-        })?
+        .map_err(|e| format!("Failed to read stream: {}", e))?
         .into_bytes();
-
-    eprintln!("Collected {} bytes", body_bytes.len());
 
     // Encode as base64 for reliable transmission
     let base64_data = general_purpose::STANDARD.encode(&body_bytes);
@@ -346,7 +306,6 @@ pub fn get_download_dir() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
-    eprintln!("get_dirname called with path: {}", path);
     let path_buf = PathBuf::from(&path);
 
     // Normalize the path - ensure it's absolute
@@ -363,7 +322,6 @@ pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
     let canonical_path = normalized_path.canonicalize()
         .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
 
-    eprintln!("Canonicalized path: {:?}", canonical_path);
 
     let dirname = canonical_path
         .parent()
@@ -371,7 +329,6 @@ pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
         .to_string_lossy()
         .to_string();
 
-    eprintln!("Extracted dirname: {}", dirname);
 
     Ok(serde_json::json!({ "dirname": dirname }))
 }
@@ -380,7 +337,6 @@ pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
 pub async fn open_folder(path: String) -> Result<(), String> {
     use std::process::Command;
 
-    eprintln!("open_folder called with path: {}", path);
 
     // Get the directory containing the file
     let path_buf = PathBuf::from(&path);
@@ -408,7 +364,6 @@ pub async fn open_folder(path: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to canonicalize directory path: {}", e))?;
 
     let dir_str = canonical_dir.to_string_lossy().to_string();
-    eprintln!("Opening folder: {}", dir_str);
 
     #[cfg(target_os = "windows")]
     {
@@ -486,7 +441,6 @@ pub async fn save_file_to_downloads(
 pub async fn open_file(path: String) -> Result<(), String> {
     use std::process::Command;
 
-    eprintln!("open_file called with path: {}", path);
 
     // Canonicalize the path to ensure it's absolute and exists
     let path_buf = PathBuf::from(&path);
@@ -494,7 +448,6 @@ pub async fn open_file(path: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to canonicalize file path: {}", e))?;
 
     let file_str = canonical_path.to_string_lossy().to_string();
-    eprintln!("Opening file: {}", file_str);
 
     #[cfg(target_os = "windows")]
     {
@@ -531,7 +484,6 @@ pub async fn get_presigned_url(
     key: String,
     expires_in: Option<u64>,
 ) -> Result<String, String> {
-    eprintln!("get_presigned_url called - bucket_id: {}, bucket_name: {}, key: {}", bucket_id, bucket_name, key);
 
     let client = get_or_create_client(&app, &bucket_id).await?;
 
@@ -558,9 +510,6 @@ pub async fn delete_object(
     key: String,
     delete_all_versions: Option<bool>,
 ) -> Result<(), String> {
-    eprintln!("delete_object called - bucket_id: {}, bucket_name: {}, key: {}, delete_all_versions: {:?}", 
-        bucket_id, bucket_name, key, delete_all_versions);
-
     let client = get_or_create_client(&app, &bucket_id).await?;
     let delete_all = delete_all_versions.unwrap_or(false);
 

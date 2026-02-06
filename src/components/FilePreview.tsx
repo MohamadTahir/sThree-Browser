@@ -33,11 +33,9 @@ export default function FilePreview({
 
   useEffect(() => {
     if (open && file && bucketId && bucketName && !file.is_folder) {
-      console.log("FilePreview: Opening preview for", file.key);
       loadFileContent();
     } else {
       // Reset state when modal closes
-      console.log("FilePreview: Resetting state");
       setContent(null);
       setImageUrl(null);
       setError(null);
@@ -48,7 +46,6 @@ export default function FilePreview({
 
   const loadFileContent = async () => {
     if (!file || !bucketId || !bucketName) {
-      console.log("loadFileContent: Missing required params", { file, bucketId, bucketName });
       return;
     }
 
@@ -67,7 +64,6 @@ export default function FilePreview({
       setImageUrl(null);
 
       const fileType = getFileType(file.key);
-      console.log("Loading file:", { key: file.key, fileType, size: file.size });
 
       // Get config to use with S3 service
       const configs = await loadConfigs();
@@ -82,40 +78,31 @@ export default function FilePreview({
       // Get file content using client-side S3 SDK
       const uint8Array = await getObjectContent(config, bucketName, file.key);
 
-      console.log("Received file content:", uint8Array.length);
-
       if (fileType === 'image') {
         // Create blob URL for images
         const mimeType = getMimeType(file.key);
-        console.log("Creating image blob with mime type:", mimeType);
         // Create a new Uint8Array copy to ensure proper typing
         const dataCopy = new Uint8Array(uint8Array);
         const blob = new Blob([dataCopy], { type: mimeType });
         const url = URL.createObjectURL(blob);
-        console.log("Created blob URL:", url);
         setImageUrl(url);
       } else if (fileType === 'text') {
         // Decode as text
         const decoder = new TextDecoder('utf-8');
         try {
           const text = decoder.decode(uint8Array);
-          console.log("Decoded text, length:", text.length);
           setContent(text);
         } catch (e) {
-          console.error("Text decode error:", e);
           setContent('Unable to decode file as text. File may be binary.');
         }
       } else if (fileType === 'pdf') {
         // Create blob URL for PDF
-        console.log("Creating PDF blob");
         // Create a new Uint8Array copy to ensure proper typing
         const dataCopy = new Uint8Array(uint8Array);
         const blob = new Blob([dataCopy], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
-        console.log("Created PDF blob URL:", url);
         setImageUrl(url); // Reuse imageUrl for PDF viewer
       } else {
-        console.log("Unknown file type:", fileType);
         setError(`Preview not available for file type: ${fileType}`);
       }
     } catch (err) {
@@ -169,12 +156,8 @@ export default function FilePreview({
                 src={imageUrl}
                 alt={fileName}
                 className="max-w-full max-h-[70vh] object-contain rounded-lg"
-                onError={(e) => {
-                  console.error("Image load error:", e);
+                onError={() => {
                   setError("Failed to display image");
-                }}
-                onLoad={() => {
-                  console.log("Image loaded successfully");
                 }}
               />
             </div>
