@@ -1,4 +1,4 @@
-# S3 Browser
+# sThree Browser
 
 A modern, cross-platform desktop and web application for browsing and managing S3 buckets and S3-compatible storage services. Built with Tauri v2, Next.js, React, TypeScript, and Rust.
 
@@ -59,7 +59,7 @@ Before you begin, ensure you have the following installed:
 1. **Clone the repository**:
    ```bash
    git clone <your-repo-url>
-   cd s3-browser
+   cd sthree-browser
    ```
 
 2. **Install dependencies**:
@@ -168,13 +168,13 @@ This creates a debug build in `src-tauri/target/debug/bundle/`.
 ### Building the Docker Image
 
 ```bash
-docker build -t s3-browser .
+docker build -t sthree-browser .
 ```
 
 ### Running the Container
 
 ```bash
-docker run -d -p 3000:3000 --name s3-browser s3-browser
+docker run -d -p 3000:3000 --name sthree-browser sthree-browser
 ```
 
 The application will be available at `http://localhost:3000`
@@ -226,7 +226,7 @@ The application will be available at `http://localhost:3000`
 ## 📁 Project Structure
 
 ```
-s3-browser/
+sthree-browser/
 ├── src/                          # Frontend source code
 │   ├── app/                      # Next.js App Router
 │   │   ├── api/                  # API routes (S3 proxy)
@@ -273,13 +273,13 @@ s3-browser/
 
 ## 🧪 Development Scripts
 
-| Command | Description |
-|--------|-------------|
-| `pnpm run dev` | Start Next.js dev server (web) |
-| `pnpm run build` | Build Next.js for production |
-| `pnpm run start` | Start Next.js production server |
-| `pnpm run tauri:dev` | Run Tauri app in development |
-| `pnpm run tauri:build` | Build Tauri app for production |
+| Command                | Description                           |
+| ---------------------- | ------------------------------------- |
+| `pnpm run dev`         | Start Next.js dev server (web)        |
+| `pnpm run build`       | Build Next.js for production          |
+| `pnpm run start`       | Start Next.js production server       |
+| `pnpm run tauri:dev`   | Run Tauri app in development          |
+| `pnpm run tauri:build` | Build Tauri app for production        |
 | `pnpm run build:tauri` | Build Next.js static export for Tauri |
 
 ## 🌐 Environment Variables

@@ -10,11 +10,22 @@ pub struct BucketConfig {
     pub secret_key: String,
     pub region: String,
     pub endpoint: Option<String>,
+    #[serde(default)]
+    pub group_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Group {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BucketConfigs {
     pub buckets: HashMap<String, BucketConfig>,
+    #[serde(default)]
+    pub groups: HashMap<String, Group>,
     pub active_bucket: Option<String>,
 }
 
@@ -22,6 +33,7 @@ impl Default for BucketConfigs {
     fn default() -> Self {
         Self {
             buckets: HashMap::new(),
+            groups: HashMap::new(),
             active_bucket: None,
         }
     }

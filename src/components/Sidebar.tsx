@@ -174,8 +174,12 @@ export default function Sidebar({
 
   const handleDragStart = (e: React.DragEvent, bucketId: string) => {
     setDraggedBucketId(bucketId);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", bucketId);
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", bucketId);
+      // Also set as application/json for better compatibility
+      e.dataTransfer.setData("application/json", JSON.stringify({ bucketId }));
+    }
     // Prevent click event during drag
     e.stopPropagation();
     // Set drag image to a custom element for better visual feedback
@@ -199,12 +203,26 @@ export default function Sidebar({
   const handleDragOver = (e: React.DragEvent, groupId: string | null) => {
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = "move";
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "move";
+    }
     setDragOverGroupId(groupId);
   };
 
   const handleDragLeave = (e?: React.DragEvent) => {
     // Small delay to prevent flickering when moving between drop zones
+    // Only clear if we're actually leaving (not just moving to a child element)
+    if (e) {
+      const rect = e.currentTarget?.getBoundingClientRect();
+      if (rect) {
+        const x = e.clientX;
+        const y = e.clientY;
+        // If still within bounds, don't clear
+        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+          return;
+        }
+      }
+    }
     setTimeout(() => {
       setDragOverGroupId(null);
     }, 50);
@@ -213,9 +231,12 @@ export default function Sidebar({
   const handleDrop = async (e: React.DragEvent, targetGroupId: string | null) => {
     e.preventDefault();
     e.stopPropagation();
-    const bucketId = draggedBucketId || e.dataTransfer.getData("text/plain");
+    
+    // Use draggedBucketId from state first, then fallback to dataTransfer
+    const bucketId = draggedBucketId || (e.dataTransfer ? e.dataTransfer.getData("text/plain") : null);
 
     if (!bucketId) {
+      console.warn("No bucket ID found in drop event");
       setDraggedBucketId(null);
       setDragOverGroupId(null);
       return;
@@ -369,7 +390,7 @@ export default function Sidebar({
               <>
                 {/* Folders Section */}
                 {sortedGroups.length > 0 && (
-                  <div 
+                  <div
                     className={cn(
                       "space-y-2 p-3 rounded-lg border transition-all",
                       draggedBucketId ? "border-border" : "border-border/30"
@@ -377,221 +398,125 @@ export default function Sidebar({
                   >
                     <div className="space-y-1">
                       {sortedGroups.map((group) => {
-                  const groupBuckets = bucketsByGroup.grouped[group.id] || [];
-                  const isExpanded = expandedGroups.has(group.id);
+                        const groupBuckets = bucketsByGroup.grouped[group.id] || [];
+                        const isExpanded = expandedGroups.has(group.id);
 
-                  // Always show the folder, even if it has no buckets
+                        // Always show the folder, even if it has no buckets
 
-                  const isEditing = editingGroupId === group.id;
+                        const isEditing = editingGroupId === group.id;
 
-                  return (
-                    <div key={group.id} className="space-y-1">
-                      {isEditing ? (
-                        <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-accent/50">
-                          <div className="relative">
-                            <div
-                              className="h-3 w-3 rounded-full flex-shrink-0 cursor-pointer"
-                              style={{ backgroundColor: editingGroupColor }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowColorPicker(showColorPicker === group.id ? null : group.id);
-                              }}
-                            />
-                            {showColorPicker === group.id && (
-                              <div className="absolute left-0 top-6 z-50 flex flex-wrap gap-2 p-2 rounded-lg border bg-popover shadow-lg" onClick={(e) => e.stopPropagation()}>
-                                {GROUP_COLORS.map((color) => (
-                                  <button
-                                    key={color.value}
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingGroupColor(color.value);
-                                      setShowColorPicker(null);
+                        return (
+                          <div key={group.id} className="space-y-1">
+                            {isEditing ? (
+                              <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-accent/50">
+                                <div className="relative">
+                                  <div
+                                    className="h-3 w-3 rounded-full flex-shrink-0 cursor-pointer"
+                                    style={{ backgroundColor: editingGroupColor }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShowColorPicker(showColorPicker === group.id ? null : group.id);
                                     }}
-                                    className={`h-6 w-6 rounded-full border-2 transition-all ${editingGroupColor === color.value
-                                      ? "border-foreground scale-110"
-                                      : "border-border hover:border-foreground/50"
-                                      }`}
-                                    style={{ backgroundColor: color.value }}
-                                    title={color.name}
                                   />
-                                ))}
+                                  {showColorPicker === group.id && (
+                                    <div className="absolute left-0 top-6 z-50 flex flex-wrap gap-2 p-2 rounded-lg border bg-popover shadow-lg" onClick={(e) => e.stopPropagation()}>
+                                      {GROUP_COLORS.map((color) => (
+                                        <button
+                                          key={color.value}
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingGroupColor(color.value);
+                                            setShowColorPicker(null);
+                                          }}
+                                          className={`h-6 w-6 rounded-full border-2 transition-all ${editingGroupColor === color.value
+                                            ? "border-foreground scale-110"
+                                            : "border-border hover:border-foreground/50"
+                                            }`}
+                                          style={{ backgroundColor: color.value }}
+                                          title={color.name}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <Input
+                                  value={editingGroupName}
+                                  onChange={(e) => setEditingGroupName(e.target.value)}
+                                  className="flex-1 h-7 text-sm"
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      handleSaveGroup(group.id);
+                                    } else if (e.key === "Escape") {
+                                      handleCancelEditGroup();
+                                    }
+                                  }}
+                                  autoFocus
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSaveGroup(group.id);
+                                  }}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelEditGroup();
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
                               </div>
-                            )}
-                          </div>
-                          <Input
-                            value={editingGroupName}
-                            onChange={(e) => setEditingGroupName(e.target.value)}
-                            className="flex-1 h-7 text-sm"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleSaveGroup(group.id);
-                              } else if (e.key === "Escape") {
-                                handleCancelEditGroup();
-                              }
-                            }}
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSaveGroup(group.id);
-                            }}
-                          >
-                            <Check className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCancelEditGroup();
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div
-                          className={cn(
-                            "group/folder flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer transition-all",
-                            dragOverGroupId === group.id && draggedBucketId 
-                              ? "bg-blue-500/20 border-2 border-blue-500 border-solid shadow-lg rounded-lg" 
-                              : ""
-                          )}
-                          onClick={() => onToggleGroup(group.id)}
-                          onDragOver={(e) => {
-                            // Only handle if dragging a bucket
-                            if (draggedBucketId) {
-                              handleDragOver(e, group.id);
-                            }
-                          }}
-                          onDragLeave={(e) => {
-                            // Only clear if we're actually leaving this element
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = e.clientX;
-                            const y = e.clientY;
-                            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-                              handleDragLeave();
-                            }
-                          }}
-                          onDrop={(e) => handleDrop(e, group.id)}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                          <div
-                            className="h-3 w-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: group.color || "#6b7280" }}
-                          />
-                          <span className="flex-1 truncate">{group.name}</span>
-                          <span className="text-xs opacity-50">({groupBuckets.length})</span>
-                          <div
-                            className="flex items-center gap-1 opacity-0 transition-opacity group-hover/folder:opacity-100"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartEditGroup(group);
-                              }}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteGroup(group.id);
-                              }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                      {isExpanded && (
-                        <div
-                          className={cn(
-                            "ml-4 space-y-1 transition-all rounded-lg min-h-[20px] mt-1",
-                            dragOverGroupId === group.id && draggedBucketId && "bg-blue-500/20 border-2 border-blue-500 border-dashed p-2"
-                          )}
-                          onDragOver={(e) => {
-                            // Only handle if dragging a bucket
-                            if (draggedBucketId) {
-                              handleDragOver(e, group.id);
-                            }
-                          }}
-                          onDragLeave={(e) => {
-                            // Only clear if we're actually leaving this element
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const x = e.clientX;
-                            const y = e.clientY;
-                            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-                              handleDragLeave();
-                            }
-                          }}
-                          onDrop={(e) => handleDrop(e, group.id)}
-                        >
-                          {groupBuckets.length === 0 ? (
-                            <div className={cn(
-                              "px-2 py-1 text-xs text-muted-foreground transition-all",
-                              dragOverGroupId === group.id && draggedBucketId && "text-blue-600 dark:text-blue-400 font-medium"
-                            )}>
-                              {dragOverGroupId === group.id && draggedBucketId ? "Drop here to add bucket" : "No buckets in this folder"}
-                            </div>
-                          ) : (
-                            groupBuckets.map(([bucketId, config]) => (
+                            ) : (
                               <div
-                                key={bucketId}
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, bucketId)}
-                                onDragEnd={handleDragEnd}
                                 className={cn(
-                                  "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
-                                  selectedBucket === bucketId
-                                    ? "bg-accent text-accent-foreground"
-                                    : "",
-                                  draggedBucketId === bucketId && "opacity-50"
+                                  "group/folder flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer transition-all",
+                                  dragOverGroupId === group.id && draggedBucketId
+                                    ? "bg-blue-500/20 border-2 border-blue-500 border-solid shadow-lg rounded-lg"
+                                    : ""
                                 )}
-                                onClick={(e) => {
-                                  // Don't select if we just finished dragging
-                                  if (draggedBucketId !== bucketId) {
-                                    onBucketSelect(bucketId);
+                                onClick={() => onToggleGroup(group.id)}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  // Only handle if dragging a bucket
+                                  if (draggedBucketId) {
+                                    handleDragOver(e, group.id);
                                   }
                                 }}
-                                title={config.nickname}
+                                onDragLeave={(e) => {
+                                  // Only clear if we're actually leaving this element
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const x = e.clientX;
+                                  const y = e.clientY;
+                                  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                                    handleDragLeave();
+                                  }
+                                }}
+                                onDrop={(e) => handleDrop(e, group.id)}
                               >
-                                <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
-                                  <GripVertical
-                                    className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-                                    onMouseDown={(e) => {
-                                      e.stopPropagation();
-                                      // Start drag from grip icon
-                                      const bucketElement = e.currentTarget.closest('[draggable="true"]') as HTMLElement;
-                                      if (bucketElement) {
-                                        // Trigger drag start manually if needed
-                                      }
-                                    }}
-                                  />
-                                  <Folder className="h-4 w-4 flex-shrink-0" />
-                                  <span className="truncate text-sm font-medium min-w-0">
-                                    {config.nickname}
-                                  </span>
-                                </div>
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
                                 <div
-                                  className="flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                                  className="h-3 w-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: group.color || "#6b7280" }}
+                                />
+                                <span className="flex-1 truncate">{group.name}</span>
+                                <span className="text-xs opacity-50">({groupBuckets.length})</span>
+                                <div
+                                  className="flex items-center gap-1 opacity-0 transition-opacity group-hover/folder:opacity-100"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <Button
@@ -600,7 +525,7 @@ export default function Sidebar({
                                     className="h-6 w-6"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onEditBucket(bucketId);
+                                      handleStartEditGroup(group);
                                     }}
                                   >
                                     <Pencil className="h-3 w-3" />
@@ -611,19 +536,119 @@ export default function Sidebar({
                                     className="h-6 w-6"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onDeleteBucket(bucketId);
+                                      handleDeleteGroup(group.id);
                                     }}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
+                            )}
+                            {isExpanded && (
+                              <div
+                                className={cn(
+                                  "ml-4 space-y-1 transition-all rounded-lg min-h-[20px] mt-1",
+                                  dragOverGroupId === group.id && draggedBucketId && "bg-blue-500/20 border-2 border-blue-500 border-dashed p-2"
+                                )}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  // Only handle if dragging a bucket
+                                  if (draggedBucketId) {
+                                    handleDragOver(e, group.id);
+                                  }
+                                }}
+                                onDragLeave={(e) => {
+                                  // Only clear if we're actually leaving this element
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const x = e.clientX;
+                                  const y = e.clientY;
+                                  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                                    handleDragLeave();
+                                  }
+                                }}
+                                onDrop={(e) => handleDrop(e, group.id)}
+                              >
+                                {groupBuckets.length === 0 ? (
+                                  <div className={cn(
+                                    "px-2 py-1 text-xs text-muted-foreground transition-all",
+                                    dragOverGroupId === group.id && draggedBucketId && "text-blue-600 dark:text-blue-400 font-medium"
+                                  )}>
+                                    {dragOverGroupId === group.id && draggedBucketId ? "Drop here to add bucket" : "No buckets in this folder"}
+                                  </div>
+                                ) : (
+                                  groupBuckets.map(([bucketId, config]) => (
+                                    <div
+                                      key={bucketId}
+                                      draggable
+                                      onDragStart={(e) => handleDragStart(e, bucketId)}
+                                      onDragEnd={handleDragEnd}
+                                      className={cn(
+                                        "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
+                                        selectedBucket === bucketId
+                                          ? "bg-accent text-accent-foreground"
+                                          : "",
+                                        draggedBucketId === bucketId && "opacity-50"
+                                      )}
+                                      onClick={(e) => {
+                                        // Don't select if we just finished dragging
+                                        if (draggedBucketId !== bucketId) {
+                                          onBucketSelect(bucketId);
+                                        }
+                                      }}
+                                      title={config.nickname}
+                                    >
+                                      <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
+                                        <GripVertical
+                                          className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                                          onMouseDown={(e) => {
+                                            e.stopPropagation();
+                                            // Start drag from grip icon
+                                            const bucketElement = e.currentTarget.closest('[draggable="true"]') as HTMLElement;
+                                            if (bucketElement) {
+                                              // Trigger drag start manually if needed
+                                            }
+                                          }}
+                                        />
+                                        <Folder className="h-4 w-4 flex-shrink-0" />
+                                        <span className="truncate text-sm font-medium min-w-0">
+                                          {config.nickname}
+                                        </span>
+                                      </div>
+                                      <div
+                                        className="flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-6 w-6"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditBucket(bucketId);
+                                          }}
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-6 w-6"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteBucket(bucketId);
+                                          }}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
                       })}
                     </div>
                   </div>
@@ -631,11 +656,11 @@ export default function Sidebar({
 
                 {/* Ungrouped Buckets Section - Always show when dragging */}
                 {(bucketsByGroup.ungrouped.length > 0 || draggedBucketId) && (
-                  <div 
+                  <div
                     className={cn(
                       "space-y-1 p-3 rounded-lg border transition-all",
-                      dragOverGroupId === null && draggedBucketId 
-                        ? "border-blue-500 bg-blue-500/10 border-2 border-dashed" 
+                      dragOverGroupId === null && draggedBucketId
+                        ? "border-blue-500 bg-blue-500/10 border-2 border-dashed"
                         : draggedBucketId ? "border-border" : "border-border/30",
                       bucketsByGroup.ungrouped.length === 0 && draggedBucketId && "min-h-[60px] flex items-center justify-center"
                     )}
@@ -644,6 +669,9 @@ export default function Sidebar({
                       e.stopPropagation();
                       if (draggedBucketId) {
                         handleDragOver(e, null);
+                      } else {
+                        // Still need to prevent default even if no bucket is being dragged
+                        // to allow the drop zone to be active
                       }
                     }}
                     onDragLeave={(e) => {
@@ -667,71 +695,71 @@ export default function Sidebar({
                       </div>
                     ) : (
                       bucketsByGroup.ungrouped.map(([bucketId, config]) => (
-                      <div
-                        key={bucketId}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, bucketId)}
-                        onDragEnd={handleDragEnd}
-                        className={cn(
-                          "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
-                          selectedBucket === bucketId
-                            ? "bg-accent text-accent-foreground"
-                            : "",
-                          draggedBucketId === bucketId && "opacity-50"
-                        )}
-                        onClick={(e) => {
-                          // Don't select if we just finished dragging
-                          if (draggedBucketId !== bucketId) {
-                            onBucketSelect(bucketId);
-                          }
-                        }}
-                        title={config.nickname}
-                      >
-                        <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
-                          <GripVertical
-                            className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                          />
-                          <Folder className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate text-sm font-medium min-w-0">
-                            {config.nickname}
-                          </span>
-                        </div>
                         <div
-                          className="flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100"
-                          onClick={(e) => e.stopPropagation()}
+                          key={bucketId}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, bucketId)}
+                          onDragEnd={handleDragEnd}
+                          className={cn(
+                            "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
+                            selectedBucket === bucketId
+                              ? "bg-accent text-accent-foreground"
+                              : "",
+                            draggedBucketId === bucketId && "opacity-50"
+                          )}
+                          onClick={(e) => {
+                            // Don't select if we just finished dragging
+                            if (draggedBucketId !== bucketId) {
+                              onBucketSelect(bucketId);
+                            }
+                          }}
+                          title={config.nickname}
                         >
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditBucket(bucketId);
-                            }}
+                          <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
+                            <GripVertical
+                              className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                            />
+                            <Folder className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate text-sm font-medium min-w-0">
+                              {config.nickname}
+                            </span>
+                          </div>
+                          <div
+                            className="flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteBucket(bucketId);
-                            }}
-                          >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditBucket(bucketId);
+                              }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteBucket(bucketId);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
                     )}
                   </div>
                 )}
-                
+
                 {/* Show "No buckets found" message only if searching and no buckets match AND no folders exist */}
                 {filteredBuckets.length === 0 && sortedGroups.length === 0 && searchQuery.trim() && (
                   <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">

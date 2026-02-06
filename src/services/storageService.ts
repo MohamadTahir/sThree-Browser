@@ -103,13 +103,15 @@ export async function loadConfigs(): Promise<BucketConfigs> {
 
 export async function saveConfigs(configs: BucketConfigs): Promise<void> {
   if (isTauri()) {
-    // Tauri commands handle saving automatically, so we don't need to do anything here
-    // The individual commands (add/update/delete) handle saving
-    // Just ensure active_bucket is set if needed
+    // For Tauri, we need to save groups separately since they're not handled by bucket commands
+    // Groups are saved via their own commands (create_group, update_group, delete_group)
+    // But we still need to ensure active_bucket is set if needed
     if (configs.active_bucket !== null) {
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("set_active_bucket", { bucketId: configs.active_bucket });
     }
+    // Note: Groups are managed through individual commands, not through saveConfigs
+    // This function is mainly for web version compatibility
   } else {
     // Use localStorage for web (with encryption)
     const masterPassword = getMasterPasswordFromMemory();
@@ -275,51 +277,89 @@ export async function setActiveBucket(bucketId: string | null): Promise<void> {
 
 // Group management functions
 export async function createGroup(name: string, color?: string): Promise<string> {
-  const configs = await loadConfigs();
-  const groupId = `group_${name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
+  if (isTauri()) {
+    // Use Tauri Rust command for desktop
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<string>("create_group", {
+      name,
+      color: color || null,
+    });
+  } else {
+    // Use localStorage for web
+    const configs = await loadConfigs();
+    const groupId = `group_${name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
 
-  configs.groups[groupId] = {
-    id: groupId,
-    name,
-    color,
-  };
-
-  await saveConfigs(configs);
-  return groupId;
-}
-
-export async function updateGroup(groupId: string, name: string, color?: string): Promise<void> {
-  const configs = await loadConfigs();
-  if (configs.groups[groupId]) {
     configs.groups[groupId] = {
-      ...configs.groups[groupId],
+      id: groupId,
       name,
       color,
     };
+
     await saveConfigs(configs);
+    return groupId;
+  }
+}
+
+export async function updateGroup(groupId: string, name: string, color?: string): Promise<void> {
+  if (isTauri()) {
+    // Use Tauri Rust command for desktop
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("update_group", {
+      groupId,
+      name,
+      color: color || null,
+    });
+  } else {
+    // Use localStorage for web
+    const configs = await loadConfigs();
+    if (configs.groups[groupId]) {
+      configs.groups[groupId] = {
+        ...configs.groups[groupId],
+        name,
+        color,
+      };
+      await saveConfigs(configs);
+    }
   }
 }
 
 export async function deleteGroup(groupId: string): Promise<void> {
-  const configs = await loadConfigs();
+  if (isTauri()) {
+    // Use Tauri Rust command for desktop
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("delete_group", { groupId });
+  } else {
+    // Use localStorage for web
+    const configs = await loadConfigs();
 
-  // Remove group
-  delete configs.groups[groupId];
+    // Remove group
+    delete configs.groups[groupId];
 
-  // Remove group_id from all buckets in this group
-  for (const bucketId in configs.buckets) {
-    if (configs.buckets[bucketId].group_id === groupId) {
-      configs.buckets[bucketId].group_id = null;
+    // Remove group_id from all buckets in this group
+    for (const bucketId in configs.buckets) {
+      if (configs.buckets[bucketId].group_id === groupId) {
+        configs.buckets[bucketId].group_id = null;
+      }
     }
-  }
 
-  await saveConfigs(configs);
+    await saveConfigs(configs);
+  }
 }
 
 export async function addBucketToGroup(bucketId: string, groupId: string | null): Promise<void> {
-  const configs = await loadConfigs();
-  if (configs.buckets[bucketId]) {
-    configs.buckets[bucketId].group_id = groupId;
-    await saveConfigs(configs);
+  if (isTauri()) {
+    // Use Tauri Rust command for desktop
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("add_bucket_to_group", {
+      bucketId,
+      groupId: groupId || null,
+    });
+  } else {
+    // Use localStorage for web
+    const configs = await loadConfigs();
+    if (configs.buckets[bucketId]) {
+      configs.buckets[bucketId].group_id = groupId;
+      await saveConfigs(configs);
+    }
   }
 }

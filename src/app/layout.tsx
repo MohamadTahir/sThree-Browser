@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "../index.css";
 
 export const metadata: Metadata = {
-  title: "S3 Browser",
+  title: "sThree Browser",
   description: "Modern S3 Bucket Browser Desktop Application",
   icons: {
     icon: "/favicon.png",

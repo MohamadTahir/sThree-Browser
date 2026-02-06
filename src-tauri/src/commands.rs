@@ -8,7 +8,6 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -100,33 +99,8 @@ async fn get_or_create_client(
     // IMPORTANT: Never set an empty endpoint URL as it causes DNS resolution errors
     let mut use_custom_endpoint = false;
     if let Some(endpoint) = &bucket_config.endpoint {
-        let trimmed = endpoint.trim();
-        if !trimmed.is_empty() && trimmed != "null" && trimmed != "undefined" {
-            // Normalize endpoint URL: add https:// if no protocol specified
-            let clean_endpoint = trimmed.trim_end_matches('/').trim();
-
-            // Parse and validate the endpoint URL
-            let final_endpoint = if clean_endpoint.starts_with("http://") || clean_endpoint.starts_with("https://") {
-                // Already has protocol - use as-is but ensure it's clean
-                let url = clean_endpoint.trim_start_matches("http://").trim_start_matches("https://");
-                if url.is_empty() {
-                    return Err(format!("Invalid endpoint URL: '{}'", clean_endpoint));
-                }
-                clean_endpoint.to_string()
-            } else {
-                // No protocol - add https://
-                if clean_endpoint.is_empty() {
-                    return Err("Invalid endpoint: empty value".to_string());
-                }
-                format!("https://{}", clean_endpoint)
-            };
-
-            // Validate the URL format
-            if !final_endpoint.starts_with("http://") && !final_endpoint.starts_with("https://") {
-                return Err(format!("Invalid endpoint URL format: '{}'", final_endpoint));
-            }
-
-            config_builder = config_builder.endpoint_url(&final_endpoint);
+        if !endpoint.is_empty() {
+            config_builder = config_builder.endpoint_url(endpoint);
             use_custom_endpoint = true;
         }
     }
@@ -183,20 +157,19 @@ pub async fn list_objects(
     app: AppHandle,
     bucket_id: String,
     bucket_name: String,
-    prefix: Option<String>,
-    max_keys: Option<i32>,
+    prefix: String,
     continuation_token: Option<String>,
+    page_size: Option<i32>,
 ) -> Result<ListObjectsResponse, String> {
     let client = get_or_create_client(&app, &bucket_id).await?;
 
-    let prefix = prefix.unwrap_or_default();
-    let page_size = max_keys.unwrap_or(100); // Default to 100 items per page
+    let max_keys = page_size.unwrap_or(100).min(1000);
 
     let mut request = client
         .list_objects_v2()
         .bucket(&bucket_name)
         .delimiter("/")
-        .max_keys(page_size);
+        .max_keys(max_keys);
 
     if !prefix.is_empty() {
         request = request.prefix(&prefix);
@@ -250,7 +223,7 @@ pub async fn list_objects(
         common_prefixes,
         next_continuation_token: response.next_continuation_token().map(|s| s.to_string()),
         is_truncated: response.is_truncated().unwrap_or(false),
-        max_keys: page_size,
+        max_keys,
     })
 }
 
@@ -297,183 +270,21 @@ pub async fn get_object_content(
 #[tauri::command]
 pub fn get_download_dir() -> Result<serde_json::Value, String> {
     let download_dir = dirs::download_dir()
-        .ok_or_else(|| "Failed to get download directory".to_string())?
-        .to_string_lossy()
-        .to_string();
-
-    Ok(serde_json::json!({ "downloadDir": download_dir }))
+        .ok_or_else(|| "Failed to get download directory".to_string())?;
+    Ok(serde_json::json!({
+        "path": download_dir.to_string_lossy().to_string()
+    }))
 }
 
 #[tauri::command]
 pub fn get_dirname(path: String) -> Result<serde_json::Value, String> {
     let path_buf = PathBuf::from(&path);
-
-    // Normalize the path - ensure it's absolute
-    let normalized_path = if path_buf.is_absolute() {
-        path_buf
-    } else {
-        // If relative, try to make it absolute
-        std::env::current_dir()
-            .map_err(|e| format!("Failed to get current directory: {}", e))?
-            .join(path_buf)
-    };
-
-    // Canonicalize to resolve any symlinks and get the absolute path
-    let canonical_path = normalized_path.canonicalize()
-        .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
-
-
-    let dirname = canonical_path
+    let dirname = path_buf
         .parent()
         .ok_or_else(|| "Failed to get directory name".to_string())?
         .to_string_lossy()
         .to_string();
-
-
     Ok(serde_json::json!({ "dirname": dirname }))
-}
-
-#[tauri::command]
-pub async fn open_folder(path: String) -> Result<(), String> {
-    use std::process::Command;
-
-
-    // Get the directory containing the file
-    let path_buf = PathBuf::from(&path);
-
-    // Check if it's a file or directory
-    let dir_path = if let Ok(metadata) = fs::metadata(&path_buf) {
-        if metadata.is_file() {
-            // It's a file, get its parent directory
-            path_buf.parent()
-                .ok_or_else(|| "Failed to get parent directory".to_string())?
-                .to_path_buf()
-        } else {
-            // It's already a directory
-            path_buf
-        }
-    } else {
-        // If we can't check metadata, assume it's a file and get parent
-        path_buf.parent()
-            .ok_or_else(|| "Failed to get parent directory".to_string())?
-            .to_path_buf()
-    };
-
-    // Canonicalize the path
-    let canonical_dir = dir_path.canonicalize()
-        .map_err(|e| format!("Failed to canonicalize directory path: {}", e))?;
-
-    let dir_str = canonical_dir.to_string_lossy().to_string();
-
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("explorer")
-            .arg(&dir_str)
-            .spawn()
-            .map_err(|e| format!("Failed to open folder: {}", e))?;
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg(&dir_str)
-            .spawn()
-            .map_err(|e| format!("Failed to open folder: {}", e))?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        Command::new("xdg-open")
-            .arg(&dir_str)
-            .spawn()
-            .map_err(|e| format!("Failed to open folder: {}", e))?;
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn save_file_to_downloads(
-    file_name: String,
-    file_data: Vec<u8>,
-) -> Result<String, String> {
-    let download_dir = dirs::download_dir()
-        .ok_or_else(|| "Failed to get download directory".to_string())?;
-
-    let file_path = download_dir.join(&file_name);
-
-    // Handle duplicate file names by appending a number
-    let mut final_path = file_path.clone();
-    let mut counter = 1;
-    while final_path.exists() {
-        let stem = file_path.file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
-        let extension = file_path.extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
-
-        let new_name = if extension.is_empty() {
-            format!("{} ({})", stem, counter)
-        } else {
-            format!("{} ({}).{}", stem, counter, extension)
-        };
-
-        final_path = download_dir.join(new_name);
-        counter += 1;
-    }
-
-    // Write the file
-    let mut file = fs::File::create(&final_path)
-        .map_err(|e| format!("Failed to create file: {}", e))?;
-
-    file.write_all(&file_data)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
-
-    file.sync_all()
-        .map_err(|e| format!("Failed to sync file: {}", e))?;
-
-    // Return the absolute path as a string
-    Ok(final_path.to_string_lossy().to_string())
-}
-
-#[tauri::command]
-pub async fn open_file(path: String) -> Result<(), String> {
-    use std::process::Command;
-
-
-    // Canonicalize the path to ensure it's absolute and exists
-    let path_buf = PathBuf::from(&path);
-    let canonical_path = path_buf.canonicalize()
-        .map_err(|e| format!("Failed to canonicalize file path: {}", e))?;
-
-    let file_str = canonical_path.to_string_lossy().to_string();
-
-    #[cfg(target_os = "windows")]
-    {
-        Command::new("cmd")
-            .args(["/C", "start", "", &file_str])
-            .spawn()
-            .map_err(|e| format!("Failed to open file: {}", e))?;
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        Command::new("open")
-            .arg(&file_str)
-            .spawn()
-            .map_err(|e| format!("Failed to open file: {}", e))?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        Command::new("xdg-open")
-            .arg(&file_str)
-            .spawn()
-            .map_err(|e| format!("Failed to open file: {}", e))?;
-    }
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -484,14 +295,14 @@ pub async fn get_presigned_url(
     key: String,
     expires_in: Option<u64>,
 ) -> Result<String, String> {
-
     let client = get_or_create_client(&app, &bucket_id).await?;
 
-    let expires_in_secs = expires_in.unwrap_or(3600); // Default 1 hour
-    let presigning_config = PresigningConfig::expires_in(Duration::from_secs(expires_in_secs))
+    let expires = expires_in.unwrap_or(3600);
+
+    let presigning_config = PresigningConfig::expires_in(Duration::from_secs(expires))
         .map_err(|e| format!("Failed to create presigning config: {}", e))?;
 
-    let presigned_request = client
+    let request = client
         .get_object()
         .bucket(&bucket_name)
         .key(&key)
@@ -499,7 +310,7 @@ pub async fn get_presigned_url(
         .await
         .map_err(|e| format!("Failed to generate presigned URL: {}", e))?;
 
-    Ok(presigned_request.uri().to_string())
+    Ok(request.uri().to_string())
 }
 
 #[tauri::command]
@@ -508,14 +319,13 @@ pub async fn delete_object(
     bucket_id: String,
     bucket_name: String,
     key: String,
-    delete_all_versions: Option<bool>,
+    delete_all_versions: bool,
 ) -> Result<(), String> {
     let client = get_or_create_client(&app, &bucket_id).await?;
-    let delete_all = delete_all_versions.unwrap_or(false);
 
-    if delete_all {
-        // List all versions of the object
-        let list_versions_response = client
+    if delete_all_versions {
+        // List all versions
+        let versions_response = client
             .list_object_versions()
             .bucket(&bucket_name)
             .prefix(&key)
@@ -523,38 +333,46 @@ pub async fn delete_object(
             .await
             .map_err(|e| format!("Failed to list object versions: {}", e))?;
 
-        let mut versions_to_delete = Vec::new();
+        let mut objects_to_delete = Vec::new();
 
         // Add all versions
-        for version in list_versions_response.versions() {
-            if version.key().map(|k| k == &key).unwrap_or(false) {
-                versions_to_delete.push(
-                    aws_sdk_s3::types::ObjectIdentifier::builder()
-                        .key(&key)
-                        .set_version_id(version.version_id().map(|s: &str| s.to_string()))
-                        .build()
-                        .map_err(|e| format!("Failed to build object identifier: {}", e))?,
-                );
+        for version in versions_response.versions() {
+            if let Some(version_key) = version.key() {
+                if version_key == key {
+                    if let Some(version_id) = version.version_id() {
+                        objects_to_delete.push(
+                            aws_sdk_s3::types::ObjectIdentifier::builder()
+                                .key(key.clone())
+                                .version_id(version_id)
+                                .build()
+                                .map_err(|e| format!("Failed to build object identifier: {}", e))?,
+                        );
+                    }
+                }
             }
         }
 
         // Add delete markers
-        for marker in list_versions_response.delete_markers() {
-            if marker.key().map(|k| k == &key).unwrap_or(false) {
-                versions_to_delete.push(
-                    aws_sdk_s3::types::ObjectIdentifier::builder()
-                        .key(&key)
-                        .set_version_id(marker.version_id().map(|s: &str| s.to_string()))
-                        .build()
-                        .map_err(|e| format!("Failed to build object identifier: {}", e))?,
-                );
+        for marker in versions_response.delete_markers() {
+            if let Some(marker_key) = marker.key() {
+                if marker_key == key {
+                    if let Some(version_id) = marker.version_id() {
+                        objects_to_delete.push(
+                            aws_sdk_s3::types::ObjectIdentifier::builder()
+                                .key(key.clone())
+                                .version_id(version_id)
+                                .build()
+                                .map_err(|e| format!("Failed to build object identifier: {}", e))?,
+                        );
+                    }
+                }
             }
         }
 
-        // Delete all versions in batches (S3 allows up to 1000 objects per request)
-        if !versions_to_delete.is_empty() {
+        // Delete in batches (S3 allows up to 1000 objects per request)
+        if !objects_to_delete.is_empty() {
             let batch_size = 1000;
-            for chunk in versions_to_delete.chunks(batch_size) {
+            for chunk in objects_to_delete.chunks(batch_size) {
                 let objects: Vec<aws_sdk_s3::types::ObjectIdentifier> = chunk.to_vec();
                 client
                     .delete_objects()
@@ -619,6 +437,7 @@ pub async fn add_bucket_config(
         secret_key,
         region,
         endpoint,
+        group_id: None,
     };
 
     configs.buckets.insert(bucket_id.clone(), config);
@@ -657,13 +476,6 @@ pub async fn delete_bucket_config(app: AppHandle, bucket_id: String) -> Result<(
 
     save_configs(&app, &configs).await.map_err(|e| e.to_string())?;
 
-    // Clear cached client
-    if let Ok(mut clients_guard) = S3_CLIENTS.lock() {
-        if let Some(clients) = clients_guard.as_mut() {
-            clients.remove(&bucket_id);
-        }
-    }
-
     Ok(())
 }
 
@@ -697,6 +509,9 @@ pub async fn update_bucket_config(
         ));
     }
 
+    // Preserve group_id from existing config
+    let existing_group_id = configs.buckets.get(&bucket_id).and_then(|c| c.group_id.clone());
+
     let config = BucketConfig {
         nickname: nickname.clone(),
         bucket_name,
@@ -704,6 +519,7 @@ pub async fn update_bucket_config(
         secret_key,
         region,
         endpoint,
+        group_id: existing_group_id,
     };
 
     configs.buckets.insert(bucket_id.clone(), config);
@@ -747,4 +563,187 @@ pub async fn clear_all_configs(app: AppHandle) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn save_file_to_downloads(
+    file_name: String,
+    file_data: Vec<u8>,
+) -> Result<String, String> {
+    let download_dir = dirs::download_dir()
+        .ok_or_else(|| "Failed to get download directory".to_string())?;
+
+    let file_path = download_dir.join(&file_name);
+
+    fs::write(&file_path, file_data)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn open_folder(path: String) -> Result<(), String> {
+    use std::process::Command;
+
+    // Get the directory containing the file
+    let path_buf = PathBuf::from(&path);
+
+    // Check if it's a file or directory
+    let dir_path = if let Ok(metadata) = fs::metadata(&path_buf) {
+        if metadata.is_file() {
+            // It's a file, get its parent directory
+            path_buf.parent()
+                .ok_or_else(|| "Failed to get parent directory".to_string())?
+                .to_path_buf()
+        } else {
+            // It's already a directory
+            path_buf
+        }
+    } else {
+        // If we can't check metadata, assume it's a file and get parent
+        path_buf.parent()
+            .ok_or_else(|| "Failed to get parent directory".to_string())?
+            .to_path_buf()
+    };
+
+    // Canonicalize the path
+    let canonical_dir = dir_path.canonicalize()
+        .map_err(|e| format!("Failed to canonicalize directory path: {}", e))?;
+
+    let dir_str = canonical_dir.to_string_lossy().to_string();
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&dir_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&dir_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&dir_str)
+            .spawn()
+            .map_err(|e| format!("Failed to open folder: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_file(path: String) -> Result<(), String> {
+    use std::process::Command;
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", &path])
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn create_group(
+    app: AppHandle,
+    name: String,
+    color: Option<String>,
+) -> Result<String, String> {
+    use crate::store::Group;
+    let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
+
+    let group_id = format!("group_{}_{}", name.to_lowercase().replace(' ', "_"), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
+
+    let group = Group {
+        id: group_id.clone(),
+        name,
+        color,
+    };
+
+    configs.groups.insert(group_id.clone(), group);
+    save_configs(&app, &configs).await.map_err(|e| e.to_string())?;
+
+    Ok(group_id)
+}
+
+#[tauri::command]
+pub async fn update_group(
+    app: AppHandle,
+    group_id: String,
+    name: String,
+    color: Option<String>,
+) -> Result<(), String> {
+    let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
+
+    if let Some(group) = configs.groups.get_mut(&group_id) {
+        group.name = name;
+        group.color = color;
+        save_configs(&app, &configs).await.map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err(format!("Group not found: {}", group_id))
+    }
+}
+
+#[tauri::command]
+pub async fn delete_group(app: AppHandle, group_id: String) -> Result<(), String> {
+    let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
+
+    // Remove group
+    configs.groups.remove(&group_id);
+
+    // Remove group_id from all buckets in this group
+    for bucket_config in configs.buckets.values_mut() {
+        if bucket_config.group_id.as_ref() == Some(&group_id) {
+            bucket_config.group_id = None;
+        }
+    }
+
+    save_configs(&app, &configs).await.map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn add_bucket_to_group(
+    app: AppHandle,
+    bucket_id: String,
+    group_id: Option<String>,
+) -> Result<(), String> {
+    let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
+
+    if let Some(bucket_config) = configs.buckets.get_mut(&bucket_id) {
+        bucket_config.group_id = group_id;
+        save_configs(&app, &configs).await.map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err(format!("Bucket config not found: {}", bucket_id))
+    }
 }

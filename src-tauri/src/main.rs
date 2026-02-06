@@ -18,6 +18,11 @@ fn main() {
             delete_bucket_config,
             set_active_bucket,
             clear_all_configs,
+            // Group management
+            create_group,
+            update_group,
+            delete_group,
+            add_bucket_to_group,
             // S3 operations (all handled in Rust)
             list_buckets,
             list_objects,

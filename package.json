@@ -1,16 +1,15 @@
 {
-  "name": "s3-browser",
+  "name": "sthree-browser",
   "version": "1.0.0",
-  "description": "Modern S3 Bucket Browser Desktop Application",
+  "description": "Modern S3 Bucket Browser Desktop Application - sThree Browser",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 1420",
     "build": "next build --webpack",
-    "build:tauri": "next build --config-file next.config.tauri.js",
     "start": "next start",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "pnpm run build:tauri && tauri build"
+    "tauri:build": "CI=false tauri build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.982.0",

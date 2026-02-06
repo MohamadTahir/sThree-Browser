@@ -1,7 +1,7 @@
 [package]
-name = "s3-browser"
+name = "sthree-browser"
 version = "1.0.0"
-description = "Modern S3 Bucket Browser Desktop Application"
+description = "Modern S3 Bucket Browser Desktop Application - sThree Browser"
 authors = ["you"]
 license = ""
 repository = ""

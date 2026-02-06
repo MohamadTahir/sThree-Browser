@@ -1,7 +1,7 @@
 {
-  "productName": "S3 Browser",
+  "productName": "sThree Browser",
   "version": "1.0.0",
-  "identifier": "com.s3browser",
+  "identifier": "com.sthreebrowser",
   "build": {
     "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1420",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "S3 Browser",
+        "title": "sThree Browser",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
