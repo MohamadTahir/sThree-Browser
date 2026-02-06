@@ -2,7 +2,7 @@ use crate::store::{load_configs, save_configs, BucketConfig, BucketConfigs};
 use aws_config::{BehaviorVersion, Region, SdkConfig};
 use aws_credential_types::Credentials;
 use aws_sdk_s3::primitives::DateTime;
-use aws_sdk_s3::Client as S3Client;
+use aws_sdk_s3::{Client as S3Client, presigning::PresigningConfig};
 use aws_types::sdk_config::SharedCredentialsProvider;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,7 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::AppHandle;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -517,6 +518,119 @@ pub async fn open_file(path: String) -> Result<(), String> {
             .arg(&file_str)
             .spawn()
             .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_presigned_url(
+    app: AppHandle,
+    bucket_id: String,
+    bucket_name: String,
+    key: String,
+    expires_in: Option<u64>,
+) -> Result<String, String> {
+    eprintln!("get_presigned_url called - bucket_id: {}, bucket_name: {}, key: {}", bucket_id, bucket_name, key);
+
+    let client = get_or_create_client(&app, &bucket_id).await?;
+
+    let expires_in_secs = expires_in.unwrap_or(3600); // Default 1 hour
+    let presigning_config = PresigningConfig::expires_in(Duration::from_secs(expires_in_secs))
+        .map_err(|e| format!("Failed to create presigning config: {}", e))?;
+
+    let presigned_request = client
+        .get_object()
+        .bucket(&bucket_name)
+        .key(&key)
+        .presigned(presigning_config)
+        .await
+        .map_err(|e| format!("Failed to generate presigned URL: {}", e))?;
+
+    Ok(presigned_request.uri().to_string())
+}
+
+#[tauri::command]
+pub async fn delete_object(
+    app: AppHandle,
+    bucket_id: String,
+    bucket_name: String,
+    key: String,
+    delete_all_versions: Option<bool>,
+) -> Result<(), String> {
+    eprintln!("delete_object called - bucket_id: {}, bucket_name: {}, key: {}, delete_all_versions: {:?}", 
+        bucket_id, bucket_name, key, delete_all_versions);
+
+    let client = get_or_create_client(&app, &bucket_id).await?;
+    let delete_all = delete_all_versions.unwrap_or(false);
+
+    if delete_all {
+        // List all versions of the object
+        let list_versions_response = client
+            .list_object_versions()
+            .bucket(&bucket_name)
+            .prefix(&key)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to list object versions: {}", e))?;
+
+        let mut versions_to_delete = Vec::new();
+
+        // Add all versions
+        for version in list_versions_response.versions() {
+            if version.key().map(|k| k == &key).unwrap_or(false) {
+                versions_to_delete.push(
+                    aws_sdk_s3::types::ObjectIdentifier::builder()
+                        .key(&key)
+                        .set_version_id(version.version_id().map(|s: &str| s.to_string()))
+                        .build()
+                        .map_err(|e| format!("Failed to build object identifier: {}", e))?,
+                );
+            }
+        }
+
+        // Add delete markers
+        for marker in list_versions_response.delete_markers() {
+            if marker.key().map(|k| k == &key).unwrap_or(false) {
+                versions_to_delete.push(
+                    aws_sdk_s3::types::ObjectIdentifier::builder()
+                        .key(&key)
+                        .set_version_id(marker.version_id().map(|s: &str| s.to_string()))
+                        .build()
+                        .map_err(|e| format!("Failed to build object identifier: {}", e))?,
+                );
+            }
+        }
+
+        // Delete all versions in batches (S3 allows up to 1000 objects per request)
+        if !versions_to_delete.is_empty() {
+            let batch_size = 1000;
+            for chunk in versions_to_delete.chunks(batch_size) {
+                let objects: Vec<aws_sdk_s3::types::ObjectIdentifier> = chunk.to_vec();
+                client
+                    .delete_objects()
+                    .bucket(&bucket_name)
+                    .delete(
+                        aws_sdk_s3::types::Delete::builder()
+                            .set_objects(Some(objects))
+                            .quiet(false)
+                            .build()
+                            .map_err(|e| format!("Failed to build delete request: {}", e))?,
+                    )
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to delete object versions: {}", e))?;
+            }
+        }
+    } else {
+        // Delete only the current version
+        client
+            .delete_object()
+            .bucket(&bucket_name)
+            .key(&key)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to delete object: {}", e))?;
     }
 
     Ok(())

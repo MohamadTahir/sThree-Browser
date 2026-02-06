@@ -1,85 +1,121 @@
-import { S3Client, ListBucketsCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand, ListObjectVersionsCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BucketConfig } from "../types";
+import { isTauri } from "./encryptionService";
 
-// Cache S3 clients by bucket ID
-const clientCache = new Map<string, S3Client>();
+// Proxy server URL (for web mode)
+const PROXY_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
 
-function createS3Client(config: BucketConfig): S3Client {
-  // Create static credentials provider
-  const credentials = async () => ({
-    accessKeyId: config.access_key,
-    secretAccessKey: config.secret_key,
-  });
-
-  const clientConfig: any = {
-    region: config.region,
-    credentials,
-  };
-
-  // Handle custom endpoint (for S3-compatible storage)
-  // Only set endpoint if explicitly provided (AWS S3 uses default endpoints)
-  if (config.endpoint && config.endpoint.trim()) {
-    let endpoint = config.endpoint.trim();
-
-    // Only add protocol if not already present
-    // Allow both http:// and https:// - don't force HTTPS
-    if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
-      // Default to https if no protocol specified
-      // User can explicitly use http:// for local development
-      endpoint = `https://${endpoint}`;
-    }
-
-    // Remove trailing slash
-    endpoint = endpoint.replace(/\/$/, "");
-
-    clientConfig.endpoint = endpoint;
-    clientConfig.forcePathStyle = true; // Required for S3-compatible storage
+// Helper to get bucketId from config (for Tauri mode)
+async function getBucketIdFromConfig(config: BucketConfig): Promise<string> {
+  const { loadConfigs } = await import("./storageService");
+  const configs = await loadConfigs();
+  
+  const bucketId = Object.keys(configs.buckets).find(
+    id => configs.buckets[id].nickname === config.nickname
+  );
+  
+  if (!bucketId) {
+    throw new Error("Bucket configuration not found");
   }
-  // If no endpoint is provided, AWS SDK will use default AWS S3 endpoints
-  // based on the region, which is the correct behavior for AWS S3
-
-  return new S3Client(clientConfig);
+  
+  return bucketId;
 }
 
-function getS3Client(config: BucketConfig): S3Client {
-  // Use nickname as cache key (or could use bucket_id)
-  const cacheKey = config.nickname;
+// Proxy API helpers (for web mode)
+async function proxyRequest(endpoint: string, body: any): Promise<any> {
+  try {
+    const response = await fetch(`${PROXY_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!clientCache.has(cacheKey)) {
-    clientCache.set(cacheKey, createS3Client(config));
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+
+      if (isJson) {
+        try {
+          const error = await response.json();
+          errorMessage = error.error || error.message || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, try to get text
+          const text = await response.text();
+          errorMessage = text || errorMessage;
+        }
+      } else {
+        // Not JSON, try to get text
+        try {
+          const text = await response.text();
+          errorMessage = text || errorMessage;
+        } catch (e) {
+          // Ignore text parsing errors
+        }
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    if (!isJson) {
+      const text = await response.text();
+      throw new Error(`Expected JSON response but got: ${contentType || 'unknown type'}. Response: ${text.substring(0, 100)}`);
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    // Handle network errors (proxy server not running, CORS, etc.)
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error(
+        `Failed to connect to proxy server at ${PROXY_URL}. ` +
+        `Make sure the proxy server is running (npm run dev:proxy). ` +
+        `Original error: ${error.message}`
+      );
+    }
+
+    // Re-throw other errors as-is
+    throw error;
   }
-
-  return clientCache.get(cacheKey)!;
 }
 
 export async function listBuckets(config: BucketConfig): Promise<string[]> {
-  const client = getS3Client(config);
-  const command = new ListBucketsCommand({});
-
-  let response;
-  try {
-    response = await client.send(command);
-  } catch (error: any) {
-    // Provide more helpful error messages
-    if (error.name === "UnknownEndpoint" || error.message?.includes("UnknownEndpoint")) {
-      throw new Error(`Invalid endpoint: ${config.endpoint}. Please check your endpoint URL.`);
+  // Use proxy for web, Tauri commands for desktop
+  if (!isTauri()) {
+    try {
+      const result = await proxyRequest('/api/s3/list-buckets', { config });
+      return result.buckets || [];
+    } catch (error: any) {
+      // Provide helpful error messages
+      if (error.message?.includes("InvalidAccessKeyId")) {
+        throw new Error("Invalid access key. Please check your credentials.");
+      }
+      if (error.message?.includes("SignatureDoesNotMatch")) {
+        throw new Error("Invalid secret key. Please check your credentials.");
+      }
+      throw error;
     }
-    if (error.name === "InvalidAccessKeyId" || error.message?.includes("InvalidAccessKeyId")) {
+  }
+
+  // Tauri mode: use Rust backend
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const bucketId = await getBucketIdFromConfig(config);
+    const buckets = await invoke<string[]>("list_buckets", { bucketId });
+    return buckets;
+  } catch (error: any) {
+    const errorMsg = error.message || String(error);
+    // Provide helpful error messages
+    if (errorMsg.includes("InvalidAccessKeyId")) {
       throw new Error("Invalid access key. Please check your credentials.");
     }
-    if (error.name === "SignatureDoesNotMatch" || error.message?.includes("SignatureDoesNotMatch")) {
+    if (errorMsg.includes("SignatureDoesNotMatch")) {
       throw new Error("Invalid secret key. Please check your credentials.");
     }
-    // Re-throw with original message if we can't provide a better one
-    throw new Error(error.message || String(error));
+    throw new Error(errorMsg);
   }
-
-  if (!response.Buckets) {
-    return [];
-  }
-
-  return response.Buckets.map(bucket => bucket.Name || "").filter(Boolean);
 }
 
 export interface ListObjectsOptions {
@@ -105,7 +141,6 @@ export async function listObjects(
   config: BucketConfig,
   options: ListObjectsOptions
 ): Promise<ListObjectsResult> {
-  const client = getS3Client(config);
   const {
     bucketName,
     prefix = "",
@@ -113,77 +148,85 @@ export async function listObjects(
     continuationToken,
   } = options;
 
-  const command = new ListObjectsV2Command({
-    Bucket: bucketName,
-    Prefix: prefix || undefined,
-    Delimiter: "/",
-    MaxKeys: maxKeys,
-    ContinuationToken: continuationToken,
-  });
-
-  let response;
-  try {
-    response = await client.send(command);
-  } catch (error: any) {
-    // Provide more helpful error messages
-    if (error.name === "UnknownEndpoint" || error.message?.includes("UnknownEndpoint")) {
-      throw new Error(`Invalid endpoint: ${config.endpoint}. Please check your endpoint URL.`);
+  // Use proxy for web, Tauri commands for desktop
+  if (!isTauri()) {
+    try {
+      console.log('Proxy request - listObjects:', {
+        nickname: config.nickname,
+        bucketName,
+        configBucketName: config.bucket_name,
+        prefix,
+      });
+      const result = await proxyRequest('/api/s3/list-objects', {
+        config,
+        bucketName,
+        prefix,
+        maxKeys,
+        continuationToken,
+      });
+      return {
+        objects: result.objects || [],
+        commonPrefixes: result.commonPrefixes || [],
+        nextContinuationToken: result.nextContinuationToken,
+        isTruncated: result.isTruncated || false,
+      };
+    } catch (error: any) {
+      // Provide helpful error messages
+      if (error.message?.includes("InvalidAccessKeyId")) {
+        throw new Error("Invalid access key. Please check your credentials.");
+      }
+      if (error.message?.includes("SignatureDoesNotMatch")) {
+        throw new Error("Invalid secret key. Please check your credentials.");
+      }
+      throw error;
     }
-    if (error.name === "InvalidAccessKeyId" || error.message?.includes("InvalidAccessKeyId")) {
+  }
+
+  // Tauri mode: use Rust backend
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const bucketId = await getBucketIdFromConfig(config);
+    
+    const response = await invoke<{
+      objects: Array<{
+        key: string;
+        size: number;
+        last_modified: string | null;
+        is_folder: boolean;
+      }>;
+      common_prefixes: string[];
+      next_continuation_token: string | null;
+      is_truncated: boolean;
+    }>("list_objects", {
+      bucketId,
+      bucketName,
+      prefix: prefix || null,
+      maxKeys: maxKeys || null,
+      continuationToken: continuationToken || null,
+    });
+    
+    return {
+      objects: response.objects.map(obj => ({
+        key: obj.key,
+        size: obj.size,
+        lastModified: obj.last_modified,
+        isFolder: obj.is_folder,
+      })),
+      commonPrefixes: response.common_prefixes,
+      nextContinuationToken: response.next_continuation_token || undefined,
+      isTruncated: response.is_truncated,
+    };
+  } catch (error: any) {
+    const errorMsg = error.message || String(error);
+    // Provide helpful error messages
+    if (errorMsg.includes("InvalidAccessKeyId")) {
       throw new Error("Invalid access key. Please check your credentials.");
     }
-    if (error.name === "SignatureDoesNotMatch" || error.message?.includes("SignatureDoesNotMatch")) {
+    if (errorMsg.includes("SignatureDoesNotMatch")) {
       throw new Error("Invalid secret key. Please check your credentials.");
     }
-    if (error.message?.includes("Failed to fetch") || error.message?.includes("CORS")) {
-      throw new Error(
-        `CORS error: Your S3 server at ${config.endpoint || "the configured endpoint"} needs to allow CORS requests from ${window.location.origin}. ` +
-        `Please configure CORS on your server to allow requests from this origin.`
-      );
-    }
-    // Re-throw with original message if we can't provide a better one
-    throw new Error(error.message || String(error));
+    throw new Error(errorMsg);
   }
-
-  const objects: ListObjectsResult["objects"] = [];
-  const commonPrefixes: string[] = [];
-
-  // Process common prefixes (folders)
-  if (response.CommonPrefixes) {
-    for (const prefixObj of response.CommonPrefixes) {
-      if (prefixObj.Prefix) {
-        commonPrefixes.push(prefixObj.Prefix);
-        objects.push({
-          key: prefixObj.Prefix,
-          size: 0,
-          lastModified: null,
-          isFolder: true,
-        });
-      }
-    }
-  }
-
-  // Process objects
-  if (response.Contents) {
-    for (const obj of response.Contents) {
-      if (obj.Key && !obj.Key.endsWith("/")) {
-        // Skip if already included as a common prefix
-        objects.push({
-          key: obj.Key,
-          size: obj.Size || 0,
-          lastModified: obj.LastModified?.toISOString() || null,
-          isFolder: false,
-        });
-      }
-    }
-  }
-
-  return {
-    objects,
-    commonPrefixes,
-    nextContinuationToken: response.NextContinuationToken,
-    isTruncated: response.IsTruncated || false,
-  };
 }
 
 export async function getObjectContent(
@@ -191,77 +234,46 @@ export async function getObjectContent(
   bucketName: string,
   key: string
 ): Promise<Uint8Array> {
-  const client = getS3Client(config);
-  const command = new GetObjectCommand({
-    Bucket: bucketName,
-    Key: key,
-  });
-
-  const response = await client.send(command);
-
-  if (!response.Body) {
-    throw new Error("Empty response body");
+  // Use proxy for web, Tauri commands for desktop
+  if (!isTauri()) {
+    try {
+      const result = await proxyRequest('/api/s3/get-object', {
+        config,
+        bucketName,
+        key,
+      });
+      // Convert base64 to Uint8Array
+      const binaryString = atob(result.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to get object");
+    }
   }
 
-  // Convert stream to Uint8Array
-  // AWS SDK v3 Body can be a ReadableStream, Blob, or other types
-  const body = response.Body;
-
-  if (body instanceof ReadableStream) {
-    const chunks: Uint8Array[] = [];
-    const reader = body.getReader();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
+  // Tauri mode: use Rust backend
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const bucketId = await getBucketIdFromConfig(config);
+    
+    const response = await invoke<{ data: string; size: number }>("get_object_content", {
+      bucketId,
+      bucketName,
+      key,
+    });
+    
+    // Convert base64 to Uint8Array
+    const binaryString = atob(response.data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
     }
-
-    // Combine all chunks
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const result = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      result.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    return result;
-  } else if (body instanceof Blob) {
-    const arrayBuffer = await body.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
-  } else {
-    // Fallback: try to read as stream
-    const stream = body as any;
-    if (stream.transformToWebStream) {
-      const webStream = stream.transformToWebStream();
-      const reader = webStream.getReader();
-      const chunks: Uint8Array[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-
-      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-      const result = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        result.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      return result;
-    }
-
-    // Last resort: try to convert to array buffer
-    if (typeof (body as any).arrayBuffer === 'function') {
-      const arrayBuffer = await (body as any).arrayBuffer();
-      return new Uint8Array(arrayBuffer);
-    }
-
-    throw new Error("Unsupported response body type");
+    return bytes;
+  } catch (error: any) {
+    throw new Error(error.message || "Failed to get object");
   }
 }
 
@@ -271,14 +283,33 @@ export async function getPresignedUrl(
   key: string,
   expiresIn: number = 3600 // Default 1 hour in seconds
 ): Promise<string> {
-  const client = getS3Client(config);
-  const command = new GetObjectCommand({
-    Bucket: bucketName,
-    Key: key,
-  });
+  // Use proxy for web, Tauri commands for desktop
+  if (!isTauri()) {
+    try {
+      const result = await proxyRequest('/api/s3/presigned-url', {
+        config,
+        bucketName,
+        key,
+        expiresIn,
+      });
+      return result.url;
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to generate presigned URL");
+    }
+  }
 
+  // Tauri mode: use Rust backend
   try {
-    const url = await getSignedUrl(client, command, { expiresIn });
+    const { invoke } = await import("@tauri-apps/api/core");
+    const bucketId = await getBucketIdFromConfig(config);
+    
+    const url = await invoke<string>("get_presigned_url", {
+      bucketId,
+      bucketName,
+      key,
+      expiresIn,
+    });
+    
     return url;
   } catch (error: any) {
     throw new Error(error.message || "Failed to generate presigned URL");
@@ -291,66 +322,32 @@ export async function deleteObject(
   key: string,
   deleteAllVersions: boolean = false
 ): Promise<void> {
-  const client = getS3Client(config);
-
-  try {
-    if (deleteAllVersions) {
-      // List all versions of the object
-      const listVersionsCommand = new ListObjectVersionsCommand({
-        Bucket: bucketName,
-        Prefix: key,
+  // Use proxy for web, Tauri commands for desktop
+  if (!isTauri()) {
+    try {
+      await proxyRequest('/api/s3/delete-object', {
+        config,
+        bucketName,
+        key,
+        deleteAllVersions,
       });
-
-      const versionsResponse = await client.send(listVersionsCommand);
-      const versionsToDelete: Array<{ Key: string; VersionId?: string }> = [];
-
-      // Add all versions
-      if (versionsResponse.Versions) {
-        for (const version of versionsResponse.Versions) {
-          if (version.Key === key) {
-            versionsToDelete.push({
-              Key: version.Key,
-              VersionId: version.VersionId,
-            });
-          }
-        }
-      }
-
-      // Add delete markers
-      if (versionsResponse.DeleteMarkers) {
-        for (const marker of versionsResponse.DeleteMarkers) {
-          if (marker.Key === key) {
-            versionsToDelete.push({
-              Key: marker.Key,
-              VersionId: marker.VersionId,
-            });
-          }
-        }
-      }
-
-      // Delete all versions in batches (S3 allows up to 1000 objects per request)
-      if (versionsToDelete.length > 0) {
-        const batchSize = 1000;
-        for (let i = 0; i < versionsToDelete.length; i += batchSize) {
-          const batch = versionsToDelete.slice(i, i + batchSize);
-          const deleteCommand = new DeleteObjectsCommand({
-            Bucket: bucketName,
-            Delete: {
-              Objects: batch,
-              Quiet: false,
-            },
-          });
-          await client.send(deleteCommand);
-        }
-      }
-    } else {
-      // Delete only the current version
-      const command = new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: key,
-      });
-      await client.send(command);
+      return;
+    } catch (error: any) {
+      throw new Error(error.message || "Failed to delete object");
     }
+  }
+
+  // Tauri mode: use Rust backend
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const bucketId = await getBucketIdFromConfig(config);
+    
+    await invoke("delete_object", {
+      bucketId,
+      bucketName,
+      key,
+      deleteAllVersions,
+    });
   } catch (error: any) {
     throw new Error(error.message || "Failed to delete object");
   }

@@ -7,6 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Server
+server/node_modules
+server/dist
+
 node_modules
 dist
 dist-ssr

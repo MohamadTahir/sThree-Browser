@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { X, Download, File, Folder, Calendar, HardDrive, FileText, Image as ImageIcon, FileCode, Loader2, Share2, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
@@ -11,6 +11,9 @@ import { cn } from "../lib/utils";
 import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { useToast } from "./ui/use-toast";
+
+// Constants for preview limits
+const MAX_PREVIEW_CHARS = 500000; // Max characters to render (prevents DOM freeze)
 
 interface ObjectDetailsSidebarProps {
   object: S3Object | null;
@@ -42,11 +45,17 @@ export default function ObjectDetailsSidebar({
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (open && object && bucketId && bucketName && !object.is_folder && isPreviewableFileType(object.key)) {
       loadFileContent();
     } else {
+      // Cancel any in-flight requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       // Reset state when sidebar closes or object changes
       setContent(null);
       setImageUrl(null);
@@ -68,13 +77,35 @@ export default function ObjectDetailsSidebar({
   const loadFileContent = async () => {
     if (!object || !bucketId || !bucketName) return;
 
-    // Don't preview files larger than 50MB
-    const MAX_PREVIEW_SIZE = 50 * 1024 * 1024; // 50MB
-    if (object.size > MAX_PREVIEW_SIZE) {
-      setError(`File is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is 50MB.`);
+    const fileType = getFileType(object.key);
+    
+    // Different size limits for different file types
+    const MAX_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB for images
+    const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB for PDFs
+    const MAX_TEXT_SIZE = 5 * 1024 * 1024; // 5MB for text/JSON files (smaller to prevent UI freeze)
+    
+    // Check size limits based on file type
+    if (fileType === 'image' && object.size > MAX_IMAGE_SIZE) {
+      setError(`Image is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_IMAGE_SIZE / 1024 / 1024}MB.`);
       setLoading(false);
       return;
     }
+    
+    if (fileType === 'pdf' && object.size > MAX_PDF_SIZE) {
+      setError(`PDF is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_PDF_SIZE / 1024 / 1024}MB.`);
+      setLoading(false);
+      return;
+    }
+    
+    if (fileType === 'text' && object.size > MAX_TEXT_SIZE) {
+      setError(`File is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size for text files is ${MAX_TEXT_SIZE / 1024 / 1024}MB. Please download the file to view it.`);
+      setLoading(false);
+      return;
+    }
+
+    // Create abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       setLoading(true);
@@ -82,10 +113,14 @@ export default function ObjectDetailsSidebar({
       setContent(null);
       setImageUrl(null);
 
-      const fileType = getFileType(object.key);
-
       // Get config to use with S3 service
       const configs = await loadConfigs();
+      
+      // Check if cancelled
+      if (abortController.signal.aborted) {
+        return;
+      }
+      
       const config = configs.buckets[bucketId];
 
       if (!config) {
@@ -95,7 +130,26 @@ export default function ObjectDetailsSidebar({
       }
 
       // Get file content using client-side S3 SDK
-      const uint8Array = await getObjectContent(config, bucketName, object.key);
+      // Use setTimeout to yield to the browser and prevent UI freeze
+      const uint8Array = await new Promise<Uint8Array>((resolve, reject) => {
+        setTimeout(async () => {
+          try {
+            if (abortController.signal.aborted) {
+              reject(new Error('Cancelled'));
+              return;
+            }
+            const data = await getObjectContent(config, bucketName, object.key);
+            resolve(data);
+          } catch (err) {
+            reject(err);
+          }
+        }, 0);
+      });
+      
+      // Check if cancelled after loading
+      if (abortController.signal.aborted) {
+        return;
+      }
 
       if (fileType === 'image') {
         // Create blob URL for images
@@ -105,12 +159,51 @@ export default function ObjectDetailsSidebar({
         const url = URL.createObjectURL(blob);
         setImageUrl(url);
       } else if (fileType === 'text') {
-        // Decode as text
-        const decoder = new TextDecoder('utf-8');
+        // Decode as text - use setTimeout to yield to browser and prevent blocking
         try {
-          const text = decoder.decode(uint8Array);
-          setContent(text);
+          // For large files, decode in a way that doesn't block the UI
+          let text: string;
+          
+          if (uint8Array.length > 1000000) {
+            // For files > 1MB, decode in chunks with yields
+            const decoder = new TextDecoder('utf-8');
+            let decoded = '';
+            const chunkSize = 500000; // Process 500KB at a time
+            
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+              // Check if cancelled
+              if (abortControllerRef.current?.signal.aborted) {
+                return;
+              }
+              
+              const chunk = uint8Array.slice(i, Math.min(i + chunkSize, uint8Array.length));
+              decoded += decoder.decode(chunk, { stream: i + chunkSize < uint8Array.length });
+              
+              // Yield to browser every chunk to prevent freezing
+              if (i + chunkSize < uint8Array.length) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+              }
+            }
+            text = decoded;
+          } else {
+            // For smaller files, decode normally but still yield
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const decoder = new TextDecoder('utf-8');
+            text = decoder.decode(uint8Array);
+          }
+          
+          // Truncate if too long to prevent DOM rendering freeze
+          if (text.length > MAX_PREVIEW_CHARS) {
+            const truncated = text.substring(0, MAX_PREVIEW_CHARS);
+            const remaining = text.length - MAX_PREVIEW_CHARS;
+            setContent(truncated + `\n\n... (${remaining.toLocaleString()} more characters - file truncated for preview)`);
+          } else {
+            setContent(text);
+          }
         } catch (e) {
+          if (abortControllerRef.current?.signal.aborted) {
+            return; // Don't set error if cancelled
+          }
           setContent('Unable to decode file as text. File may be binary.');
         }
       } else if (fileType === 'pdf') {
@@ -123,12 +216,29 @@ export default function ObjectDetailsSidebar({
         setError(`Preview not available for file type: ${fileType}`);
       }
     } catch (err) {
+      // Don't show error if request was cancelled
+      if (abortController.signal.aborted) {
+        return;
+      }
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(`Failed to load file: ${errorMsg}`);
     } finally {
-      setLoading(false);
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+      }
+      abortControllerRef.current = null;
     }
   };
+
+  // Memoize content to prevent re-rendering large text blocks
+  // MUST be called before any early returns to follow Rules of Hooks
+  const displayContent = useMemo(() => {
+    if (!content) return null;
+    
+    // For very large content, we've already truncated it during loading
+    // But we can add additional optimizations here if needed
+    return content;
+  }, [content]);
 
   if (!object) return null;
 
@@ -296,11 +406,23 @@ export default function ObjectDetailsSidebar({
                         title={fileName}
                       />
                     </div>
-                  ) : previewFileType === 'text' && content !== null ? (
+                  ) : previewFileType === 'text' && displayContent !== null ? (
                     <div className="bg-background p-4 max-h-[400px] overflow-auto">
-                      <pre className="text-xs font-mono whitespace-pre-wrap break-words">
-                        {content}
+                      <pre 
+                        className="text-xs font-mono whitespace-pre-wrap break-words"
+                        style={{
+                          // Optimize rendering for large content
+                          contain: 'layout style paint',
+                          willChange: 'scroll-position',
+                        }}
+                      >
+                        {displayContent}
                       </pre>
+                      {displayContent && displayContent.length >= MAX_PREVIEW_CHARS && (
+                        <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground">
+                          File preview truncated to {MAX_PREVIEW_CHARS.toLocaleString()} characters. Download the file to view the complete content.
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>

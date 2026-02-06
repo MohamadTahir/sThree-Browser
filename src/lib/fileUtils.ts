@@ -12,8 +12,8 @@ export function isPreviewableFileType(filename: string): boolean {
   const previewableExtensions = [
     // Images
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico',
-    // Text files
-    'txt', 'md', 'json', 'xml', 'yaml', 'yml', 'csv', 'log',
+    // Text files (excluding txt and json)
+    'md', 'xml', 'yaml', 'yml', 'csv', 'log',
     // Code files
     'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'sass',
     'py', 'java', 'cpp', 'c', 'h', 'hpp', 'go', 'rs', 'rb',
@@ -29,7 +29,8 @@ export function getFileType(filename: string): 'image' | 'text' | 'pdf' | 'unkno
 
   const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
   const textExtensions = [
-    'txt', 'md', 'json', 'xml', 'yaml', 'yml', 'csv', 'log',
+    // Excluding txt and json from preview
+    'md', 'xml', 'yaml', 'yml', 'csv', 'log',
     'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'sass',
     'py', 'java', 'cpp', 'c', 'h', 'hpp', 'go', 'rs', 'rb',
     'php', 'sh', 'bash', 'zsh', 'fish', 'ps1'

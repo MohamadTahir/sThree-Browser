@@ -47,7 +47,9 @@ cargo build
 
 ## Development
 
-Run the app in development mode:
+### Desktop App (Tauri)
+
+Run the desktop app in development mode:
 
 ```bash
 npm run tauri dev
@@ -59,6 +61,46 @@ This will:
 - Start the Vite dev server for the frontend
 - Build and run the Tauri application
 - Enable hot-reload for both frontend and backend changes
+
+### Web Version
+
+For the web version, you need to run both the frontend and the proxy server:
+
+**Option 1: Run both together (recommended)**
+```bash
+npm run dev:all
+# or
+pnpm dev:all
+```
+
+**Option 2: Run separately**
+
+Terminal 1 (Proxy server):
+```bash
+npm run dev:proxy
+# or
+pnpm dev:proxy
+```
+
+Terminal 2 (Frontend):
+```bash
+npm run dev
+# or
+pnpm dev
+```
+
+The proxy server runs on `http://localhost:3001` and handles all S3 API requests server-side to avoid CORS issues. The frontend runs on `http://localhost:1420`.
+
+**Note**: The proxy server is only needed for the web version. The Tauri desktop app uses the Rust backend and doesn't require the proxy server.
+
+#### Proxy Server Configuration
+
+The proxy server can be configured using environment variables (see `.env.example`):
+- `PROXY_PORT`: Port for the proxy server (default: 3001)
+- `ALLOWED_ORIGIN`: CORS allowed origin (default: http://localhost:1420)
+- `VITE_PROXY_URL`: Proxy URL used by frontend (default: http://localhost:3001)
+
+In development, Vite automatically proxies `/api` requests to the proxy server, so you don't need to configure `VITE_PROXY_URL` unless running the proxy on a different port.
 
 ## Docker Deployment
 
@@ -85,7 +127,7 @@ The application will be available at `http://localhost:8888`
 
 - **Base Image**: `joseluisq/static-web-server:2-alpine` (lightweight static web server)
 - **Port**: 8888 (runs as non-root user for security)
-- **Security**: 
+- **Security**:
   - Runs as `nobody` user (UID 65534, GID 65534)
   - No new privileges allowed
   - Minimal attack surface

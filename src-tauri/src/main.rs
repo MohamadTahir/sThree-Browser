@@ -18,6 +18,12 @@ fn main() {
             delete_bucket_config,
             set_active_bucket,
             clear_all_configs,
+            // S3 operations (all handled in Rust)
+            list_buckets,
+            list_objects,
+            get_object_content,
+            get_presigned_url,
+            delete_object,
             // Desktop-specific file operations
             get_download_dir,
             get_dirname,

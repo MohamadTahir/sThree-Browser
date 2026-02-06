@@ -36,17 +36,19 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   const prevBucketIdRef = useRef<string | null>(null);
   // Track if we're currently switching buckets (to show loading immediately)
   const isSwitchingBucketsRef = useRef(false);
-  
+  // Track the current request ID to cancel stale requests
+  const currentRequestIdRef = useRef<number>(0);
+
   // Helper function to set error with minimum loading duration
   const setErrorWithDelay = (errorMessage: string | null) => {
     if (errorMessage === null) {
       setError(null);
       return;
     }
-    
+
     const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
     const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
-    
+
     setTimeout(() => {
       setError(errorMessage);
     }, remaining);
@@ -72,23 +74,34 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   useEffect(() => {
     // Detect bucket switch
     const wasBucketSwitch = prevBucketIdRef.current !== null && prevBucketIdRef.current !== bucketId;
-    
+
     if (bucketId) {
       // If switching buckets, mark it immediately so render can detect it
       if (wasBucketSwitch) {
         isSwitchingBucketsRef.current = true;
+        // Increment request ID to invalidate any in-flight requests
+        currentRequestIdRef.current++;
+        console.log('Bucket switch detected:', {
+          from: prevBucketIdRef.current,
+          to: bucketId,
+          clearingBucketName: bucketName,
+          newRequestId: currentRequestIdRef.current,
+        });
         // Immediately clear bucketName and accountNickname to trigger loading state
+        // This prevents using stale bucket names from previous buckets
         setBucketName(null);
         setAccountNickname(null);
         setAvailableBuckets([]);
+        setCurrentPrefix(""); // Also clear prefix when switching buckets
+        setObjects([]); // Clear objects immediately
       }
-      
+
       prevBucketIdRef.current = bucketId;
-      
+
       // Clear any previous errors when switching buckets
       setError(null);
       errorBucketIdRef.current = null;
-      
+
       // Set loading state FIRST before clearing objects to prevent empty state flash
       setInitialLoading(true);
       loadingStartTimeRef.current = Date.now();
@@ -114,6 +127,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
   useEffect(() => {
     if (bucketId && bucketName) {
+      console.log('Loading objects for:', { bucketId, bucketName, currentPrefix });
       // Clear any previous errors when loading new bucket content
       setError(null);
       errorBucketIdRef.current = null;
@@ -127,16 +141,42 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   }, [bucketId, bucketName, currentPrefix]);
 
   const loadBuckets = async () => {
-    if (!bucketId) return;
+    // Capture current bucketId at the start
+    const requestBucketId = bucketId;
+
+    if (!requestBucketId) {
+      console.log('loadBuckets: No bucketId');
+      return;
+    }
+
+    const requestId = ++currentRequestIdRef.current;
+    console.log('loadBuckets: Starting', {
+      requestId,
+      requestBucketId,
+      currentBucketId: bucketId,
+    });
 
     try {
       setLoading(true);
       setError(null);
-      // Get the config
+
+      // Get the config - always fetch fresh
       const configs = await loadConfigs();
-      const config = configs.buckets[bucketId];
+
+      // Validate bucketId hasn't changed
+      if (bucketId !== requestBucketId) {
+        console.log('loadBuckets: BucketId changed during request, cancelling', {
+          requestId,
+          originalBucketId: requestBucketId,
+          currentBucketId: bucketId,
+        });
+        return;
+      }
+
+      const config = configs.buckets[requestBucketId];
 
       if (!config) {
+        console.error('loadBuckets: Config not found', { requestId, requestBucketId });
         setErrorWithDelay("Bucket configuration not found");
         // Clear initial loading even on early return, but ensure minimum display duration
         const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
@@ -148,27 +188,61 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         return;
       }
 
+      // Final validation before updating state
+      if (bucketId !== requestBucketId) {
+        console.log('loadBuckets: BucketId changed before updating state, cancelling', { requestId });
+        return;
+      }
+
       // Store account nickname
       setAccountNickname(config.nickname);
       // Clear switching flag once we have the nickname
       isSwitchingBucketsRef.current = false;
 
       if (config.bucket_name) {
-        const currentBucket = bucketName || config.bucket_name;
-        setBucketName(currentBucket);
-        // Maintain stable order - always show configured bucket first
-        setAvailableBuckets([config.bucket_name]);
+        // Always use the bucket_name from config, not the previous state
+        // This ensures we use the correct bucket when switching between accounts
+        const currentBucket = config.bucket_name;
+        console.log('loadBuckets: Setting bucket name', {
+          requestId,
+          bucketId: requestBucketId,
+          configBucketName: config.bucket_name,
+          previousBucketName: bucketName,
+          newBucketName: currentBucket
+        });
+
+        // Final check before setting state
+        if (bucketId === requestBucketId) {
+          setBucketName(currentBucket);
+          // Maintain stable order - always show configured bucket first
+          setAvailableBuckets([config.bucket_name]);
+        }
       } else {
         // Fallback: try to list buckets if bucket_name is not set
         const buckets = await listBuckets(config);
+
+        // Validate bucketId hasn't changed
+        if (bucketId !== requestBucketId) {
+          console.log('loadBuckets: BucketId changed after listing buckets, cancelling', { requestId });
+          return;
+        }
+
         setAvailableBuckets(buckets);
         if (buckets.length > 0) {
-          // Preserve current selection if it exists, otherwise use first
-          const currentBucket = bucketName && buckets.includes(bucketName)
-            ? bucketName
-            : buckets[0];
-          setBucketName(currentBucket);
-          setCurrentPrefix("");
+          // Use first bucket from list (don't preserve old bucketName)
+          const currentBucket = buckets[0];
+          console.log('loadBuckets: Setting bucket name from list', {
+            requestId,
+            bucketId: requestBucketId,
+            selectedBucket: currentBucket,
+            availableBuckets: buckets,
+          });
+
+          // Final check before setting state
+          if (bucketId === requestBucketId) {
+            setBucketName(currentBucket);
+            setCurrentPrefix("");
+          }
         } else {
           setErrorWithDelay("No bucket name configured and no buckets found");
           // Clear initial loading even on error, but ensure minimum display duration
@@ -180,18 +254,33 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
           }, remaining);
         }
       }
+
+      console.log('loadBuckets: Completed successfully', { requestId, bucketId: requestBucketId });
     } catch (err) {
+      // Check if this error is for a stale request
+      if (bucketId !== requestBucketId) {
+        console.log('loadBuckets: Error occurred but bucket changed, ignoring', {
+          requestId,
+          originalBucketId: requestBucketId,
+          currentBucketId: bucketId,
+        });
+        return;
+      }
+
       const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('loadBuckets: Error occurred', {
+        requestId,
+        bucketId: requestBucketId,
+        error: errorMsg,
+      });
+
       // Only show toast if this error is for the current bucketId
-      // Store the bucketId when error occurs, and only show toast if it matches current bucketId
-      const currentBucketId = bucketId;
-      errorBucketIdRef.current = currentBucketId;
+      errorBucketIdRef.current = requestBucketId;
       setErrorWithDelay(`Failed to load bucket: ${errorMsg}`);
-      console.error(err);
-      
+
       // Use setTimeout to ensure bucketId hasn't changed by the time toast is shown
       setTimeout(() => {
-        if (bucketId === currentBucketId && errorBucketIdRef.current === currentBucketId) {
+        if (bucketId === requestBucketId && errorBucketIdRef.current === requestBucketId) {
           toast({
             variant: "destructive",
             title: "Failed to Load Bucket",
@@ -207,7 +296,10 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         loadingStartTimeRef.current = null;
       }, remaining);
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the current request
+      if (bucketId === requestBucketId) {
+        setLoading(false);
+      }
     }
   };
 
@@ -270,17 +362,47 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   }, [isDropdownOpen]);
 
   const loadObjects = async (token: string | null = null) => {
-    if (!bucketId || !bucketName) return;
+    // Capture current values at the start of the function
+    const requestBucketId = bucketId;
+    const requestBucketName = bucketName;
+
+    if (!requestBucketId || !requestBucketName) {
+      console.log('loadObjects: Missing bucketId or bucketName', { requestBucketId, requestBucketName });
+      return;
+    }
+
+    // Generate a unique request ID for this call
+    const requestId = ++currentRequestIdRef.current;
+    console.log('loadObjects: Starting request', {
+      requestId,
+      requestBucketId,
+      requestBucketName,
+      currentBucketId: bucketId,
+      currentBucketName: bucketName,
+      prefix: currentPrefix
+    });
 
     try {
       setLoading(true);
       setError(null);
 
-      // Get config to use with S3 service
+      // Get config to use with S3 service - always fetch fresh config
       const configs = await loadConfigs();
-      const config = configs.buckets[bucketId];
+
+      // Validate that bucketId hasn't changed during the async operation
+      if (bucketId !== requestBucketId) {
+        console.log('loadObjects: BucketId changed during request, cancelling', {
+          requestId,
+          originalBucketId: requestBucketId,
+          currentBucketId: bucketId,
+        });
+        return;
+      }
+
+      const config = configs.buckets[requestBucketId];
 
       if (!config) {
+        console.error('loadObjects: Config not found', { requestId, requestBucketId });
         setErrorWithDelay("Bucket configuration not found");
         // Clear initial loading even on early return, but ensure minimum display duration
         const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
@@ -292,12 +414,59 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         return;
       }
 
+      // Validate bucketName matches config
+      if (requestBucketName !== config.bucket_name && config.bucket_name) {
+        console.warn('loadObjects: Bucket name mismatch', {
+          requestId,
+          requestBucketName,
+          configBucketName: config.bucket_name,
+        });
+        // Use config's bucket name if it's different
+        const correctBucketName = config.bucket_name;
+
+        // Double-check bucketId hasn't changed
+        if (bucketId !== requestBucketId) {
+          console.log('loadObjects: BucketId changed, cancelling');
+          return;
+        }
+
+        // Update bucketName state and retry with correct name
+        setBucketName(correctBucketName);
+        // Don't proceed with wrong bucket name
+        return;
+      }
+
+      // Validate one more time before making the request
+      if (bucketId !== requestBucketId) {
+        console.log('loadObjects: BucketId changed before request, cancelling', { requestId });
+        return;
+      }
+
+      console.log('loadObjects: Making S3 request', {
+        requestId,
+        nickname: config.nickname,
+        bucketName: requestBucketName,
+        prefix: currentPrefix,
+      });
+
       const response = await listObjects(config, {
-        bucketName,
+        bucketName: requestBucketName,
         prefix: currentPrefix || undefined,
         maxKeys: pageSize,
         continuationToken: token || undefined,
       });
+
+      // Final validation - check if this request is still valid
+      if (bucketId !== requestBucketId || bucketName !== requestBucketName) {
+        console.log('loadObjects: Request completed but bucket changed, ignoring result', {
+          requestId,
+          originalBucketId: requestBucketId,
+          currentBucketId: bucketId,
+          originalBucketName: requestBucketName,
+          currentBucketName: bucketName,
+        });
+        return;
+      }
 
       // Convert to S3Object format
       const s3Objects: S3Object[] = response.objects.map(obj => ({
@@ -306,6 +475,13 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         last_modified: obj.lastModified,
         is_folder: obj.isFolder,
       }));
+
+      console.log('loadObjects: Request completed successfully', {
+        requestId,
+        objectsCount: s3Objects.length,
+        bucketId: requestBucketId,
+        bucketName: requestBucketName,
+      });
 
       setObjects(s3Objects);
       setNextContinuationToken(response.nextContinuationToken || null);
@@ -319,18 +495,31 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         loadingStartTimeRef.current = null;
       }, remaining);
     } catch (err) {
+      // Check if this error is for a stale request
+      if (bucketId !== requestBucketId || bucketName !== requestBucketName) {
+        console.log('loadObjects: Error occurred but bucket changed, ignoring', {
+          requestId,
+          originalBucketId: requestBucketId,
+          currentBucketId: bucketId,
+        });
+        return;
+      }
+
       const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('loadObjects: Error occurred', {
+        requestId,
+        bucketId: requestBucketId,
+        bucketName: requestBucketName,
+        error: errorMsg,
+      });
+
       // Only show toast if this error is for the current bucketId
-      // Store the bucketId when error occurs, and only show toast if it matches current bucketId
-      const currentBucketId = bucketId;
-      const currentBucketName = bucketName;
-      errorBucketIdRef.current = currentBucketId;
+      errorBucketIdRef.current = requestBucketId;
       setErrorWithDelay(`Failed to load objects: ${errorMsg}`);
-      console.error("Full error:", err);
-      
+
       // Use setTimeout to ensure bucketId hasn't changed by the time toast is shown
       setTimeout(() => {
-        if (bucketId === currentBucketId && bucketName === currentBucketName && errorBucketIdRef.current === currentBucketId) {
+        if (bucketId === requestBucketId && bucketName === requestBucketName && errorBucketIdRef.current === requestBucketId) {
           toast({
             variant: "destructive",
             title: "Failed to Load Objects",
@@ -346,7 +535,10 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         loadingStartTimeRef.current = null;
       }, remaining);
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the current request
+      if (bucketId === requestBucketId) {
+        setLoading(false);
+      }
     }
   };
 
@@ -544,8 +736,8 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   // 1. Loading states are true, OR
   // 2. We have a bucketId but no bucketName yet (initial load - haven't loaded bucket config), OR
   // 3. We're currently switching buckets (detected by ref)
-  const shouldShowLoading = loading || initialLoading || 
-    (bucketId && !bucketName) || 
+  const shouldShowLoading = loading || initialLoading ||
+    (bucketId && !bucketName) ||
     isSwitchingBucketsRef.current;
 
   if (shouldShowLoading) {
@@ -576,9 +768,9 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   }
 
   return (
-      <div className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background">
-        {/* Main content area */}
-        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+    <div className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background">
+      {/* Main content area */}
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <div className="border-b border-border p-3 sm:p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
@@ -666,93 +858,93 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         />
 
         <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:min-w-0">
-        {!error && objects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-            <Folder className="mb-4 h-12 w-12 opacity-50" />
-            <p>This folder is empty</p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-border bg-card">
-            <div className="divide-y divide-border">
-              {objects.map((object) => (
-                <div
-                  key={object.key}
-                  onClick={() => handleObjectClick(object)}
-                  className="group flex w-full cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 transition-colors hover:bg-accent/50"
-                >
-                  <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
-                    <div className="flex-shrink-0">
-                      {object.is_folder ? (
-                        <Folder className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                      ) : (
-                        <File className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex flex-1 items-center justify-between gap-2 sm:gap-4 min-w-0">
-                      <div className="flex-1 text-left min-w-0">
-                        <div className="font-medium text-sm sm:text-base truncate">
-                          {object.is_folder
-                            ? object.key
-                              .replace(currentPrefix, "")
-                              .replace(/\/$/, "")
-                            : object.key.replace(currentPrefix, "")}
-                        </div>
-                        {!object.is_folder && (
-                          <div className="text-xs sm:text-sm text-muted-foreground">
-                            {formatBytes(object.size)}
-                            {object.last_modified && (
-                              <span className="ml-2 sm:hidden">• {formatDate(object.last_modified)}</span>
-                            )}
-                          </div>
+          {!error && objects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+              <Folder className="mb-4 h-12 w-12 opacity-50" />
+              <p>This folder is empty</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-card">
+              <div className="divide-y divide-border">
+                {objects.map((object) => (
+                  <div
+                    key={object.key}
+                    onClick={() => handleObjectClick(object)}
+                    className="group flex w-full cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 transition-colors hover:bg-accent/50"
+                  >
+                    <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
+                      <div className="flex-shrink-0">
+                        {object.is_folder ? (
+                          <Folder className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                        ) : (
+                          <File className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                         )}
                       </div>
-                      {!object.is_folder && object.last_modified && (
-                        <div className="hidden sm:block text-sm text-muted-foreground flex-shrink-0">
-                          {formatDate(object.last_modified)}
+                      <div className="flex flex-1 items-center justify-between gap-2 sm:gap-4 min-w-0">
+                        <div className="flex-1 text-left min-w-0">
+                          <div className="font-medium text-sm sm:text-base truncate">
+                            {object.is_folder
+                              ? object.key
+                                .replace(currentPrefix, "")
+                                .replace(/\/$/, "")
+                              : object.key.replace(currentPrefix, "")}
+                          </div>
+                          {!object.is_folder && (
+                            <div className="text-xs sm:text-sm text-muted-foreground">
+                              {formatBytes(object.size)}
+                              {object.last_modified && (
+                                <span className="ml-2 sm:hidden">• {formatDate(object.last_modified)}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {object.is_folder && (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      )}
+                        {!object.is_folder && object.last_modified && (
+                          <div className="hidden sm:block text-sm text-muted-foreground flex-shrink-0">
+                            {formatDate(object.last_modified)}
+                          </div>
+                        )}
+                        {object.is_folder && (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Pagination Controls */}
-        {(pageHistory.length > 0 || isTruncated) && (
-          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 sm:p-4">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePreviousPage}
-                disabled={pageHistory.length === 0 && continuationToken === null}
-                className="flex-1 sm:flex-initial"
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNextPage}
-                disabled={!isTruncated || !nextContinuationToken}
-                className="flex-1 sm:flex-initial"
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+          {/* Pagination Controls */}
+          {(pageHistory.length > 0 || isTruncated) && (
+            <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 sm:p-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviousPage}
+                  disabled={pageHistory.length === 0 && continuationToken === null}
+                  className="flex-1 sm:flex-initial"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={!isTruncated || !nextContinuationToken}
+                  className="flex-1 sm:flex-initial"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+              <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
+                Showing {objects.length} item{objects.length !== 1 ? 's' : ''}
+                {isTruncated && ` (more available)`}
+              </div>
             </div>
-            <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
-              Showing {objects.length} item{objects.length !== 1 ? 's' : ''}
-              {isTruncated && ` (more available)`}
-            </div>
-          </div>
-        )}
+          )}
         </div>
 
         {/* Download Toast */}
@@ -766,32 +958,32 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
             open={downloadToast.open}
           />
         )}
-        </div>
-
-        {/* Object Details Sidebar */}
-        <ObjectDetailsSidebar
-          object={selectedObject}
-          currentPrefix={currentPrefix}
-          bucketId={bucketId}
-          bucketName={bucketName}
-          open={isDetailsSidebarOpen}
-          onClose={() => {
-            setIsDetailsSidebarOpen(false);
-            setSelectedObject(null);
-          }}
-          onDownload={(object) => {
-            handleDownload(object, { stopPropagation: () => {} } as React.MouseEvent);
-          }}
-          onNavigate={(prefix) => {
-            setCurrentPrefix(prefix);
-          }}
-          onObjectDeleted={() => {
-            // Reload objects after deletion
-            if (bucketId && bucketName) {
-              loadObjects(null);
-            }
-          }}
-        />
       </div>
+
+      {/* Object Details Sidebar */}
+      <ObjectDetailsSidebar
+        object={selectedObject}
+        currentPrefix={currentPrefix}
+        bucketId={bucketId}
+        bucketName={bucketName}
+        open={isDetailsSidebarOpen}
+        onClose={() => {
+          setIsDetailsSidebarOpen(false);
+          setSelectedObject(null);
+        }}
+        onDownload={(object) => {
+          handleDownload(object, { stopPropagation: () => { } } as React.MouseEvent);
+        }}
+        onNavigate={(prefix) => {
+          setCurrentPrefix(prefix);
+        }}
+        onObjectDeleted={() => {
+          // Reload objects after deletion
+          if (bucketId && bucketName) {
+            loadObjects(null);
+          }
+        }}
+      />
+    </div>
   );
 }
