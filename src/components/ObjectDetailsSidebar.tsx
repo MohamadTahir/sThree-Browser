@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
-import { X, Download, File, Folder, Calendar, HardDrive, FileText, Image as ImageIcon, FileCode, Loader2, Share2 } from "lucide-react";
+import { X, Download, File, Folder, Calendar, HardDrive, FileText, Image as ImageIcon, FileCode, Loader2, Share2, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
 import { isPreviewableFileType, getFileType, getMimeType } from "../lib/fileUtils";
-import { getObjectContent } from "../services/s3Service";
+import { getObjectContent, deleteObject } from "../services/s3Service";
 import { loadConfigs } from "../services/storageService";
 import { cn } from "../lib/utils";
 import ShareModal from "./ShareModal";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import { useToast } from "./ui/use-toast";
 
 interface ObjectDetailsSidebarProps {
   object: S3Object | null;
@@ -19,6 +21,7 @@ interface ObjectDetailsSidebarProps {
   onClose: () => void;
   onDownload: (object: S3Object) => void;
   onNavigate: (prefix: string) => void;
+  onObjectDeleted: () => void;
 }
 
 export default function ObjectDetailsSidebar({
@@ -30,12 +33,15 @@ export default function ObjectDetailsSidebar({
   onClose,
   onDownload,
   onNavigate,
+  onObjectDeleted,
 }: ObjectDetailsSidebarProps) {
+  const { toast } = useToast();
   const [content, setContent] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     if (open && object && bucketId && bucketName && !object.is_folder && isPreviewableFileType(object.key)) {
@@ -339,6 +345,14 @@ export default function ObjectDetailsSidebar({
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => setShowDeleteModal(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
                 </>
               )}
             </div>
@@ -354,6 +368,54 @@ export default function ObjectDetailsSidebar({
         bucketId={bucketId}
         bucketName={bucketName}
       />
+
+      {/* Delete Confirmation Modal */}
+      {object && !object.is_folder && (
+        <DeleteConfirmationModal
+          open={showDeleteModal}
+          onOpenChange={setShowDeleteModal}
+          fileName={object.key.split("/").pop() || object.key}
+          onConfirm={async (deleteAllVersions) => {
+            if (!bucketId || !bucketName) return;
+
+            try {
+              const configs = await loadConfigs();
+              const config = configs.buckets[bucketId];
+
+              if (!config) {
+                toast({
+                  variant: "destructive",
+                  title: "Error",
+                  description: "Bucket configuration not found.",
+                });
+                return;
+              }
+
+              await deleteObject(config, bucketName, object.key, deleteAllVersions);
+              
+              toast({
+                variant: "success",
+                title: "Object Deleted",
+                description: deleteAllVersions 
+                  ? "All versions of the object have been deleted." 
+                  : "Object has been deleted successfully.",
+              });
+
+              // Close sidebar and refresh file list
+              onClose();
+              onObjectDeleted();
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              toast({
+                variant: "destructive",
+                title: "Failed to Delete Object",
+                description: errorMsg,
+              });
+              throw error; // Re-throw to prevent modal from closing
+            }
+          }}
+        />
+      )}
     </>
   );
 }

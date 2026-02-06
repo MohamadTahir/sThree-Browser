@@ -374,11 +374,11 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   };
 
   const handleObjectClick = (object: S3Object) => {
+    // Folders navigate on single click
     if (object.is_folder) {
-      // Navigate directly for folders
       setCurrentPrefix(object.key);
     } else {
-      // Show sidebar for files
+      // Files open sidebar
       setSelectedObject(object);
       setIsDetailsSidebarOpen(true);
     }
@@ -784,6 +784,12 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
           }}
           onNavigate={(prefix) => {
             setCurrentPrefix(prefix);
+          }}
+          onObjectDeleted={() => {
+            // Reload objects after deletion
+            if (bucketId && bucketName) {
+              loadObjects(null);
+            }
           }}
         />
       </div>

@@ -1,4 +1,4 @@
-import { S3Client, ListBucketsCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, ListBucketsCommand, ListObjectsV2Command, GetObjectCommand, DeleteObjectCommand, ListObjectVersionsCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BucketConfig } from "../types";
 
@@ -282,5 +282,76 @@ export async function getPresignedUrl(
     return url;
   } catch (error: any) {
     throw new Error(error.message || "Failed to generate presigned URL");
+  }
+}
+
+export async function deleteObject(
+  config: BucketConfig,
+  bucketName: string,
+  key: string,
+  deleteAllVersions: boolean = false
+): Promise<void> {
+  const client = getS3Client(config);
+
+  try {
+    if (deleteAllVersions) {
+      // List all versions of the object
+      const listVersionsCommand = new ListObjectVersionsCommand({
+        Bucket: bucketName,
+        Prefix: key,
+      });
+
+      const versionsResponse = await client.send(listVersionsCommand);
+      const versionsToDelete: Array<{ Key: string; VersionId?: string }> = [];
+
+      // Add all versions
+      if (versionsResponse.Versions) {
+        for (const version of versionsResponse.Versions) {
+          if (version.Key === key) {
+            versionsToDelete.push({
+              Key: version.Key,
+              VersionId: version.VersionId,
+            });
+          }
+        }
+      }
+
+      // Add delete markers
+      if (versionsResponse.DeleteMarkers) {
+        for (const marker of versionsResponse.DeleteMarkers) {
+          if (marker.Key === key) {
+            versionsToDelete.push({
+              Key: marker.Key,
+              VersionId: marker.VersionId,
+            });
+          }
+        }
+      }
+
+      // Delete all versions in batches (S3 allows up to 1000 objects per request)
+      if (versionsToDelete.length > 0) {
+        const batchSize = 1000;
+        for (let i = 0; i < versionsToDelete.length; i += batchSize) {
+          const batch = versionsToDelete.slice(i, i + batchSize);
+          const deleteCommand = new DeleteObjectsCommand({
+            Bucket: bucketName,
+            Delete: {
+              Objects: batch,
+              Quiet: false,
+            },
+          });
+          await client.send(deleteCommand);
+        }
+      }
+    } else {
+      // Delete only the current version
+      const command = new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+      });
+      await client.send(command);
+    }
+  } catch (error: any) {
+    throw new Error(error.message || "Failed to delete object");
   }
 }
