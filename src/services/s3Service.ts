@@ -1,4 +1,5 @@
 import { S3Client, ListBucketsCommand, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BucketConfig } from "../types";
 
 // Cache S3 clients by bucket ID
@@ -261,5 +262,25 @@ export async function getObjectContent(
     }
 
     throw new Error("Unsupported response body type");
+  }
+}
+
+export async function getPresignedUrl(
+  config: BucketConfig,
+  bucketName: string,
+  key: string,
+  expiresIn: number = 3600 // Default 1 hour in seconds
+): Promise<string> {
+  const client = getS3Client(config);
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+  });
+
+  try {
+    const url = await getSignedUrl(client, command, { expiresIn });
+    return url;
+  } catch (error: any) {
+    throw new Error(error.message || "Failed to generate presigned URL");
   }
 }

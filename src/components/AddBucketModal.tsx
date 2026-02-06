@@ -88,6 +88,7 @@ export default function AddBucketModal({
         group_id: formData.group_id || null,
       });
 
+      const addedNickname = formData.nickname;
       setFormData({
         nickname: "",
         bucket_name: "",
@@ -100,8 +101,10 @@ export default function AddBucketModal({
       toast({
         variant: "success",
         title: "Bucket Added",
-        description: `Connection "${formData.nickname}" has been added successfully.`,
+        description: `Connection "${addedNickname}" has been added successfully.`,
       });
+      // Refresh groups list in case a new folder was created elsewhere
+      await loadGroups();
       onSuccess();
     } catch (error) {
       console.error("Failed to add bucket:", error);

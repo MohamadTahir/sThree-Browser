@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, Download, AlertCircle, PanelLeftOpen } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, AlertCircle, PanelLeftOpen } from "lucide-react";
 import { Button } from "./ui/button";
 import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
-import { isPreviewableFileType } from "../lib/fileUtils";
 import { listBuckets, listObjects, getObjectContent } from "../services/s3Service";
 import { loadConfigs } from "../services/storageService";
 import Breadcrumb from "./Breadcrumb";
-import FilePreview from "./FilePreview";
 import DownloadToast from "./DownloadToast";
+import ObjectDetailsSidebar from "./ObjectDetailsSidebar";
 import { cn } from "../lib/utils";
 import { useToast } from "./ui/use-toast";
 
@@ -60,15 +59,15 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   const [isTruncated, setIsTruncated] = useState(false);
   const [pageSize] = useState(100); // Items per page
   const [pageHistory, setPageHistory] = useState<string[]>([]); // Stack of continuation tokens for "Previous"
-  // Preview state
-  const [previewFile, setPreviewFile] = useState<S3Object | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   // Download toast state
   const [downloadToast, setDownloadToast] = useState<{
     fileName: string;
     filePath: string;
     open: boolean;
   } | null>(null);
+  // Object details sidebar state
+  const [selectedObject, setSelectedObject] = useState<S3Object | null>(null);
+  const [isDetailsSidebarOpen, setIsDetailsSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Detect bucket switch
@@ -376,18 +375,19 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
   const handleObjectClick = (object: S3Object) => {
     if (object.is_folder) {
+      // Navigate directly for folders
       setCurrentPrefix(object.key);
-    } else if (isPreviewableFileType(object.key)) {
-      // Open preview for previewable files
-      setPreviewFile(object);
-      setIsPreviewOpen(true);
+    } else {
+      // Show sidebar for files
+      setSelectedObject(object);
+      setIsDetailsSidebarOpen(true);
     }
-    // For non-previewable files, clicking does nothing
-    // You could add a toast notification here if desired
   };
 
-  const handleDownload = async (object: S3Object, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering the file click handler
+  const handleDownload = async (object: S3Object, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation(); // Prevent triggering the file click handler
+    }
 
     if (!bucketId || !bucketName) return;
 
@@ -576,7 +576,9 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   }
 
   return (
-      <div className="flex flex-1 flex-col overflow-hidden bg-background">
+      <div className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background">
+        {/* Main content area */}
+        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <div className="border-b border-border p-3 sm:p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
@@ -663,7 +665,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
           onNavigate={handleBreadcrumbClick}
         />
 
-        <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:min-w-0">
         {!error && objects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
             <Folder className="mb-4 h-12 w-12 opacity-50" />
@@ -714,20 +716,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
                       )}
                     </div>
                   </div>
-                  {!object.is_folder && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 flex-shrink-0 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownload(object, e);
-                      }}
-                      title="Download file"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               ))}
             </div>
@@ -765,28 +753,39 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
             </div>
           </div>
         )}
-      </div>
+        </div>
 
-      {/* File Preview Modal */}
-      <FilePreview
-        open={isPreviewOpen}
-        onOpenChange={setIsPreviewOpen}
-        file={previewFile}
-        bucketId={bucketId}
-        bucketName={bucketName}
-      />
+        {/* Download Toast */}
+        {downloadToast && (
+          <DownloadToast
+            fileName={downloadToast.fileName}
+            filePath={downloadToast.filePath}
+            onOpen={handleOpenFile}
+            onOpenLocation={handleOpenFileLocation}
+            onClose={() => setDownloadToast(null)}
+            open={downloadToast.open}
+          />
+        )}
+        </div>
 
-      {/* Download Toast */}
-      {downloadToast && (
-        <DownloadToast
-          fileName={downloadToast.fileName}
-          filePath={downloadToast.filePath}
-          onOpen={handleOpenFile}
-          onOpenLocation={handleOpenFileLocation}
-          onClose={() => setDownloadToast(null)}
-          open={downloadToast.open}
+        {/* Object Details Sidebar */}
+        <ObjectDetailsSidebar
+          object={selectedObject}
+          currentPrefix={currentPrefix}
+          bucketId={bucketId}
+          bucketName={bucketName}
+          open={isDetailsSidebarOpen}
+          onClose={() => {
+            setIsDetailsSidebarOpen(false);
+            setSelectedObject(null);
+          }}
+          onDownload={(object) => {
+            handleDownload(object, { stopPropagation: () => {} } as React.MouseEvent);
+          }}
+          onNavigate={(prefix) => {
+            setCurrentPrefix(prefix);
+          }}
         />
-      )}
       </div>
   );
 }

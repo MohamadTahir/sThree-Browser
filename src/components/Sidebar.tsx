@@ -1,10 +1,23 @@
-import { Trash2, Plus, Folder, Pencil, FolderOpen, ChevronDown, ChevronRight, Search, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Trash2, Plus, Folder, Pencil, FolderOpen, ChevronDown, ChevronRight, Search, X, PanelLeftClose, PanelLeftOpen, Check } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
-import { BucketConfigs } from "../types";
+import { BucketConfigs, Group } from "../types";
 import { cn } from "../lib/utils";
+import { updateGroup, deleteGroup } from "../services/storageService";
+import { useToast } from "./ui/use-toast";
+
+const GROUP_COLORS = [
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Green", value: "#10b981" },
+  { name: "Purple", value: "#8b5cf6" },
+  { name: "Orange", value: "#f59e0b" },
+  { name: "Red", value: "#ef4444" },
+  { name: "Pink", value: "#ec4899" },
+  { name: "Teal", value: "#14b8a6" },
+  { name: "Gray", value: "#6b7280" },
+];
 
 interface SidebarProps {
   configs: BucketConfigs | null;
@@ -14,6 +27,7 @@ interface SidebarProps {
   onEditBucket: (bucketId: string) => void;
   onDeleteBucket: (bucketId: string) => void;
   onManageGroups: () => void;
+  onGroupsChanged: () => void;
   expandedGroups: Set<string>;
   onToggleGroup: (groupId: string) => void;
   sidebarOpen: boolean;
@@ -28,25 +42,35 @@ export default function Sidebar({
   onEditBucket,
   onDeleteBucket,
   onManageGroups,
+  onGroupsChanged,
   expandedGroups,
   onToggleGroup,
   sidebarOpen,
   onToggleSidebar,
 }: SidebarProps) {
+  const { toast } = useToast();
   const buckets = configs?.buckets || {};
   const groups = configs?.groups || {};
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  const [editingGroupColor, setEditingGroupColor] = useState("");
+  const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
 
   // Create a stable sorted list of bucket entries to prevent reordering
+  // Include group_id in the key to detect when buckets move between folders
   const bucketsKey = useMemo(() => {
-    return Object.keys(buckets).sort().join(',');
+    return Object.entries(buckets)
+      .sort(([idA], [idB]) => idA.localeCompare(idB))
+      .map(([id, config]) => `${id}:${config.group_id || 'none'}`)
+      .join(',');
   }, [buckets]);
 
   const sortedBuckets = useMemo(() => {
     const entries = Object.entries(buckets);
     // Sort by bucketId to ensure consistent alphabetical order
     return entries.sort(([idA], [idB]) => idA.localeCompare(idB));
-  }, [bucketsKey]);
+  }, [bucketsKey, buckets]);
 
   // Filter buckets by search query
   const filteredBuckets = useMemo(() => {
@@ -84,6 +108,67 @@ export default function Sidebar({
   const sortedGroups = useMemo(() => {
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
   }, [groups]);
+
+  const handleStartEditGroup = (group: Group) => {
+    setEditingGroupId(group.id);
+    setEditingGroupName(group.name);
+    setEditingGroupColor(group.color || GROUP_COLORS[0].value);
+    setShowColorPicker(null);
+  };
+
+  const handleCancelEditGroup = () => {
+    setEditingGroupId(null);
+    setEditingGroupName("");
+    setEditingGroupColor("");
+    setShowColorPicker(null);
+  };
+
+  const handleSaveGroup = async (groupId: string) => {
+    if (!editingGroupName.trim()) return;
+
+    try {
+      await updateGroup(groupId, editingGroupName.trim(), editingGroupColor);
+      toast({
+        variant: "success",
+        title: "Folder Updated",
+        description: `Folder has been updated successfully.`,
+      });
+      handleCancelEditGroup();
+      // Trigger parent to refresh configs
+      onGroupsChanged();
+    } catch (error) {
+      console.error("Failed to update group:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Update Folder",
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!window.confirm("Are you sure you want to delete this folder? Buckets in this folder will be moved out.")) {
+      return;
+    }
+
+    try {
+      await deleteGroup(groupId);
+      toast({
+        variant: "success",
+        title: "Folder Deleted",
+        description: `Folder has been deleted successfully.`,
+      });
+      // Trigger parent to refresh configs
+      onGroupsChanged();
+    } catch (error) {
+      console.error("Failed to delete group:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Delete Folder",
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
 
   return (
     <div className="flex w-full flex-col h-full">
@@ -165,7 +250,7 @@ export default function Sidebar({
           </div>
           <Separator />
           <div className="flex-1 overflow-y-auto p-2">
-            {Object.keys(buckets).length === 0 ? (
+            {Object.keys(buckets).length === 0 && sortedGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
                 <Folder className="mb-2 h-8 w-8 opacity-50" />
                 <p>No buckets configured</p>
@@ -178,38 +263,133 @@ export default function Sidebar({
                   Add Bucket
                 </Button>
               </div>
-            ) : filteredBuckets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
-                <Search className="mb-2 h-8 w-8 opacity-50" />
-                <p>No buckets found</p>
-                <p className="text-xs">Try a different search term</p>
-              </div>
             ) : (
               <div className="space-y-1">
-                {/* Grouped buckets */}
-                {sortedGroups.map((group) => {
+                {/* Grouped buckets - ALWAYS show all folders, even empty ones */}
+                {sortedGroups.length > 0 && sortedGroups.map((group) => {
                   const groupBuckets = bucketsByGroup.grouped[group.id] || [];
-                  // Show folder even if empty
                   const isExpanded = expandedGroups.has(group.id);
+                  
+                  // Always show the folder, even if it has no buckets
+
+                  const isEditing = editingGroupId === group.id;
 
                   return (
                     <div key={group.id} className="space-y-1">
-                      <div
-                        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer"
-                        onClick={() => onToggleGroup(group.id)}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 bg-accent/50">
+                          <div className="relative">
+                            <div
+                              className="h-3 w-3 rounded-full flex-shrink-0 cursor-pointer"
+                              style={{ backgroundColor: editingGroupColor }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowColorPicker(showColorPicker === group.id ? null : group.id);
+                              }}
+                            />
+                            {showColorPicker === group.id && (
+                              <div className="absolute left-0 top-6 z-50 flex flex-wrap gap-2 p-2 rounded-lg border bg-popover shadow-lg" onClick={(e) => e.stopPropagation()}>
+                                {GROUP_COLORS.map((color) => (
+                                  <button
+                                    key={color.value}
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingGroupColor(color.value);
+                                      setShowColorPicker(null);
+                                    }}
+                                    className={`h-6 w-6 rounded-full border-2 transition-all ${editingGroupColor === color.value
+                                        ? "border-foreground scale-110"
+                                        : "border-border hover:border-foreground/50"
+                                      }`}
+                                    style={{ backgroundColor: color.value }}
+                                    title={color.name}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <Input
+                            value={editingGroupName}
+                            onChange={(e) => setEditingGroupName(e.target.value)}
+                            className="flex-1 h-7 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveGroup(group.id);
+                              } else if (e.key === "Escape") {
+                                handleCancelEditGroup();
+                              }
+                            }}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveGroup(group.id);
+                            }}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCancelEditGroup();
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
                         <div
-                          className="h-3 w-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: group.color || "#6b7280" }}
-                        />
-                        <span className="flex-1 truncate">{group.name}</span>
-                        <span className="text-xs opacity-50">({groupBuckets.length})</span>
-                      </div>
+                          className="group/folder flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer"
+                          onClick={() => onToggleGroup(group.id)}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          <div
+                            className="h-3 w-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: group.color || "#6b7280" }}
+                          />
+                          <span className="flex-1 truncate">{group.name}</span>
+                          <span className="text-xs opacity-50">({groupBuckets.length})</span>
+                          <div
+                            className="flex items-center gap-1 opacity-0 transition-opacity group-hover/folder:opacity-100"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartEditGroup(group);
+                              }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteGroup(group.id);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       {isExpanded && (
                         <div className="ml-4 space-y-1">
                           {groupBuckets.length === 0 ? (
@@ -274,7 +454,7 @@ export default function Sidebar({
                 {/* Ungrouped buckets */}
                 {bucketsByGroup.ungrouped.length > 0 && (
                   <>
-                    {sortedGroups.length > 0 && Object.keys(bucketsByGroup.grouped).length > 0 && (
+                    {sortedGroups.length > 0 && (
                       <div className="my-2 border-t border-border" />
                     )}
                     {bucketsByGroup.ungrouped.map(([bucketId, config]) => (
@@ -325,6 +505,15 @@ export default function Sidebar({
                       </div>
                     ))}
                   </>
+                )}
+                
+                {/* Show "No buckets found" message only if searching and no buckets match AND no folders exist */}
+                {filteredBuckets.length === 0 && sortedGroups.length === 0 && searchQuery.trim() && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
+                    <Search className="mb-2 h-8 w-8 opacity-50" />
+                    <p>No buckets found</p>
+                    <p className="text-xs">Try a different search term</p>
+                  </div>
                 )}
               </div>
             )}

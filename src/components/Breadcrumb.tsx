@@ -16,23 +16,23 @@ export default function Breadcrumb({ prefix, onNavigate }: BreadcrumbProps) {
     }));
 
   return (
-    <div className="mt-4 flex items-center gap-1">
+    <div className="mt-4 flex items-center gap-1 px-2 sm:px-4">
       <Button
         variant="ghost"
         size="sm"
         onClick={() => onNavigate("")}
-        className="h-8"
+        className="h-8 flex items-center justify-center"
       >
         <Home className="h-4 w-4" />
       </Button>
       {parts.map((part) => (
         <div key={part.prefix} className="flex items-center gap-1">
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onNavigate(part.prefix)}
-            className="h-8"
+            className="h-8 flex items-center"
           >
             {part.name}
           </Button>

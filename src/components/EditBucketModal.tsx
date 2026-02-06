@@ -116,12 +116,17 @@ export default function EditBucketModal({
       });
 
       console.log("Bucket updated successfully");
+      // Refresh groups list in case a new folder was created elsewhere
+      await loadGroups();
+      // Call onSuccess to refresh the sidebar immediately - this will reload configs
+      // Use setTimeout to ensure the save operation completes before reloading
+      await new Promise(resolve => setTimeout(resolve, 0));
+      onSuccess();
       toast({
         variant: "success",
         title: "Bucket Updated",
         description: `Connection "${formData.nickname}" has been updated successfully.`,
       });
-      onSuccess();
     } catch (error) {
       console.error("Failed to update bucket:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);

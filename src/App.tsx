@@ -17,6 +17,7 @@ import { cn } from "./lib/utils";
 
 function App() {
   const [configs, setConfigs] = useState<BucketConfigs | null>(null);
+  const [configsVersion, setConfigsVersion] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBucketId, setEditingBucketId] = useState<string | null>(null);
@@ -92,7 +93,14 @@ function App() {
   const loadConfigsData = async () => {
     try {
       const result = await loadConfigs();
-      setConfigs(result);
+      // Always create new object references to force React to detect changes
+      setConfigs({ 
+        buckets: { ...result.buckets }, 
+        groups: { ...result.groups }, 
+        active_bucket: result.active_bucket 
+      });
+      // Increment version to force Sidebar re-render
+      setConfigsVersion(v => v + 1);
       if (result.active_bucket) {
         setSelectedBucket(result.active_bucket);
       }
@@ -100,6 +108,7 @@ function App() {
       console.error("Failed to load configs:", error);
       // Set empty configs on error
       setConfigs({ buckets: {}, groups: {}, active_bucket: null });
+      setConfigsVersion(v => v + 1);
     }
   };
 
@@ -114,7 +123,9 @@ function App() {
   };
 
   const handleUpdateBucket = async () => {
+    // Refresh configs first to update sidebar immediately
     await loadConfigsData();
+    // Close modal after state is updated
     setShowEditModal(false);
     setEditingBucketId(null);
   };
@@ -196,6 +207,7 @@ function App() {
         }}
       >
         <Sidebar
+          key={configsVersion}
           configs={configs}
           selectedBucket={selectedBucket}
           onBucketSelect={handleBucketSelect}
@@ -203,6 +215,7 @@ function App() {
           onEditBucket={handleEditBucket}
           onDeleteBucket={handleDeleteBucket}
           onManageGroups={() => setShowGroupModal(true)}
+          onGroupsChanged={loadConfigsData}
           expandedGroups={getExpandedGroups()}
           onToggleGroup={(groupId) => {
             setExpandedGroups((prev) => {
