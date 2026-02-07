@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev -p 1420",
     "build": "next build --webpack",
+    "build:tauri": "TAURI_BUILD=true next build --webpack",
     "start": "next start",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

@@ -29,6 +29,9 @@ function App() {
   const expandedGroupsRef = useRef<Set<string>>(new Set());
   const [, setExpandedGroupsVersion] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const [resizing, setResizing] = useState(false);
+  const resizeStartRef = useRef({ x: 0, w: 256 });
 
   // Auto-collapse sidebar on mobile by default
   useEffect(() => {
@@ -46,7 +49,26 @@ function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
+
+  // Resize sidebar by dragging
+  useEffect(() => {
+    if (!resizing) return;
+    const minW = 200;
+    const maxW = 480;
+    const onMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartRef.current.x;
+      const next = Math.min(maxW, Math.max(minW, resizeStartRef.current.w + delta));
+      setSidebarWidth(next);
+    };
+    const onUp = () => setResizing(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [resizing]);
+
   // Getter function for expanded groups
   const getExpandedGroups = () => expandedGroupsRef.current;
   
@@ -186,24 +208,21 @@ function App() {
           "flex flex-col border-r border-border overflow-hidden",
           "fixed md:relative z-50 md:z-auto",
           "left-0 top-0 bottom-0 h-full",
-          // Fixed width on mobile, variable on desktop
-          "w-64",
-          // Smooth transitions - separate for mobile transform and desktop width
-          "transition-transform duration-300 ease-in-out md:transition-all",
+          // Fixed width on mobile, variable on desktop via --sidebar-width
+          "w-64 md:w-[var(--sidebar-width)]",
+          // Smooth transitions when not resizing
+          !resizing && "transition-transform duration-300 ease-in-out md:transition-[width,transform]",
           // Mobile: slide in/out as overlay using transform
           sidebarOpen 
             ? "translate-x-0" 
             : "-translate-x-full md:translate-x-0",
-          // Desktop width changes
-          "md:w-64",
-          !sidebarOpen && "md:w-16",
           // Background: always solid background, glass effect only on desktop
           "bg-background",
           "md:glass"
         )}
         style={{
-          // Ensure smooth animation
           willChange: 'transform',
+          ['--sidebar-width' as string]: `${sidebarOpen ? sidebarWidth : 64}px`,
         }}
       >
         <Sidebar
@@ -231,6 +250,19 @@ function App() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
+        {/* Resize handle - desktop only, when sidebar is open */}
+        {sidebarOpen && (
+          <div
+            className="hidden md:block absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors z-10"
+            aria-label="Resize sidebar"
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              resizeStartRef.current = { x: e.clientX, w: sidebarWidth };
+              setResizing(true);
+            }}
+          />
+        )}
       </div>
       {/* Main content - full width on mobile, flex-1 on desktop */}
       <div className="flex flex-1 flex-col overflow-hidden w-full md:w-auto bg-background">

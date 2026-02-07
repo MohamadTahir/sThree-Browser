@@ -25,9 +25,6 @@ COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
 # Copy source code
 COPY . .
 
-# Ensure public directory exists (Next.js needs it, even if empty)
-RUN mkdir -p public
-
 # Build Next.js application
 RUN pnpm build
 

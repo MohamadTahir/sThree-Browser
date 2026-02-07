@@ -9,15 +9,15 @@ const API_BASE_URL = typeof window !== 'undefined' ? '' : 'http://localhost:1420
 async function getBucketIdFromConfig(config: BucketConfig): Promise<string> {
   const { loadConfigs } = await import("./storageService");
   const configs = await loadConfigs();
-  
+
   const bucketId = Object.keys(configs.buckets).find(
     id => configs.buckets[id].nickname === config.nickname
   );
-  
+
   if (!bucketId) {
     throw new Error("Bucket configuration not found");
   }
-  
+
   return bucketId;
 }
 
@@ -182,7 +182,9 @@ export async function listObjects(
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     const bucketId = await getBucketIdFromConfig(config);
-    
+    // Always pass a valid bucket name: use config.bucket_name so we never send empty/undefined (causes S3 InvalidBucketName)
+    const resolvedBucketName = bucketName ?? config.bucket_name ?? "";
+
     const response = await invoke<{
       objects: Array<{
         key: string;
@@ -195,12 +197,12 @@ export async function listObjects(
       is_truncated: boolean;
     }>("list_objects", {
       bucketId,
-      bucketName,
-      prefix: prefix || null,
-      maxKeys: maxKeys || null,
-      continuationToken: continuationToken || null,
+      bucketName: resolvedBucketName,
+      prefix: prefix ?? "",
+      maxKeys: maxKeys ?? undefined,
+      continuationToken: continuationToken ?? undefined,
     });
-    
+
     return {
       objects: response.objects.map(obj => ({
         key: obj.key,
@@ -254,13 +256,13 @@ export async function getObjectContent(
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     const bucketId = await getBucketIdFromConfig(config);
-    
+
     const response = await invoke<{ data: string; size: number }>("get_object_content", {
       bucketId,
       bucketName,
       key,
     });
-    
+
     // Convert base64 to Uint8Array
     const binaryString = atob(response.data);
     const bytes = new Uint8Array(binaryString.length);
@@ -298,14 +300,14 @@ export async function getPresignedUrl(
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     const bucketId = await getBucketIdFromConfig(config);
-    
+
     const url = await invoke<string>("get_presigned_url", {
       bucketId,
       bucketName,
       key,
       expiresIn,
     });
-    
+
     return url;
   } catch (error: any) {
     throw new Error(error.message || "Failed to generate presigned URL");
@@ -337,7 +339,7 @@ export async function deleteObject(
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     const bucketId = await getBucketIdFromConfig(config);
-    
+
     await invoke("delete_object", {
       bucketId,
       bucketName,

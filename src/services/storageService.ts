@@ -155,7 +155,7 @@ export async function addBucketConfig(config: BucketConfig): Promise<string> {
   if (isTauri()) {
     // Use Tauri Rust command for desktop
     const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke<string>("add_bucket_config", {
+    const bucketId = await invoke<string>("add_bucket_config", {
       nickname: config.nickname,
       bucketName: config.bucket_name,
       accessKey: config.access_key,
@@ -163,6 +163,11 @@ export async function addBucketConfig(config: BucketConfig): Promise<string> {
       region: config.region,
       endpoint: config.endpoint || null,
     });
+    // Assign to folder/group if selected on creation
+    if (config.group_id) {
+      await addBucketToGroup(bucketId, config.group_id);
+    }
+    return bucketId;
   } else {
     // Use localStorage for web
     const configs = await loadConfigs();

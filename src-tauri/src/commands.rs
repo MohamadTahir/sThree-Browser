@@ -161,13 +161,18 @@ pub async fn list_objects(
     continuation_token: Option<String>,
     page_size: Option<i32>,
 ) -> Result<ListObjectsResponse, String> {
+    let bucket_name = bucket_name.trim();
+    if bucket_name.is_empty() {
+        return Err("Bucket name is required and cannot be empty.".to_string());
+    }
+
     let client = get_or_create_client(&app, &bucket_id).await?;
 
     let max_keys = page_size.unwrap_or(100).min(1000);
 
     let mut request = client
         .list_objects_v2()
-        .bucket(&bucket_name)
+        .bucket(bucket_name.to_string())
         .delimiter("/")
         .max_keys(max_keys);
 

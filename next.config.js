@@ -17,10 +17,17 @@ const nextConfig = {
   
   // Use webpack instead of Turbopack (for compatibility with existing config)
   webpack: (config) => {
-    config.resolve.alias = {
+    const aliases = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname, './src'),
     };
+    // Tauri build: use stubs so we don't bundle Node AWS SDK (desktop uses Rust backend)
+    if (isTauriBuild) {
+      aliases['@/lib/s3Client'] = path.resolve(__dirname, './src/lib/__tauri-stubs__/s3Client');
+      aliases['@aws-sdk/client-s3'] = path.resolve(__dirname, './src/lib/__tauri-stubs__/aws-sdk-client-s3');
+      aliases['@aws-sdk/s3-request-presigner'] = path.resolve(__dirname, './src/lib/__tauri-stubs__/aws-sdk-presigner');
+    }
+    config.resolve.alias = aliases;
     return config;
   },
 

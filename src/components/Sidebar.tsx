@@ -231,7 +231,7 @@ export default function Sidebar({
   const handleDrop = async (e: React.DragEvent, targetGroupId: string | null) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Use draggedBucketId from state first, then fallback to dataTransfer
     const bucketId = draggedBucketId || (e.dataTransfer ? e.dataTransfer.getData("text/plain") : null);
 
@@ -479,7 +479,7 @@ export default function Sidebar({
                             ) : (
                               <div
                                 className={cn(
-                                  "group/folder flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer transition-all",
+                                  "group/folder relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer transition-all",
                                   dragOverGroupId === group.id && draggedBucketId
                                     ? "bg-blue-500/20 border-2 border-blue-500 border-solid shadow-lg rounded-lg"
                                     : ""
@@ -516,7 +516,7 @@ export default function Sidebar({
                                 <span className="flex-1 truncate">{group.name}</span>
                                 <span className="text-xs opacity-50">({groupBuckets.length})</span>
                                 <div
-                                  className="flex items-center gap-1 opacity-0 transition-opacity group-hover/folder:opacity-100"
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-md bg-background/95 shadow-sm border border-border/50 opacity-0 transition-opacity group-hover/folder:opacity-100 pointer-events-none group-hover/folder:pointer-events-auto py-0.5 px-0.5"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <Button
@@ -616,7 +616,7 @@ export default function Sidebar({
                                         </span>
                                       </div>
                                       <div
-                                        className="flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                                        className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-md bg-background/95 shadow-sm border border-border/50 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto py-0.5 px-0.5"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <Button
@@ -728,7 +728,7 @@ export default function Sidebar({
                             </span>
                           </div>
                           <div
-                            className="flex items-center gap-1 p-1 opacity-0 transition-opacity group-hover:opacity-100"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-md bg-background/95 shadow-sm border border-border/50 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto py-0.5 px-0.5"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Button

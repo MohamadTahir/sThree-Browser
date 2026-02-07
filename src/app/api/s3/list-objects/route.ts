@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getS3Client, handleS3Error } from '@/lib/s3Client';
 
+export const dynamic = 'force-static';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
