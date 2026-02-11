@@ -1,4 +1,4 @@
-import { Trash2, Plus, Folder, Pencil, FolderOpen, ChevronDown, ChevronRight, Search, X, PanelLeftClose, PanelLeftOpen, Check, Database, GripVertical } from "lucide-react";
+import { Trash2, Plus, Folder, Pencil, FolderOpen, ChevronDown, ChevronRight, Search, X, PanelLeftClose, PanelLeftOpen, Check, KeyRound, Database, GripVertical } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
@@ -24,6 +24,7 @@ interface SidebarProps {
   selectedBucket: string | null;
   onBucketSelect: (bucketId: string) => void;
   onAddBucket: () => void;
+  onManageCredentials: () => void;
   onEditBucket: (bucketId: string) => void;
   onDeleteBucket: (bucketId: string) => void;
   onManageGroups: () => void;
@@ -39,6 +40,7 @@ export default function Sidebar({
   selectedBucket,
   onBucketSelect,
   onAddBucket,
+  onManageCredentials,
   onEditBucket,
   onDeleteBucket,
   onManageGroups,
@@ -295,6 +297,15 @@ export default function Sidebar({
           <>
             <h2 className="text-base sm:text-lg font-semibold">Buckets</h2>
             <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onManageCredentials}
+                className="h-8 w-8"
+                title="Manage Credentials"
+              >
+                <KeyRound className="h-4 w-4" />
+              </Button>
               <Button
                 size="icon"
                 variant="ghost"

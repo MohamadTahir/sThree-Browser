@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { addBucketConfig, loadConfigs } from "../services/storageService";
-import { Group } from "../types";
+import { CredentialConfig, Group } from "../types";
 import { useToast } from "./ui/use-toast";
 
 interface AddBucketModalProps {
@@ -35,11 +35,11 @@ export default function AddBucketModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [credentials, setCredentials] = useState<CredentialConfig[]>([]);
   const [formData, setFormData] = useState({
     nickname: "",
     bucket_name: "",
-    access_key: "",
-    secret_key: "",
+    credential_id: "",
     region: "us-east-1",
     endpoint: "",
     group_id: "",
@@ -47,13 +47,14 @@ export default function AddBucketModal({
 
   useEffect(() => {
     if (open) {
-      loadGroups();
+      loadInitialData();
     }
   }, [open]);
 
-  const loadGroups = async () => {
+  const loadInitialData = async () => {
     const configs = await loadConfigs();
     setGroups(Object.values(configs.groups || {}));
+    setCredentials(Object.values(configs.credentials || {}));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,11 +79,14 @@ export default function AddBucketModal({
         return;
       }
 
+      if (!formData.credential_id) {
+        throw new Error("Please select credentials for this bucket.");
+      }
+
       await addBucketConfig({
         nickname: formData.nickname,
         bucket_name: formData.bucket_name,
-        access_key: formData.access_key,
-        secret_key: formData.secret_key,
+        credential_id: formData.credential_id,
         region: formData.region,
         endpoint: formData.endpoint.trim() || undefined,
         group_id: formData.group_id || null,
@@ -92,8 +96,7 @@ export default function AddBucketModal({
       setFormData({
         nickname: "",
         bucket_name: "",
-        access_key: "",
-        secret_key: "",
+        credential_id: "",
         region: "us-east-1",
         endpoint: "",
         group_id: "",
@@ -104,7 +107,7 @@ export default function AddBucketModal({
         description: `Connection "${addedNickname}" has been added successfully.`,
       });
       // Refresh groups list in case a new folder was created elsewhere
-      await loadGroups();
+      await loadInitialData();
       onSuccess();
     } catch (error) {
       console.error("Failed to add bucket:", error);
@@ -154,32 +157,6 @@ export default function AddBucketModal({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="access_key">Access Key</Label>
-              <Input
-                id="access_key"
-                type="password"
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                value={formData.access_key}
-                onChange={(e) =>
-                  setFormData({ ...formData, access_key: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="secret_key">Secret Key</Label>
-              <Input
-                id="secret_key"
-                type="password"
-                placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                value={formData.secret_key}
-                onChange={(e) =>
-                  setFormData({ ...formData, secret_key: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="grid gap-2">
               <Label htmlFor="region">Region</Label>
               <Input
                 id="region"
@@ -203,6 +180,33 @@ export default function AddBucketModal({
               />
               <p className="text-xs text-muted-foreground">
                 Leave empty for AWS S3. For S3-compatible storage, enter the endpoint URL.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="credential">Credentials</Label>
+              <Select
+                value={formData.credential_id || "none"}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    credential_id: value === "none" ? "" : value,
+                  })
+                }
+              >
+                <SelectTrigger id="credential">
+                  <SelectValue placeholder="Select credentials" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select credentials</SelectItem>
+                  {credentials.map((cred) => (
+                    <SelectItem key={cred.id} value={cred.id}>
+                      {cred.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose reusable credentials to use for this bucket.
               </p>
             </div>
             <div className="grid gap-2">

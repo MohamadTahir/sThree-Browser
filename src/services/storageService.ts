@@ -1,4 +1,4 @@
-import { BucketConfig, BucketConfigs, Group } from "../types";
+import { BucketConfig, BucketConfigs, CredentialConfig, Group } from "../types";
 import {
   encrypt,
   decrypt,
@@ -8,19 +8,18 @@ import {
 
 const STORAGE_KEY = "bucket-configs";
 
-// Encrypted version of BucketConfig (access_key and secret_key are encrypted)
-interface EncryptedBucketConfig {
-  nickname: string;
-  bucket_name: string;
+// Encrypted version of CredentialConfig (access_key and secret_key are encrypted)
+interface EncryptedCredentialConfig {
+  id: string;
+  name: string;
   access_key: string; // Encrypted
   secret_key: string; // Encrypted
-  region: string;
-  endpoint?: string;
-  group_id?: string | null;
 }
 
 interface EncryptedBucketConfigs {
-  buckets: Record<string, EncryptedBucketConfig>;
+  // Buckets now reference credentials by ID
+  buckets: Record<string, BucketConfig>;
+  credentials: Record<string, EncryptedCredentialConfig>;
   groups: Record<string, Group>;
   active_bucket: string | null;
 }
@@ -40,7 +39,7 @@ export async function loadConfigs(): Promise<BucketConfigs> {
       // Use localStorage for web (with encryption)
       const stored = localStorage.getItem(STORAGE_KEY);
       if (!stored) {
-        return { buckets: {}, groups: {}, active_bucket: null };
+        return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
       }
 
       const encryptedConfigs: EncryptedBucketConfigs = JSON.parse(stored);
@@ -49,23 +48,24 @@ export async function loadConfigs(): Promise<BucketConfigs> {
       if (!isMasterPasswordUnlocked()) {
         // Return encrypted configs (will need to be decrypted later)
         // For now, return empty to force password unlock
-        return { buckets: {}, groups: {}, active_bucket: null };
+        return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
       }
 
       const masterPassword = getMasterPasswordFromMemory();
       if (!masterPassword) {
-        return { buckets: {}, groups: {}, active_bucket: null };
+        return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
       }
 
-      // Decrypt all bucket configs
+      // Decrypt all credential configs
       const decryptedConfigs: BucketConfigs = {
-        buckets: {},
+        buckets: encryptedConfigs.buckets || {},
+        credentials: {},
         groups: encryptedConfigs.groups || {},
         active_bucket: encryptedConfigs.active_bucket,
       };
 
-      for (const [bucketId, encryptedConfig] of Object.entries(
-        encryptedConfigs.buckets
+      for (const [credId, encryptedConfig] of Object.entries(
+        encryptedConfigs.credentials || {}
       )) {
         try {
           const decryptedAccessKey = await decrypt(
@@ -77,18 +77,15 @@ export async function loadConfigs(): Promise<BucketConfigs> {
             masterPassword
           );
 
-          decryptedConfigs.buckets[bucketId] = {
-            nickname: encryptedConfig.nickname,
-            bucket_name: encryptedConfig.bucket_name,
+          decryptedConfigs.credentials[credId] = {
+            id: encryptedConfig.id,
+            name: encryptedConfig.name,
             access_key: decryptedAccessKey,
             secret_key: decryptedSecretKey,
-            region: encryptedConfig.region,
-            endpoint: encryptedConfig.endpoint,
-            group_id: encryptedConfig.group_id || null,
           };
         } catch (error) {
-          console.error(`Failed to decrypt config for ${bucketId}:`, error);
-          // Skip this bucket if decryption fails
+          console.error(`Failed to decrypt credential for ${credId}:`, error);
+          // Skip this credential if decryption fails
         }
       }
 
@@ -97,7 +94,7 @@ export async function loadConfigs(): Promise<BucketConfigs> {
   } catch (error) {
     console.error("Error loading configs:", error);
     // Fallback to empty configs if there's an error
-    return { buckets: {}, groups: {}, active_bucket: null };
+    return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
   }
 }
 
@@ -119,31 +116,29 @@ export async function saveConfigs(configs: BucketConfigs): Promise<void> {
       throw new Error("Master password not unlocked. Please unlock first.");
     }
 
-    // Encrypt all bucket configs
+    // Encrypt all credential configs
     const encryptedConfigs: EncryptedBucketConfigs = {
-      buckets: {},
+      buckets: configs.buckets || {},
+      credentials: {},
       groups: configs.groups || {},
       active_bucket: configs.active_bucket,
     };
 
-    for (const [bucketId, config] of Object.entries(configs.buckets)) {
+    for (const [credId, cred] of Object.entries(configs.credentials || {})) {
       const encryptedAccessKey = await encrypt(
-        config.access_key,
+        cred.access_key,
         masterPassword
       );
       const encryptedSecretKey = await encrypt(
-        config.secret_key,
+        cred.secret_key,
         masterPassword
       );
 
-      encryptedConfigs.buckets[bucketId] = {
-        nickname: config.nickname,
-        bucket_name: config.bucket_name,
+      encryptedConfigs.credentials[credId] = {
+        id: cred.id,
+        name: cred.name,
         access_key: encryptedAccessKey,
         secret_key: encryptedSecretKey,
-        region: config.region,
-        endpoint: config.endpoint,
-        group_id: config.group_id || null,
       };
     }
 
@@ -158,8 +153,8 @@ export async function addBucketConfig(config: BucketConfig): Promise<string> {
     const bucketId = await invoke<string>("add_bucket_config", {
       nickname: config.nickname,
       bucketName: config.bucket_name,
-      accessKey: config.access_key,
-      secretKey: config.secret_key,
+      accessKey: "", // credentials are managed separately in the web app
+      secretKey: "",
       region: config.region,
       endpoint: config.endpoint || null,
     });
@@ -187,6 +182,9 @@ export async function addBucketConfig(config: BucketConfig): Promise<string> {
       ...config,
       group_id: config.group_id || null,
     };
+    if (!configs.credentials) {
+      configs.credentials = {};
+    }
     if (!configs.active_bucket) {
       configs.active_bucket = bucketId;
     }
@@ -204,8 +202,8 @@ export async function updateBucketConfig(bucketId: string, config: BucketConfig)
       bucketId,
       nickname: config.nickname,
       bucketName: config.bucket_name,
-      accessKey: config.access_key,
-      secretKey: config.secret_key,
+      accessKey: "", // credentials are managed separately in the web app
+      secretKey: "",
       region: config.region,
       endpoint: config.endpoint || null,
     });
@@ -238,11 +236,9 @@ export async function updateBucketConfig(bucketId: string, config: BucketConfig)
       configs.buckets[bucketId] = {
         nickname: config.nickname,
         bucket_name: config.bucket_name,
-        access_key: config.access_key,
-        secret_key: config.secret_key,
-        region: config.region,
-        endpoint: config.endpoint,
+        credential_id: config.credential_id,
         group_id: config.group_id || null,
+        region: config.region,
       };
 
       await saveConfigs(configs);

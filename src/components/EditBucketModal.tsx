@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { BucketConfig, Group } from "../types";
+import { BucketConfig, CredentialConfig, Group } from "../types";
 import { updateBucketConfig, loadConfigs } from "../services/storageService";
 import { useToast } from "./ui/use-toast";
 
@@ -39,25 +39,26 @@ export default function EditBucketModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [credentials, setCredentials] = useState<CredentialConfig[]>([]);
   const [formData, setFormData] = useState({
     nickname: "",
     bucket_name: "",
-    access_key: "",
-    secret_key: "",
     region: "us-east-1",
     endpoint: "",
+    credential_id: "",
     group_id: "",
   });
 
   useEffect(() => {
     if (open) {
-      loadGroups();
+      loadInitialData();
     }
   }, [open]);
 
-  const loadGroups = async () => {
+  const loadInitialData = async () => {
     const configs = await loadConfigs();
     setGroups(Object.values(configs.groups || {}));
+    setCredentials(Object.values(configs.credentials || {}));
   };
 
   // Populate form when config changes or modal opens
@@ -66,10 +67,9 @@ export default function EditBucketModal({
       setFormData({
         nickname: config.nickname,
         bucket_name: config.bucket_name,
-        access_key: config.access_key,
-        secret_key: config.secret_key,
         region: config.region,
         endpoint: config.endpoint || "",
+        credential_id: config.credential_id,
         group_id: config.group_id || "",
       });
     }
@@ -107,15 +107,14 @@ export default function EditBucketModal({
       await updateBucketConfig(bucketId, {
         nickname: formData.nickname,
         bucket_name: formData.bucket_name,
-        access_key: formData.access_key,
-        secret_key: formData.secret_key,
         region: formData.region,
         endpoint: formData.endpoint.trim() || undefined,
+        credential_id: formData.credential_id,
         group_id: formData.group_id || null,
       });
 
       // Refresh groups list in case a new folder was created elsewhere
-      await loadGroups();
+      await loadInitialData();
       // Call onSuccess to refresh the sidebar immediately - this will reload configs
       // Use setTimeout to ensure the save operation completes before reloading
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -176,30 +175,31 @@ export default function EditBucketModal({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-access_key">Access Key</Label>
-              <Input
-                id="edit-access_key"
-                type="password"
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                value={formData.access_key}
-                onChange={(e) =>
-                  setFormData({ ...formData, access_key: e.target.value })
+              <Label htmlFor="edit-credential">Credentials</Label>
+              <Select
+                value={formData.credential_id || "none"}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    credential_id: value === "none" ? "" : value,
+                  })
                 }
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-secret_key">Secret Key</Label>
-              <Input
-                id="edit-secret_key"
-                type="password"
-                placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                value={formData.secret_key}
-                onChange={(e) =>
-                  setFormData({ ...formData, secret_key: e.target.value })
-                }
-                required
-              />
+              >
+                <SelectTrigger id="edit-credential">
+                  <SelectValue placeholder="Select credentials" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select credentials</SelectItem>
+                  {credentials.map((cred) => (
+                    <SelectItem key={cred.id} value={cred.id}>
+                      {cred.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Choose which reusable credentials this bucket should use.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-region">Region</Label>

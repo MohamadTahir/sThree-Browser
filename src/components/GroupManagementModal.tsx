@@ -57,6 +57,8 @@ export default function GroupManagementModal({
       });
       // Immediately refresh the sidebar state
       onGroupsChanged();
+      // Close the modal after successful creation
+      onOpenChange(false);
     } catch (error) {
       console.error("Failed to create group:", error);
       toast({

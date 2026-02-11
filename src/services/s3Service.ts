@@ -21,6 +21,44 @@ async function getBucketIdFromConfig(config: BucketConfig): Promise<string> {
   return bucketId;
 }
 
+// Helper to merge a bucket config with its resolved credentials (web mode)
+async function withResolvedCredentials(
+  partialConfig: BucketConfig
+): Promise<BucketConfig & { access_key: string; secret_key: string }> {
+  const { loadConfigs } = await import("./storageService");
+  const configs = await loadConfigs();
+
+  // Find the stored bucket entry by nickname (unique constraint) and bucket_name
+  const entry = Object.values(configs.buckets).find(
+    (b) =>
+      b.nickname === partialConfig.nickname &&
+      b.bucket_name === partialConfig.bucket_name
+  );
+
+  if (!entry) {
+    throw new Error("Bucket configuration not found");
+  }
+
+  const credentialId = entry.credential_id;
+  const credential = configs.credentials?.[credentialId];
+
+  if (!credential) {
+    throw new Error("Credentials not found for this bucket");
+  }
+
+  // Ensure we always have a valid region; default to us-east-1 if missing
+  const region = entry.region && entry.region.trim().length > 0
+    ? entry.region
+    : "us-east-1";
+
+  return {
+    ...entry,
+    region,
+    access_key: credential.access_key,
+    secret_key: credential.secret_key,
+  };
+}
+
 // API request helpers (for web mode - Next.js API routes)
 async function apiRequest(endpoint: string, body: any): Promise<any> {
   try {
@@ -87,7 +125,8 @@ export async function listBuckets(config: BucketConfig): Promise<string[]> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
-      const result = await apiRequest('/api/s3/list-buckets', { config });
+      const fullConfig = await withResolvedCredentials(config);
+      const result = await apiRequest('/api/s3/list-buckets', { config: fullConfig });
       return result.buckets || [];
     } catch (error: any) {
       // Provide helpful error messages
@@ -153,8 +192,10 @@ export async function listObjects(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
+      const fullConfig = await withResolvedCredentials(config);
+      console.log('fullConfig', fullConfig);
       const result = await apiRequest('/api/s3/list-objects', {
-        config,
+        config: fullConfig,
         bucketName,
         prefix,
         maxKeys,
@@ -235,8 +276,9 @@ export async function getObjectContent(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
+      const fullConfig = await withResolvedCredentials(config);
       const result = await apiRequest('/api/s3/get-object', {
-        config,
+        config: fullConfig,
         bucketName,
         key,
       });
@@ -284,8 +326,9 @@ export async function getPresignedUrl(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
+      const fullConfig = await withResolvedCredentials(config);
       const result = await apiRequest('/api/s3/presigned-url', {
-        config,
+        config: fullConfig,
         bucketName,
         key,
         expiresIn,
@@ -323,8 +366,9 @@ export async function deleteObject(
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
+      const fullConfig = await withResolvedCredentials(config);
       await apiRequest('/api/s3/delete-object', {
-        config,
+        config: fullConfig,
         bucketName,
         key,
         deleteAllVersions,

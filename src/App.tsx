@@ -3,6 +3,7 @@ import Sidebar from "./components/Sidebar";
 import FileExplorer from "./components/FileExplorer";
 import AddBucketModal from "./components/AddBucketModal";
 import EditBucketModal from "./components/EditBucketModal";
+import CredentialsModal from "./components/CredentialsModal";
 import MasterPasswordModal from "./components/MasterPasswordModal";
 import GroupManagementModal from "./components/GroupManagementModal";
 import { Toaster } from "./components/ui/toaster";
@@ -25,6 +26,7 @@ function App() {
   const [showMasterPasswordModal, setShowMasterPasswordModal] = useState(false);
   const [masterPasswordUnlocked, setMasterPasswordUnlocked] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   // Use ref to persist expanded groups across re-renders, but use state to trigger updates
   const expandedGroupsRef = useRef<Set<string>>(new Set());
   const [, setExpandedGroupsVersion] = useState(0);
@@ -42,10 +44,10 @@ function App() {
         setSidebarOpen(true);
       }
     };
-    
+
     // Set initial state
     handleResize();
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -71,7 +73,7 @@ function App() {
 
   // Getter function for expanded groups
   const getExpandedGroups = () => expandedGroupsRef.current;
-  
+
   // Setter function for expanded groups
   const setExpandedGroups = (updater: (prev: Set<string>) => Set<string>) => {
     expandedGroupsRef.current = updater(expandedGroupsRef.current);
@@ -116,10 +118,11 @@ function App() {
     try {
       const result = await loadConfigs();
       // Always create new object references to force React to detect changes
-      setConfigs({ 
-        buckets: { ...result.buckets }, 
-        groups: { ...result.groups }, 
-        active_bucket: result.active_bucket 
+      setConfigs({
+        buckets: { ...result.buckets },
+        credentials: { ...result.credentials },
+        groups: { ...result.groups },
+        active_bucket: result.active_bucket,
       });
       // Increment version to force Sidebar re-render
       setConfigsVersion(v => v + 1);
@@ -129,7 +132,7 @@ function App() {
     } catch (error) {
       console.error("Failed to load configs:", error);
       // Set empty configs on error
-      setConfigs({ buckets: {}, groups: {}, active_bucket: null });
+      setConfigs({ buckets: {}, credentials: {}, groups: {}, active_bucket: null });
       setConfigsVersion(v => v + 1);
     }
   };
@@ -157,7 +160,7 @@ function App() {
     if (selectedBucket === bucketId) {
       return;
     }
-    
+
     try {
       await setActiveBucket(bucketId);
       setSelectedBucket(bucketId);
@@ -213,8 +216,8 @@ function App() {
           // Smooth transitions when not resizing
           !resizing && "transition-transform duration-300 ease-in-out md:transition-[width,transform]",
           // Mobile: slide in/out as overlay using transform
-          sidebarOpen 
-            ? "translate-x-0" 
+          sidebarOpen
+            ? "translate-x-0"
             : "-translate-x-full md:translate-x-0",
           // Background: always solid background, glass effect only on desktop
           "bg-background",
@@ -231,6 +234,7 @@ function App() {
           selectedBucket={selectedBucket}
           onBucketSelect={handleBucketSelect}
           onAddBucket={() => setShowAddModal(true)}
+          onManageCredentials={() => setShowCredentialsModal(true)}
           onEditBucket={handleEditBucket}
           onDeleteBucket={handleDeleteBucket}
           onManageGroups={() => setShowGroupModal(true)}
@@ -266,7 +270,7 @@ function App() {
       </div>
       {/* Main content - full width on mobile, flex-1 on desktop */}
       <div className="flex flex-1 flex-col overflow-hidden w-full md:w-auto bg-background">
-        <FileExplorer 
+        <FileExplorer
           bucketId={selectedBucket}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -292,6 +296,11 @@ function App() {
         open={showGroupModal}
         onOpenChange={setShowGroupModal}
         onGroupsChanged={loadConfigsData}
+      />
+      <CredentialsModal
+        open={showCredentialsModal}
+        onOpenChange={setShowCredentialsModal}
+        onChanged={loadConfigsData}
       />
       <Toaster />
     </div>

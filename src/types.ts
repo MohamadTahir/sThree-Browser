@@ -1,10 +1,16 @@
+export interface CredentialConfig {
+  id: string;
+  name: string;
+  access_key: string;
+  secret_key: string;
+}
+
 export interface BucketConfig {
   nickname: string;
   bucket_name: string;
-  access_key: string;
-  secret_key: string;
   region: string;
   endpoint?: string;
+  credential_id: string; // References a CredentialConfig
   group_id?: string | null; // ID of the group this bucket belongs to
 }
 
@@ -16,6 +22,7 @@ export interface Group {
 
 export interface BucketConfigs {
   buckets: Record<string, BucketConfig>;
+  credentials: Record<string, CredentialConfig>;
   groups: Record<string, Group>;
   active_bucket: string | null;
 }
