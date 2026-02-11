@@ -299,6 +299,8 @@ pub async fn get_presigned_url(
     bucket_name: String,
     key: String,
     expires_in: Option<u64>,
+    method: Option<String>,
+    content_type: Option<String>,
 ) -> Result<String, String> {
     let client = get_or_create_client(&app, &bucket_id).await?;
 
@@ -307,15 +309,35 @@ pub async fn get_presigned_url(
     let presigning_config = PresigningConfig::expires_in(Duration::from_secs(expires))
         .map_err(|e| format!("Failed to create presigning config: {}", e))?;
 
-    let request = client
-        .get_object()
-        .bucket(&bucket_name)
-        .key(&key)
-        .presigned(presigning_config)
-        .await
-        .map_err(|e| format!("Failed to generate presigned URL: {}", e))?;
+    let method_upper = method.unwrap_or_else(|| "GET".to_string()).to_uppercase();
 
-    Ok(request.uri().to_string())
+    if method_upper == "PUT" {
+        let mut builder = client
+            .put_object()
+            .bucket(&bucket_name)
+            .key(&key);
+
+        if let Some(ct) = content_type {
+            builder = builder.content_type(ct);
+        }
+
+        let request = builder
+            .presigned(presigning_config)
+            .await
+            .map_err(|e| format!("Failed to generate presigned PUT URL: {}", e))?;
+
+        Ok(request.uri().to_string())
+    } else {
+        let request = client
+            .get_object()
+            .bucket(&bucket_name)
+            .key(&key)
+            .presigned(presigning_config)
+            .await
+            .map_err(|e| format!("Failed to generate presigned URL: {}", e))?;
+
+        Ok(request.uri().to_string())
+    }
 }
 
 #[tauri::command]

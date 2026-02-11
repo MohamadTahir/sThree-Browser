@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, AlertCircle, PanelLeftOpen, RefreshCw } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, AlertCircle, PanelLeftOpen, RefreshCw, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
-import { listBuckets, listObjects, getObjectContent } from "../services/s3Service";
+import { listBuckets, listObjects, getObjectContent, uploadFile } from "../services/s3Service";
 import { loadConfigs } from "../services/storageService";
 import Breadcrumb from "./Breadcrumb";
 import DownloadToast from "./DownloadToast";
@@ -267,10 +267,97 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     } finally {
       // Only clear loading if this is still the current request
       if (bucketId === requestBucketId) {
-        finishLoading();
       }
     }
   };
+
+  // --- File Upload Logic ---
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ fileName: string; progress: number } | null>(null);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(Array.from(files));
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const processFiles = async (files: File[]) => {
+    if (!bucketId) return;
+
+    try {
+      // Fetch fresh config
+      const configs = await loadConfigs();
+      const config = configs.buckets[bucketId];
+      if (!config) {
+        throw new Error("Bucket configuration not found");
+      }
+
+      for (const file of files) {
+        try {
+          const key = currentPrefix + file.name;
+
+          setUploadProgress({ fileName: file.name, progress: 0 });
+
+          await uploadFile(
+            config,
+            config.bucket_name,
+            key,
+            file,
+            (progress) => {
+              setUploadProgress({ fileName: file.name, progress });
+            }
+          );
+
+          toast({
+            title: "Upload Successful",
+            description: `Uploaded ${file.name}`,
+          });
+
+          loadObjects(null);
+
+        } catch (error: any) {
+          console.error("Upload error:", error);
+          toast({
+            variant: "destructive",
+            title: "Upload Failed",
+            description: error.message || `Failed to upload ${file.name}`,
+          });
+        } finally {
+          setUploadProgress(null);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Configuration Error",
+        description: "Could not load bucket configuration for upload.",
+      });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
+
+
+  // -------------------------
 
   // Create a stable sorted array that only changes when availableBuckets changes
   // Use a ref to store the previous sorted array and key
@@ -701,7 +788,34 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
   }
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background">
+    <div
+      className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        className="hidden"
+        multiple
+      />
+
+      {/* Upload Progress Toast */}
+      {uploadProgress && (
+        <div className="fixed bottom-4 right-4 z-50 w-80 rounded-lg border bg-background p-4 shadow-lg animate-in slide-in-from-bottom-5">
+          <div className="mb-2 flex items-center justify-between text-sm font-medium">
+            <span className="truncate max-w-[200px]">{uploadProgress.fileName}</span>
+            <span>{Math.round(uploadProgress.progress)}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+            <div
+              className="h-full bg-primary transition-all duration-300 ease-out"
+              style={{ width: `${uploadProgress.progress}%` }}
+            />
+          </div>
+        </div>
+      )}
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <div className="border-b border-border p-3 sm:p-4">
@@ -784,6 +898,15 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleUploadClick}
+                title="Upload Files"
+                className="h-8 w-8"
+              >
+                <Upload className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -937,3 +1060,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     </div>
   );
 }
+
+
+

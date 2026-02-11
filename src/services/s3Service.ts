@@ -314,22 +314,34 @@ export async function getObjectContent(
   }
 }
 
+// Updated signature to support PUT/upload URLs
 export async function getPresignedUrl(
   config: BucketConfig,
   bucketName: string,
   key: string,
-  expiresIn: number = 3600 // Default 1 hour in seconds
+  expiresIn: number = 3600, // Default 1 hour in seconds
+  method: 'GET' | 'PUT' = 'GET',
+  contentType?: string
 ): Promise<string> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
       const fullConfig = await withResolvedCredentials(config);
-      const result = await apiRequest('/api/s3/presigned-url', {
+      // Construct endpoint based on method
+      const endpoint = method === 'PUT' ? '/api/s3/presigned-url-put' : '/api/s3/presigned-url';
+
+      const body: any = {
         config: fullConfig,
         bucketName,
         key,
         expiresIn,
-      });
+      };
+
+      if (method === 'PUT' && contentType) {
+        body.contentType = contentType;
+      }
+
+      const result = await apiRequest(endpoint, body);
       return result.url;
     } catch (error: any) {
       throw new Error(error.message || "Failed to generate presigned URL");
@@ -346,12 +358,54 @@ export async function getPresignedUrl(
       bucketName,
       key,
       expiresIn,
+      method,
+      contentType
     });
 
     return url;
   } catch (error: any) {
     throw new Error(error.message || "Failed to generate presigned URL");
   }
+}
+
+export async function uploadFile(
+  config: BucketConfig,
+  bucketName: string,
+  key: string,
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<void> {
+  const presignedUrl = await getPresignedUrl(config, bucketName, key, 3600, 'PUT', file.type);
+
+  // Perform the upload using XMLHttpRequest to track progress (fetch doesn't support upload progress yet easily)
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', presignedUrl);
+    xhr.setRequestHeader('Content-Type', file.type);
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          onProgress(percentComplete);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Upload network error"));
+    };
+
+    xhr.send(file);
+  });
 }
 
 export async function deleteObject(
