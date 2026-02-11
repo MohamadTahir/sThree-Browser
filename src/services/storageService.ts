@@ -239,6 +239,7 @@ export async function updateBucketConfig(bucketId: string, config: BucketConfig)
         credential_id: config.credential_id,
         group_id: config.group_id || null,
         region: config.region,
+        endpoint: config.endpoint || undefined,
       };
 
       await saveConfigs(configs);

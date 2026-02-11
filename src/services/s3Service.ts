@@ -28,31 +28,28 @@ async function withResolvedCredentials(
   const { loadConfigs } = await import("./storageService");
   const configs = await loadConfigs();
 
-  // Find the stored bucket entry by nickname (unique constraint) and bucket_name
-  const entry = Object.values(configs.buckets).find(
-    (b) =>
-      b.nickname === partialConfig.nickname &&
-      b.bucket_name === partialConfig.bucket_name
-  );
+  // Directly use the credential_id from the passed config
+  // This avoids fragile lookups by nickname/bucket_name which can fail if names change
+  // or if there are subtle inconsistencies
+  const credentialId = partialConfig.credential_id;
 
-  if (!entry) {
-    throw new Error("Bucket configuration not found");
+  if (!credentialId) {
+    throw new Error("No credential ID associated with this bucket");
   }
 
-  const credentialId = entry.credential_id;
   const credential = configs.credentials?.[credentialId];
 
   if (!credential) {
-    throw new Error("Credentials not found for this bucket");
+    throw new Error(`Credentials (ID: ${credentialId}) not found for this bucket`);
   }
 
   // Ensure we always have a valid region; default to us-east-1 if missing
-  const region = entry.region && entry.region.trim().length > 0
-    ? entry.region
+  const region = partialConfig.region && partialConfig.region.trim().length > 0
+    ? partialConfig.region
     : "us-east-1";
 
   return {
-    ...entry,
+    ...partialConfig,
     region,
     access_key: credential.access_key,
     secret_key: credential.secret_key,

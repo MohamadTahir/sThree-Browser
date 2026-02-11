@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, AlertCircle, PanelLeftOpen } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, AlertCircle, PanelLeftOpen, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
@@ -51,6 +51,17 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
     setTimeout(() => {
       setError(errorMessage);
+    }, remaining);
+  };
+
+  const finishLoading = () => {
+    const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
+    const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
+
+    setTimeout(() => {
+      setLoading(false);
+      setInitialLoading(false);
+      loadingStartTimeRef.current = null;
     }, remaining);
   };
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -145,6 +156,9 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
     try {
       setLoading(true);
+      if (!loadingStartTimeRef.current) {
+        loadingStartTimeRef.current = Date.now();
+      }
       setError(null);
 
       // Get the config - always fetch fresh
@@ -250,16 +264,10 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         }
       }, 0);
       // Clear initial loading even on error, but ensure minimum display duration
-      const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
-      const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
-      setTimeout(() => {
-        setInitialLoading(false);
-        loadingStartTimeRef.current = null;
-      }, remaining);
     } finally {
       // Only clear loading if this is still the current request
       if (bucketId === requestBucketId) {
-        setLoading(false);
+        finishLoading();
       }
     }
   };
@@ -336,6 +344,9 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
     try {
       setLoading(true);
+      if (!loadingStartTimeRef.current) {
+        loadingStartTimeRef.current = Date.now();
+      }
       setError(null);
 
       // Get config to use with S3 service - always fetch fresh config
@@ -442,16 +453,10 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         }
       }, 0);
       // Clear initial loading even on error, but ensure minimum display duration
-      const elapsed = loadingStartTimeRef.current ? Date.now() - loadingStartTimeRef.current : 0;
-      const remaining = Math.max(0, MIN_LOADING_DURATION - elapsed);
-      setTimeout(() => {
-        setInitialLoading(false);
-        loadingStartTimeRef.current = null;
-      }, remaining);
     } finally {
       // Only clear loading if this is still the current request
       if (bucketId === requestBucketId) {
-        setLoading(false);
+        finishLoading();
       }
     }
   };
@@ -656,7 +661,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
     return (
       <div className="flex flex-1 flex-col overflow-hidden bg-background">
         {/* Loading bar */}
-        {initialLoading && (
+        {(initialLoading || loading) && (
           <div className="h-1 w-full bg-muted overflow-hidden relative">
             <div className="h-full bg-primary loading-bar" />
           </div>
@@ -673,7 +678,23 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center justify-center text-center">
           <AlertCircle className="h-24 w-24 text-destructive/60 mb-4" />
-          <p className="text-sm text-muted-foreground">Unable to load content</p>
+          <p className="text-sm text-muted-foreground mb-4">Unable to load content</p>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              // Retry loading based on what was missing
+              if (bucketId && !bucketName) {
+                loadBuckets();
+              } else {
+                loadObjects(continuationToken);
+              }
+            }}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Reload
+          </Button>
         </div>
       </div>
     );
@@ -762,6 +783,23 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
                 )}
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (bucketId && bucketName) {
+                    loadObjects(continuationToken);
+                  } else {
+                    loadBuckets();
+                  }
+                }}
+                title="Refresh"
+                className="h-8 w-8"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
         <Breadcrumb
@@ -827,7 +865,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
           )}
 
           {/* Pagination Controls */}
-          {(pageHistory.length > 0 || isTruncated) && (
+          {(continuationToken !== null || isTruncated) && (
             <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 sm:p-4">
               <div className="flex items-center gap-2">
                 <Button

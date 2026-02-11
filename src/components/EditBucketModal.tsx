@@ -89,8 +89,8 @@ export default function EditBucketModal({
       const configs = await loadConfigs();
       const nicknameLower = formData.nickname.toLowerCase().trim();
       const existingBucket = Object.entries(configs.buckets).find(
-        ([id, cfg]) => 
-          id !== bucketId && 
+        ([id, cfg]) =>
+          id !== bucketId &&
           cfg.nickname.toLowerCase().trim() === nicknameLower
       );
 
@@ -174,6 +174,33 @@ export default function EditBucketModal({
                 required
               />
             </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-region">Region</Label>
+              <Input
+                id="edit-region"
+                placeholder="us-east-1"
+                value={formData.region}
+                onChange={(e) =>
+                  setFormData({ ...formData, region: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-endpoint">Endpoint (Optional)</Label>
+              <Input
+                id="edit-endpoint"
+                placeholder="https://storage.example.com"
+                value={formData.endpoint}
+                onChange={(e) =>
+                  setFormData({ ...formData, endpoint: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty for AWS S3. For S3-compatible storage, enter the endpoint URL.
+              </p>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-credential">Credentials</Label>
               <Select
@@ -199,32 +226,6 @@ export default function EditBucketModal({
               </Select>
               <p className="text-xs text-muted-foreground">
                 Choose which reusable credentials this bucket should use.
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-region">Region</Label>
-              <Input
-                id="edit-region"
-                placeholder="us-east-1"
-                value={formData.region}
-                onChange={(e) =>
-                  setFormData({ ...formData, region: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-endpoint">Endpoint (Optional)</Label>
-              <Input
-                id="edit-endpoint"
-                placeholder="https://storage.example.com"
-                value={formData.endpoint}
-                onChange={(e) =>
-                  setFormData({ ...formData, endpoint: e.target.value })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave empty for AWS S3. For S3-compatible storage, enter the endpoint URL.
               </p>
             </div>
             <div className="grid gap-2">
