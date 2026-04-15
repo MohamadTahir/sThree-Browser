@@ -62,23 +62,6 @@ export default function AddBucketModal({
     setLoading(true);
 
     try {
-      // Check for duplicate connection names
-      const configs = await loadConfigs();
-      const nicknameLower = formData.nickname.toLowerCase().trim();
-      const existingBucket = Object.entries(configs.buckets).find(
-        ([_, config]) => config.nickname.toLowerCase().trim() === nicknameLower
-      );
-
-      if (existingBucket) {
-        toast({
-          variant: "destructive",
-          title: "Duplicate Connection Name",
-          description: `A connection with the name "${formData.nickname}" already exists. Please use a different name.`,
-        });
-        setLoading(false);
-        return;
-      }
-
       if (!formData.credential_id) {
         throw new Error("Please select credentials for this bucket.");
       }

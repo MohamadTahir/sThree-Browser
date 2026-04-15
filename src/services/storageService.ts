@@ -100,15 +100,8 @@ export async function loadConfigs(): Promise<BucketConfigs> {
 
 export async function saveConfigs(configs: BucketConfigs): Promise<void> {
   if (isTauri()) {
-    // For Tauri, we need to save groups separately since they're not handled by bucket commands
-    // Groups are saved via their own commands (create_group, update_group, delete_group)
-    // But we still need to ensure active_bucket is set if needed
-    if (configs.active_bucket !== null) {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("set_active_bucket", { bucketId: configs.active_bucket });
-    }
-    // Note: Groups are managed through individual commands, not through saveConfigs
-    // This function is mainly for web version compatibility
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("save_full_config", { configs });
   } else {
     // Use localStorage for web (with encryption)
     const masterPassword = getMasterPasswordFromMemory();
@@ -153,8 +146,7 @@ export async function addBucketConfig(config: BucketConfig): Promise<string> {
     const bucketId = await invoke<string>("add_bucket_config", {
       nickname: config.nickname,
       bucketName: config.bucket_name,
-      accessKey: "", // credentials are managed separately in the web app
-      secretKey: "",
+      credentialId: config.credential_id,
       region: config.region,
       endpoint: config.endpoint || null,
     });
@@ -167,17 +159,7 @@ export async function addBucketConfig(config: BucketConfig): Promise<string> {
     // Use localStorage for web
     const configs = await loadConfigs();
 
-    // Check for duplicate connection names (case-insensitive)
-    const nicknameLower = config.nickname.toLowerCase().trim();
-    const existingBucket = Object.entries(configs.buckets).find(
-      ([_, cfg]) => cfg.nickname.toLowerCase().trim() === nicknameLower
-    );
-
-    if (existingBucket) {
-      throw new Error(`A connection with the name "${config.nickname}" already exists. Please use a different name.`);
-    }
-
-    const bucketId = `bucket_${config.nickname.toLowerCase().replace(/\s+/g, "_")}`;
+    const bucketId = `bucket_${config.nickname.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
     configs.buckets[bucketId] = {
       ...config,
       group_id: config.group_id || null,
@@ -202,8 +184,7 @@ export async function updateBucketConfig(bucketId: string, config: BucketConfig)
       bucketId,
       nickname: config.nickname,
       bucketName: config.bucket_name,
-      accessKey: "", // credentials are managed separately in the web app
-      secretKey: "",
+      credentialId: config.credential_id,
       region: config.region,
       endpoint: config.endpoint || null,
     });
@@ -218,18 +199,6 @@ export async function updateBucketConfig(bucketId: string, config: BucketConfig)
       const configs = await loadConfigs();
       if (!configs.buckets[bucketId]) {
         throw new Error(`Bucket ${bucketId} not found`);
-      }
-
-      // Check for duplicate connection names (excluding current bucket)
-      const nicknameLower = config.nickname.toLowerCase().trim();
-      const existingBucket = Object.entries(configs.buckets).find(
-        ([id, cfg]) =>
-          id !== bucketId &&
-          cfg.nickname.toLowerCase().trim() === nicknameLower
-      );
-
-      if (existingBucket) {
-        throw new Error(`A connection with the name "${config.nickname}" already exists. Please use a different name.`);
       }
 
       // Update the bucket config with all fields

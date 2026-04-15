@@ -207,7 +207,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         }
       } else {
         // Fallback: try to list buckets if bucket_name is not set
-        const buckets = await listBuckets(config);
+        const buckets = await listBuckets(config, requestBucketId);
 
         // Validate bucketId hasn't changed
         if (bucketId !== requestBucketId) {
@@ -311,7 +311,8 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
             file,
             (progress) => {
               setUploadProgress({ fileName: file.name, progress });
-            }
+            },
+            bucketId
           );
 
           toast({
@@ -485,7 +486,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         prefix: currentPrefix || undefined,
         maxKeys: pageSize,
         continuationToken: token || undefined,
-      });
+      }, requestBucketId);
 
       // Final validation - check if this request is still valid
       if (bucketId !== requestBucketId || bucketName !== requestBucketName) {
@@ -602,7 +603,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
       }
 
       // Get file content using client-side S3 SDK
-      const uint8Array = await getObjectContent(config, bucketName, object.key);
+      const uint8Array = await getObjectContent(config, bucketName, object.key, bucketId);
 
       // Get file name
       const fileName = object.key.split('/').pop() || object.key;

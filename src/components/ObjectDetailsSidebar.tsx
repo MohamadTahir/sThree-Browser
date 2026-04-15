@@ -138,7 +138,7 @@ export default function ObjectDetailsSidebar({
               reject(new Error('Cancelled'));
               return;
             }
-            const data = await getObjectContent(config, bucketName, object.key);
+            const data = await getObjectContent(config, bucketName, object.key, bucketId);
             resolve(data);
           } catch (err) {
             reject(err);
@@ -513,7 +513,7 @@ export default function ObjectDetailsSidebar({
                 return;
               }
 
-              await deleteObject(config, bucketName, object.key, deleteAllVersions);
+              await deleteObject(config, bucketName, object.key, deleteAllVersions, bucketId);
               
               toast({
                 variant: "success",

@@ -15,6 +15,7 @@ fn main() {
             add_bucket_config,
             update_bucket_config,
             get_bucket_configs,
+            save_full_config,
             delete_bucket_config,
             set_active_bucket,
             clear_all_configs,

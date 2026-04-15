@@ -5,20 +5,16 @@ import { isTauri } from "./encryptionService";
 // In Next.js, API routes are relative to the same origin, so we can use relative paths
 const API_BASE_URL = typeof window !== 'undefined' ? '' : 'http://localhost:1420';
 
-// Helper to get bucketId from config (for Tauri mode)
-async function getBucketIdFromConfig(config: BucketConfig): Promise<string> {
+// Helper to resolve bucketId for Tauri mode (use provided bucketId or look up by nickname; with duplicate names, bucketId must be provided)
+async function resolveBucketId(config: BucketConfig, bucketId?: string): Promise<string> {
+  if (bucketId) return bucketId;
   const { loadConfigs } = await import("./storageService");
   const configs = await loadConfigs();
-
-  const bucketId = Object.keys(configs.buckets).find(
-    id => configs.buckets[id].nickname === config.nickname
+  const id = Object.keys(configs.buckets).find(
+    (id) => configs.buckets[id].nickname === config.nickname
   );
-
-  if (!bucketId) {
-    throw new Error("Bucket configuration not found");
-  }
-
-  return bucketId;
+  if (!id) throw new Error("Bucket configuration not found");
+  return id;
 }
 
 // Helper to merge a bucket config with its resolved credentials (web mode)
@@ -118,7 +114,7 @@ async function apiRequest(endpoint: string, body: any): Promise<any> {
   }
 }
 
-export async function listBuckets(config: BucketConfig): Promise<string[]> {
+export async function listBuckets(config: BucketConfig, bucketId?: string): Promise<string[]> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
@@ -140,8 +136,8 @@ export async function listBuckets(config: BucketConfig): Promise<string[]> {
   // Tauri mode: use Rust backend
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const bucketId = await getBucketIdFromConfig(config);
-    const buckets = await invoke<string[]>("list_buckets", { bucketId });
+    const resolvedBucketId = await resolveBucketId(config, bucketId);
+    const buckets = await invoke<string[]>("list_buckets", { bucketId: resolvedBucketId });
     return buckets;
   } catch (error: any) {
     const errorMsg = error.message || String(error);
@@ -177,7 +173,8 @@ export interface ListObjectsResult {
 
 export async function listObjects(
   config: BucketConfig,
-  options: ListObjectsOptions
+  options: ListObjectsOptions,
+  bucketId?: string
 ): Promise<ListObjectsResult> {
   const {
     bucketName,
@@ -190,7 +187,6 @@ export async function listObjects(
   if (!isTauri()) {
     try {
       const fullConfig = await withResolvedCredentials(config);
-      console.log('fullConfig', fullConfig);
       const result = await apiRequest('/api/s3/list-objects', {
         config: fullConfig,
         bucketName,
@@ -219,7 +215,7 @@ export async function listObjects(
   // Tauri mode: use Rust backend
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const bucketId = await getBucketIdFromConfig(config);
+    const resolvedBucketId = await resolveBucketId(config, bucketId);
     // Always pass a valid bucket name: use config.bucket_name so we never send empty/undefined (causes S3 InvalidBucketName)
     const resolvedBucketName = bucketName ?? config.bucket_name ?? "";
 
@@ -234,7 +230,7 @@ export async function listObjects(
       next_continuation_token: string | null;
       is_truncated: boolean;
     }>("list_objects", {
-      bucketId,
+      bucketId: resolvedBucketId,
       bucketName: resolvedBucketName,
       prefix: prefix ?? "",
       maxKeys: maxKeys ?? undefined,
@@ -268,7 +264,8 @@ export async function listObjects(
 export async function getObjectContent(
   config: BucketConfig,
   bucketName: string,
-  key: string
+  key: string,
+  bucketId?: string
 ): Promise<Uint8Array> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
@@ -294,10 +291,10 @@ export async function getObjectContent(
   // Tauri mode: use Rust backend
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const bucketId = await getBucketIdFromConfig(config);
+    const resolvedBucketId = await resolveBucketId(config, bucketId);
 
     const response = await invoke<{ data: string; size: number }>("get_object_content", {
-      bucketId,
+      bucketId: resolvedBucketId,
       bucketName,
       key,
     });
@@ -321,7 +318,8 @@ export async function getPresignedUrl(
   key: string,
   expiresIn: number = 3600, // Default 1 hour in seconds
   method: 'GET' | 'PUT' = 'GET',
-  contentType?: string
+  contentType?: string,
+  bucketId?: string
 ): Promise<string> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
@@ -351,10 +349,10 @@ export async function getPresignedUrl(
   // Tauri mode: use Rust backend
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const bucketId = await getBucketIdFromConfig(config);
+    const resolvedBucketId = await resolveBucketId(config, bucketId);
 
     const url = await invoke<string>("get_presigned_url", {
-      bucketId,
+      bucketId: resolvedBucketId,
       bucketName,
       key,
       expiresIn,
@@ -373,9 +371,10 @@ export async function uploadFile(
   bucketName: string,
   key: string,
   file: File,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  bucketId?: string
 ): Promise<void> {
-  const presignedUrl = await getPresignedUrl(config, bucketName, key, 3600, 'PUT', file.type);
+  const presignedUrl = await getPresignedUrl(config, bucketName, key, 3600, 'PUT', file.type, bucketId);
 
   // Perform the upload using XMLHttpRequest to track progress (fetch doesn't support upload progress yet easily)
   return new Promise((resolve, reject) => {
@@ -412,7 +411,8 @@ export async function deleteObject(
   config: BucketConfig,
   bucketName: string,
   key: string,
-  deleteAllVersions: boolean = false
+  deleteAllVersions: boolean = false,
+  bucketId?: string
 ): Promise<void> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
@@ -433,10 +433,10 @@ export async function deleteObject(
   // Tauri mode: use Rust backend
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const bucketId = await getBucketIdFromConfig(config);
+    const resolvedBucketId = await resolveBucketId(config, bucketId);
 
     await invoke("delete_object", {
-      bucketId,
+      bucketId: resolvedBucketId,
       bucketName,
       key,
       deleteAllVersions,

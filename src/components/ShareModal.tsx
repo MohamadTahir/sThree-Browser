@@ -90,7 +90,7 @@ export default function ShareModal({
         return;
       }
 
-      const url = await getPresignedUrl(config, bucketName, object.key, expiresIn);
+      const url = await getPresignedUrl(config, bucketName, object.key, expiresIn, 'GET', undefined, bucketId);
       setPresignedUrl(url);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);

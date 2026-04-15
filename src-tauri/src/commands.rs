@@ -59,11 +59,19 @@ async fn get_or_create_client(
 
     let region = Region::new(bucket_config.region.clone());
 
-    let credentials = Credentials::from_keys(
-        &bucket_config.access_key,
-        &bucket_config.secret_key,
-        None,
-    );
+    let (access_key, secret_key) = if !bucket_config.credential_id.is_empty() {
+        let cred = configs
+            .credentials
+            .get(&bucket_config.credential_id)
+            .ok_or_else(|| format!("Credentials not found: {}", bucket_config.credential_id))?;
+        (cred.access_key.clone(), cred.secret_key.clone())
+    } else if let (Some(ak), Some(sk)) = (&bucket_config.access_key, &bucket_config.secret_key) {
+        (ak.clone(), sk.clone())
+    } else {
+        return Err("Bucket has no credentials (missing credential_id or legacy access_key/secret_key)".to_string());
+    };
+
+    let credentials = Credentials::from_keys(&access_key, &secret_key, None);
 
     // Create a static credentials provider
     #[derive(Debug)]
@@ -435,36 +443,34 @@ pub async fn add_bucket_config(
     app: AppHandle,
     nickname: String,
     bucket_name: String,
-    access_key: String,
-    secret_key: String,
+    credential_id: String,
     region: String,
     endpoint: Option<String>,
 ) -> Result<String, String> {
     let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
 
-    // Check for duplicate connection names (case-insensitive)
-    let nickname_lower = nickname.to_lowercase().trim().to_string();
-    let existing_bucket = configs.buckets.iter().find(|(_, cfg)| {
-        cfg.nickname.to_lowercase().trim() == nickname_lower
-    });
-
-    if existing_bucket.is_some() {
-        return Err(format!(
-            "A connection with the name \"{}\" already exists. Please use a different name.",
-            nickname
-        ));
+    if credential_id.is_empty() {
+        return Err("credential_id is required".to_string());
     }
 
-    let bucket_id = format!("bucket_{}", nickname.to_lowercase().replace(' ', "_"));
+    let bucket_id = format!(
+        "bucket_{}_{}",
+        nickname.to_lowercase().replace(' ', "_"),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    );
 
     let config = BucketConfig {
         nickname: nickname.clone(),
         bucket_name,
-        access_key,
-        secret_key,
-        region,
+        region: if region.is_empty() { "us-east-1".to_string() } else { region },
         endpoint,
+        credential_id,
         group_id: None,
+        access_key: None,
+        secret_key: None,
     };
 
     configs.buckets.insert(bucket_id.clone(), config);
@@ -492,6 +498,11 @@ pub async fn get_bucket_configs(app: AppHandle) -> Result<BucketConfigs, String>
 }
 
 #[tauri::command]
+pub async fn save_full_config(app: AppHandle, configs: BucketConfigs) -> Result<(), String> {
+    save_configs(&app, &configs).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn delete_bucket_config(app: AppHandle, bucket_id: String) -> Result<(), String> {
     let mut configs = load_configs(&app).await.map_err(|e| e.to_string())?;
 
@@ -512,8 +523,7 @@ pub async fn update_bucket_config(
     bucket_id: String,
     nickname: String,
     bucket_name: String,
-    access_key: String,
-    secret_key: String,
+    credential_id: String,
     region: String,
     endpoint: Option<String>,
 ) -> Result<(), String> {
@@ -523,17 +533,8 @@ pub async fn update_bucket_config(
         return Err(format!("Bucket config not found: {}", bucket_id));
     }
 
-    // Check for duplicate connection names (excluding current bucket)
-    let nickname_lower = nickname.to_lowercase().trim().to_string();
-    let existing_bucket = configs.buckets.iter().find(|(id, cfg)| {
-        *id != &bucket_id && cfg.nickname.to_lowercase().trim() == nickname_lower
-    });
-
-    if existing_bucket.is_some() {
-        return Err(format!(
-            "A connection with the name \"{}\" already exists. Please use a different name.",
-            nickname
-        ));
+    if credential_id.is_empty() {
+        return Err("credential_id is required".to_string());
     }
 
     // Preserve group_id from existing config
@@ -542,11 +543,12 @@ pub async fn update_bucket_config(
     let config = BucketConfig {
         nickname: nickname.clone(),
         bucket_name,
-        access_key,
-        secret_key,
-        region,
+        region: if region.is_empty() { "us-east-1".to_string() } else { region },
         endpoint,
+        credential_id,
         group_id: existing_group_id,
+        access_key: None,
+        secret_key: None,
     };
 
     configs.buckets.insert(bucket_id.clone(), config);

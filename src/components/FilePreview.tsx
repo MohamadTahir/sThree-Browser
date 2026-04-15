@@ -76,7 +76,7 @@ export default function FilePreview({
       }
 
       // Get file content using client-side S3 SDK
-      const uint8Array = await getObjectContent(config, bucketName, file.key);
+      const uint8Array = await getObjectContent(config, bucketName, file.key, bucketId);
 
       if (fileType === 'image') {
         // Create blob URL for images

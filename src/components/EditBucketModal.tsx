@@ -85,25 +85,6 @@ export default function EditBucketModal({
     setLoading(true);
 
     try {
-      // Check for duplicate connection names (excluding current bucket)
-      const configs = await loadConfigs();
-      const nicknameLower = formData.nickname.toLowerCase().trim();
-      const existingBucket = Object.entries(configs.buckets).find(
-        ([id, cfg]) =>
-          id !== bucketId &&
-          cfg.nickname.toLowerCase().trim() === nicknameLower
-      );
-
-      if (existingBucket) {
-        toast({
-          variant: "destructive",
-          title: "Duplicate Connection Name",
-          description: `A connection with the name "${formData.nickname}" already exists. Please use a different name.`,
-        });
-        setLoading(false);
-        return;
-      }
-
       await updateBucketConfig(bucketId, {
         nickname: formData.nickname,
         bucket_name: formData.bucket_name,
