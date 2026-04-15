@@ -8,8 +8,8 @@ import MasterPasswordModal from "./components/MasterPasswordModal";
 import GroupManagementModal from "./components/GroupManagementModal";
 import { Toaster } from "./components/ui/toaster";
 import { Configs, Group } from "./types";
-import { loadConfigs, setActiveBucket, deleteBucketConfig } from "./services/storageService";
-import { hasMasterPassword, isMasterPasswordUnlocked, isTauri } from "./services/encryptionService";
+import { loadConfigs, setActiveBucket, deleteBucket } from "./services/storageService";
+import { hasMasterPassword, isMasterPasswordUnlocked } from "./services/encryptionService";
 
 function App() {
   const [configs, setConfigs] = useState<Configs | null>(null);
@@ -45,12 +45,6 @@ function App() {
   };
 
   const checkMasterPasswordStatus = async () => {
-    // For Tauri, skip master password (use OS keychain in future)
-    if (isTauri()) {
-      await loadConfigsData();
-      return;
-    }
-
     if (!hasMasterPassword() || !isMasterPasswordUnlocked()) {
       setShowMasterPasswordModal(true);
       return;
@@ -89,7 +83,7 @@ function App() {
 
   const handleDeleteBucket = async (bucketId: string) => {
     try {
-      await deleteBucketConfig(bucketId);
+      await deleteBucket(bucketId);
       await loadConfigsData();
     } catch (error) {
       console.error("Failed to delete bucket:", error);

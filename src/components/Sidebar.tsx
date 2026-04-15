@@ -5,7 +5,7 @@ import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
 import { Configs, Group } from "../types";
 import { cn } from "../lib/utils";
-import { updateGroup, deleteGroup, addBucketToGroup } from "../services/storageService";
+import { updateGroup, deleteGroup, updateBucketGroup } from "../services/storageService";
 import { useToast } from "./ui/use-toast";
 import { twMerge } from "tailwind-merge";
 
@@ -255,7 +255,7 @@ export default function Sidebar({
     }
 
     try {
-      await addBucketToGroup(bucketId, targetGroupId);
+      await updateBucketGroup(bucketId, targetGroupId);
       toast({
         variant: "success",
         title: "Bucket Moved",

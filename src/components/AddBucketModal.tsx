@@ -17,8 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { addBucketConfig, loadConfigs } from "../services/storageService";
-import { CredentialConfig, Group } from "../types";
+import { addBucket, loadConfigs } from "../services/storageService";
+import { Credential, Group } from "../types";
 import { useToast } from "./ui/use-toast";
 
 interface AddBucketModalProps {
@@ -35,7 +35,7 @@ export default function AddBucketModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [credentials, setCredentials] = useState<CredentialConfig[]>([]);
+  const [credentials, setCredentials] = useState<Credential[]>([]);
   const [formData, setFormData] = useState({
     nickname: "",
     bucket_name: "",
@@ -66,7 +66,7 @@ export default function AddBucketModal({
         throw new Error("Please select credentials for this bucket.");
       }
 
-      await addBucketConfig({
+      await addBucket({
         nickname: formData.nickname,
         bucket_name: formData.bucket_name,
         credential_id: formData.credential_id,

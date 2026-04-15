@@ -17,14 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { BucketConfig, CredentialConfig, Group } from "../types";
-import { updateBucketConfig, loadConfigs } from "../services/storageService";
+import { Bucket, Credential, Group } from "../types";
+import { updateBucket, loadConfigs } from "../services/storageService";
 import { useToast } from "./ui/use-toast";
 
 interface EditBucketModalProps {
   open: boolean;
   bucketId: string | null;
-  bucket: BucketConfig | null;
+  bucket: Bucket | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -39,7 +39,7 @@ export default function EditBucketModal({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [credentials, setCredentials] = useState<CredentialConfig[]>([]);
+  const [credentials, setCredentials] = useState<Credential[]>([]);
   const [formData, setFormData] = useState({
     nickname: "",
     bucket_name: "",
@@ -85,7 +85,7 @@ export default function EditBucketModal({
     setLoading(true);
 
     try {
-      await updateBucketConfig(bucketId, {
+      await updateBucket(bucketId, {
         nickname: formData.nickname,
         bucket_name: formData.bucket_name,
         region: formData.region,

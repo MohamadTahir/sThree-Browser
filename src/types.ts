@@ -1,18 +1,18 @@
 export interface Configs {
-  buckets: Record<string, BucketConfig>;
-  credentials: Record<string, CredentialConfig>;
+  buckets: Record<string, Bucket>;
+  credentials: Record<string, Credential>;
   groups: Record<string, Group>;
   active_bucket: string | null;
 }
 
-export interface CredentialConfig {
+export interface Credential {
   id: string;
   name: string;
   access_key: string;
   secret_key: string;
 }
 
-export interface BucketConfig {
+export interface Bucket {
   nickname: string;
   bucket_name: string;
   region: string;

@@ -10,7 +10,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Configs, CredentialConfig } from "../types";
+import { Configs, Credential } from "../types";
 import { loadConfigs, saveConfigs } from "../services/storageService";
 import { useToast } from "./ui/use-toast";
 
@@ -72,7 +72,7 @@ export default function CredentialsModal({
     }
   };
 
-  const handleSelect = (id: string, cred: CredentialConfig) => {
+  const handleSelect = (id: string, cred: Credential) => {
     setSelectedId(id);
     setFormData({
       id,
@@ -219,8 +219,8 @@ export default function CredentialsModal({
                     type="button"
                     onClick={() => handleSelect(cred.id, cred)}
                     className={`w-full text-left px-2 py-1.5 rounded-md text-sm border ${selectedId === cred.id
-                        ? "bg-accent text-accent-foreground border-border"
-                        : "border-transparent hover:bg-accent/50"
+                      ? "bg-accent text-accent-foreground border-border"
+                      : "border-transparent hover:bg-accent/50"
                       }`}
                   >
                     <div className="font-medium truncate">{cred.name}</div>
