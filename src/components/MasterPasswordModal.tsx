@@ -155,7 +155,7 @@ export default function MasterPasswordModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent 
+      <DialogContent
         className="sm:max-w-[425px] [&>button]:hidden"
         onInteractOutside={(e) => {
           // Prevent closing by clicking outside

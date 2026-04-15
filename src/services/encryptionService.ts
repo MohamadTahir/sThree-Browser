@@ -146,11 +146,6 @@ async function hashPassword(password: string): Promise<string> {
  * Check if master password is set
  */
 export function hasMasterPassword(): boolean {
-  // For Tauri, skip master password (use OS keychain in future)
-  if (isTauri()) {
-    return false; // Tauri doesn't need master password
-  }
-  // For web, check if password hash exists in localStorage (persists across sessions)
   return localStorage.getItem(MASTER_PASSWORD_KEY) !== null;
 }
 
@@ -203,7 +198,7 @@ export function clearMasterPassword(): void {
 export async function clearAllData(): Promise<void> {
   // Clear master password
   clearMasterPassword();
-  
+
   if (isTauri()) {
     // For Tauri, clear bucket configs via Rust command
     try {
@@ -216,10 +211,10 @@ export async function clearAllData(): Promise<void> {
     // For web, clear bucket configs from localStorage
     localStorage.removeItem("bucket-configs");
   }
-  
+
   // Clear any sessionStorage items (in case there are any)
   sessionStorage.clear();
-  
+
   // Clear memory state
   delete (window as any).__s3browser_master_password;
 }

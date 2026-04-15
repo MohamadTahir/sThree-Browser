@@ -13,11 +13,9 @@ import { useToast } from "./ui/use-toast";
 
 interface FileExplorerProps {
   bucketId: string | null;
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
 }
 
-export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }: FileExplorerProps) {
+export default function FileExplorer({ bucketId }: FileExplorerProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
@@ -790,7 +788,7 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
 
   return (
     <div
-      className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background"
+      className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background w-full md:w-auto"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -822,18 +820,6 @@ export default function FileExplorer({ bucketId, sidebarOpen, onToggleSidebar }:
         <div className="border-b border-border p-3 sm:p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
-              {/* Sidebar toggle button - only show on mobile when sidebar is closed */}
-              {!sidebarOpen && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onToggleSidebar}
-                  className="md:hidden h-9 w-9 shrink-0"
-                  title="Open sidebar"
-                >
-                  <PanelLeftOpen className="h-4 w-4" />
-                </Button>
-              )}
               <div className="flex-1 min-w-0">
                 {availableBuckets.length > 1 ? (
                   <>

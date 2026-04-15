@@ -7,6 +7,7 @@ import { Configs, Group } from "../types";
 import { cn } from "../lib/utils";
 import { updateGroup, deleteGroup, addBucketToGroup } from "../services/storageService";
 import { useToast } from "./ui/use-toast";
+import { twMerge } from "tailwind-merge";
 
 const GROUP_COLORS = [
   { name: "Blue", value: "#3b82f6" },
@@ -21,7 +22,6 @@ const GROUP_COLORS = [
 
 interface SidebarProps {
   configs: Configs | null;
-  selectedBucket: string | null;
   onBucketSelect: (bucketId: string) => void;
   onAddBucket: () => void;
   onManageCredentials: () => void;
@@ -30,13 +30,10 @@ interface SidebarProps {
   onManageGroups: () => void;
   onGroupsChanged: () => void;
   onExpandGroup: (groupId: string) => void;
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
 }
 
 export default function Sidebar({
   configs,
-  selectedBucket,
   onBucketSelect,
   onAddBucket,
   onManageCredentials,
@@ -45,16 +42,16 @@ export default function Sidebar({
   onManageGroups,
   onGroupsChanged,
   onExpandGroup,
-  sidebarOpen,
-  onToggleSidebar,
 }: SidebarProps) {
   const { toast } = useToast();
   const buckets = configs?.buckets || {};
   const groups = configs?.groups || {};
   const [searchQuery, setSearchQuery] = useState("");
+
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
   const [editingGroupColor, setEditingGroupColor] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
   const [draggedBucketId, setDraggedBucketId] = useState<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
@@ -282,7 +279,19 @@ export default function Sidebar({
   };
 
   return (
-    <div className="flex w-full flex-col h-full">
+    <div
+      className={twMerge(
+        "flex flex-col border-r border-border overflow-hidden",
+        "fixed md:relative z-50 md:z-auto",
+        "left-0 top-0 bottom-0 h-full w-full",
+        "transition-all duration-300 ease-in-out",
+        "bg-background",
+        "md:glass",
+        "w-64",
+        sidebarOpen ? "md:w-64" : "md:w-16",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+      )}
+    >
       {/* Header - show compact version when collapsed on desktop */}
       <div className={cn(
         "flex items-center justify-between transition-all duration-300",
@@ -594,7 +603,7 @@ export default function Sidebar({
                                       onDragEnd={handleDragEnd}
                                       className={cn(
                                         "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
-                                        selectedBucket === bucketId
+                                        configs?.active_bucket === bucketId
                                           ? "bg-accent text-accent-foreground"
                                           : "",
                                         draggedBucketId === bucketId && "opacity-50"
@@ -711,7 +720,7 @@ export default function Sidebar({
                           onDragEnd={handleDragEnd}
                           className={cn(
                             "group relative flex items-center justify-between rounded-lg transition-colors hover:bg-accent/50",
-                            selectedBucket === bucketId
+                            configs?.active_bucket === bucketId
                               ? "bg-accent text-accent-foreground"
                               : "",
                             draggedBucketId === bucketId && "opacity-50"
@@ -787,7 +796,7 @@ export default function Sidebar({
         <Button
           variant="ghost"
           size="icon"
-          onClick={onToggleSidebar}
+          onClick={() => setSidebarOpen(!sidebarOpen)}
           className={cn(
             "w-full h-10",
             !sidebarOpen && "flex flex-col items-center justify-center"

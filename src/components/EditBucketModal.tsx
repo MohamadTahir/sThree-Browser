@@ -23,17 +23,17 @@ import { useToast } from "./ui/use-toast";
 
 interface EditBucketModalProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
   bucketId: string | null;
-  config: BucketConfig | null;
+  bucket: BucketConfig | null;
+  onClose: () => void;
   onSuccess: () => void;
 }
 
 export default function EditBucketModal({
   open,
-  onOpenChange,
   bucketId,
-  config,
+  bucket,
+  onClose,
   onSuccess,
 }: EditBucketModalProps) {
   const { toast } = useToast();
@@ -63,22 +63,22 @@ export default function EditBucketModal({
 
   // Populate form when config changes or modal opens
   useEffect(() => {
-    if (open && config) {
+    if (open && bucket) {
       setFormData({
-        nickname: config.nickname,
-        bucket_name: config.bucket_name,
-        region: config.region,
-        endpoint: config.endpoint || "",
-        credential_id: config.credential_id,
-        group_id: config.group_id || "",
+        nickname: bucket.nickname,
+        bucket_name: bucket.bucket_name,
+        region: bucket.region,
+        endpoint: bucket.endpoint || "",
+        credential_id: bucket.credential_id,
+        group_id: bucket.group_id || "",
       });
     }
-  }, [config, open]);
+  }, [bucket, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bucketId || !config) {
-      console.error("Missing bucketId or config", { bucketId, config });
+    if (!bucketId || !bucket) {
+      console.error("Missing bucketId or config", { bucketId, config: bucket });
       return;
     }
 
@@ -118,10 +118,10 @@ export default function EditBucketModal({
     }
   };
 
-  if (!config) return null;
+  if (!bucket) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit S3 Bucket</DialogTitle>
@@ -244,7 +244,7 @@ export default function EditBucketModal({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={onClose}
             >
               Cancel
             </Button>
