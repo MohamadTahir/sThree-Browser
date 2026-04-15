@@ -1,4 +1,4 @@
-import { BucketConfig, Configs, CredentialConfig, Group } from "../types";
+import { BucketConfig, Configs, Group } from "../types";
 import {
   encrypt,
   decrypt,
