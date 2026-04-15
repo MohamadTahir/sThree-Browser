@@ -1,4 +1,4 @@
-import { BucketConfig, BucketConfigs, CredentialConfig, Group } from "../types";
+import { BucketConfig, Configs, CredentialConfig, Group } from "../types";
 import {
   encrypt,
   decrypt,
@@ -29,12 +29,12 @@ function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-export async function loadConfigs(): Promise<BucketConfigs> {
+export async function loadConfigs(): Promise<Configs> {
   try {
     if (isTauri()) {
       // Use Tauri store for desktop (encryption handled in Rust)
       const { invoke } = await import("@tauri-apps/api/core");
-      return await invoke<BucketConfigs>("get_bucket_configs");
+      return await invoke<Configs>("get_bucket_configs");
     } else {
       // Use localStorage for web (with encryption)
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -57,7 +57,7 @@ export async function loadConfigs(): Promise<BucketConfigs> {
       }
 
       // Decrypt all credential configs
-      const decryptedConfigs: BucketConfigs = {
+      const decryptedConfigs: Configs = {
         buckets: encryptedConfigs.buckets || {},
         credentials: {},
         groups: encryptedConfigs.groups || {},
@@ -98,7 +98,7 @@ export async function loadConfigs(): Promise<BucketConfigs> {
   }
 }
 
-export async function saveConfigs(configs: BucketConfigs): Promise<void> {
+export async function saveConfigs(configs: Configs): Promise<void> {
   if (isTauri()) {
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("save_full_config", { configs });

@@ -1,3 +1,10 @@
+export interface Configs {
+  buckets: Record<string, BucketConfig>;
+  credentials: Record<string, CredentialConfig>;
+  groups: Record<string, Group>;
+  active_bucket: string | null;
+}
+
 export interface CredentialConfig {
   id: string;
   name: string;
@@ -10,21 +17,15 @@ export interface BucketConfig {
   bucket_name: string;
   region: string;
   endpoint?: string;
-  credential_id: string; // References a CredentialConfig
-  group_id?: string | null; // ID of the group this bucket belongs to
+  credential_id: string;
+  group_id?: string | null;
 }
 
 export interface Group {
   id: string;
   name: string;
-  color?: string; // Optional color for visual distinction
-}
-
-export interface BucketConfigs {
-  buckets: Record<string, BucketConfig>;
-  credentials: Record<string, CredentialConfig>;
-  groups: Record<string, Group>;
-  active_bucket: string | null;
+  color?: string;
+  active?: boolean;
 }
 
 export interface S3Object {

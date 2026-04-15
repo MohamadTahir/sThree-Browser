@@ -7,7 +7,7 @@ import CredentialsModal from "./components/CredentialsModal";
 import MasterPasswordModal from "./components/MasterPasswordModal";
 import GroupManagementModal from "./components/GroupManagementModal";
 import { Toaster } from "./components/ui/toaster";
-import { BucketConfigs } from "./types";
+import { Configs, Group } from "./types";
 import { loadConfigs, setActiveBucket, deleteBucketConfig } from "./services/storageService";
 import {
   hasMasterPassword,
@@ -17,8 +17,7 @@ import {
 import { cn } from "./lib/utils";
 
 function App() {
-  const [configs, setConfigs] = useState<BucketConfigs | null>(null);
-  const [configsVersion, setConfigsVersion] = useState(0);
+  const [configs, setConfigs] = useState<Configs | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingBucketId, setEditingBucketId] = useState<string | null>(null);
@@ -27,13 +26,7 @@ function App() {
   const [masterPasswordUnlocked, setMasterPasswordUnlocked] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
-  // Use ref to persist expanded groups across re-renders, but use state to trigger updates
-  const expandedGroupsRef = useRef<Set<string>>(new Set());
-  const [, setExpandedGroupsVersion] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarWidth, setSidebarWidth] = useState(256);
-  const [resizing, setResizing] = useState(false);
-  const resizeStartRef = useRef({ x: 0, w: 256 });
 
   // Auto-collapse sidebar on mobile by default
   useEffect(() => {
@@ -51,34 +44,6 @@ function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // Resize sidebar by dragging
-  useEffect(() => {
-    if (!resizing) return;
-    const minW = 200;
-    const maxW = 480;
-    const onMove = (e: MouseEvent) => {
-      const delta = e.clientX - resizeStartRef.current.x;
-      const next = Math.min(maxW, Math.max(minW, resizeStartRef.current.w + delta));
-      setSidebarWidth(next);
-    };
-    const onUp = () => setResizing(false);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [resizing]);
-
-  // Getter function for expanded groups
-  const getExpandedGroups = () => expandedGroupsRef.current;
-
-  // Setter function for expanded groups
-  const setExpandedGroups = (updater: (prev: Set<string>) => Set<string>) => {
-    expandedGroupsRef.current = updater(expandedGroupsRef.current);
-    setExpandedGroupsVersion(v => v + 1); // Trigger re-render
-  };
 
   useEffect(() => {
     checkMasterPasswordStatus();
@@ -125,7 +90,6 @@ function App() {
         active_bucket: result.active_bucket,
       });
       // Increment version to force Sidebar re-render
-      setConfigsVersion(v => v + 1);
       if (result.active_bucket) {
         setSelectedBucket(result.active_bucket);
       }
@@ -133,7 +97,6 @@ function App() {
       console.error("Failed to load configs:", error);
       // Set empty configs on error
       setConfigs({ buckets: {}, credentials: {}, groups: {}, active_bucket: null });
-      setConfigsVersion(v => v + 1);
     }
   };
 
@@ -182,6 +145,20 @@ function App() {
     }
   };
 
+  const handleExpandGroup = (groupId: string) => {
+    const prev = configs?.groups?.[groupId];
+    if (!configs || !prev) return;
+
+    const updated: Group = { ...prev, active: !prev.active };
+
+    setConfigs({
+      buckets: { ...configs.buckets },
+      credentials: { ...configs.credentials },
+      groups: { ...configs.groups, [groupId]: updated },
+      active_bucket: configs.active_bucket ?? null,
+    });
+  };
+
 
   // Show master password modal if needed (even if loading is false)
   if (!masterPasswordUnlocked) {
@@ -214,7 +191,7 @@ function App() {
           // Fixed width on mobile, variable on desktop via --sidebar-width
           "w-64 md:w-[var(--sidebar-width)]",
           // Smooth transitions when not resizing
-          !resizing && "transition-transform duration-300 ease-in-out md:transition-[width,transform]",
+          "transition-transform duration-300 ease-in-out md:transition-[width,transform]",
           // Mobile: slide in/out as overlay using transform
           sidebarOpen
             ? "translate-x-0"
@@ -225,11 +202,10 @@ function App() {
         )}
         style={{
           willChange: 'transform',
-          ['--sidebar-width' as string]: `${sidebarOpen ? sidebarWidth : 64}px`,
+          ['--sidebar-width' as string]: `${sidebarOpen ? 256 : 64}px`,
         }}
       >
         <Sidebar
-          key={configsVersion}
           configs={configs}
           selectedBucket={selectedBucket}
           onBucketSelect={handleBucketSelect}
@@ -239,18 +215,7 @@ function App() {
           onDeleteBucket={handleDeleteBucket}
           onManageGroups={() => setShowGroupModal(true)}
           onGroupsChanged={loadConfigsData}
-          expandedGroups={getExpandedGroups()}
-          onToggleGroup={(groupId) => {
-            setExpandedGroups((prev) => {
-              const next = new Set(prev);
-              if (next.has(groupId)) {
-                next.delete(groupId);
-              } else {
-                next.add(groupId);
-              }
-              return next;
-            });
-          }}
+          onExpandGroup={handleExpandGroup}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
@@ -259,12 +224,6 @@ function App() {
           <div
             className="hidden md:block absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors z-10"
             aria-label="Resize sidebar"
-            onMouseDown={(e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              resizeStartRef.current = { x: e.clientX, w: sidebarWidth };
-              setResizing(true);
-            }}
           />
         )}
       </div>

@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
-import { BucketConfigs, Group } from "../types";
+import { Configs, Group } from "../types";
 import { cn } from "../lib/utils";
 import { updateGroup, deleteGroup, addBucketToGroup } from "../services/storageService";
 import { useToast } from "./ui/use-toast";
@@ -20,7 +20,7 @@ const GROUP_COLORS = [
 ];
 
 interface SidebarProps {
-  configs: BucketConfigs | null;
+  configs: Configs | null;
   selectedBucket: string | null;
   onBucketSelect: (bucketId: string) => void;
   onAddBucket: () => void;
@@ -29,8 +29,7 @@ interface SidebarProps {
   onDeleteBucket: (bucketId: string) => void;
   onManageGroups: () => void;
   onGroupsChanged: () => void;
-  expandedGroups: Set<string>;
-  onToggleGroup: (groupId: string) => void;
+  onExpandGroup: (groupId: string) => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
 }
@@ -45,8 +44,7 @@ export default function Sidebar({
   onDeleteBucket,
   onManageGroups,
   onGroupsChanged,
-  expandedGroups,
-  onToggleGroup,
+  onExpandGroup,
   sidebarOpen,
   onToggleSidebar,
 }: SidebarProps) {
@@ -410,7 +408,7 @@ export default function Sidebar({
                     <div className="space-y-1">
                       {sortedGroups.map((group) => {
                         const groupBuckets = bucketsByGroup.grouped[group.id] || [];
-                        const isExpanded = expandedGroups.has(group.id);
+                        const isExpanded = group.active ? true : false;
 
                         // Always show the folder, even if it has no buckets
 
@@ -495,7 +493,7 @@ export default function Sidebar({
                                     ? "bg-blue-500/20 border-2 border-blue-500 border-solid shadow-lg rounded-lg"
                                     : ""
                                 )}
-                                onClick={() => onToggleGroup(group.id)}
+                                onClick={() => onExpandGroup(group.id)}
                                 onDragOver={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
