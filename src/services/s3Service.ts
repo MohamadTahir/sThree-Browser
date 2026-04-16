@@ -1,5 +1,6 @@
-import { Bucket } from "../types";
+import { Bucket, BucketWithCredentials } from "../types";
 import { isTauri } from "./encryptionService";
+import { loadConfigs } from "./storageService";
 
 // API base URL (for web mode - Next.js API routes)
 // In Next.js, API routes are relative to the same origin, so we can use relative paths
@@ -8,7 +9,6 @@ const API_BASE_URL = typeof window !== 'undefined' ? '' : 'http://localhost:1420
 // Helper to resolve bucketId for Tauri mode (use provided bucketId or look up by nickname; with duplicate names, bucketId must be provided)
 async function resolveBucketId(config: Bucket, bucketId?: string): Promise<string> {
   if (bucketId) return bucketId;
-  const { loadConfigs } = await import("./storageService");
   const configs = await loadConfigs();
   const id = Object.keys(configs.buckets).find(
     (id) => configs.buckets[id].nickname === config.nickname
@@ -18,16 +18,9 @@ async function resolveBucketId(config: Bucket, bucketId?: string): Promise<strin
 }
 
 // Helper to merge a bucket config with its resolved credentials (web mode)
-async function withResolvedCredentials(
-  partialConfig: Bucket
-): Promise<Bucket & { access_key: string; secret_key: string }> {
-  const { loadConfigs } = await import("./storageService");
+async function withResolvedCredentials(bucket: Bucket): Promise<BucketWithCredentials> {
   const configs = await loadConfigs();
-
-  // Directly use the credential_id from the passed config
-  // This avoids fragile lookups by nickname/bucket_name which can fail if names change
-  // or if there are subtle inconsistencies
-  const credentialId = partialConfig.credential_id;
+  const credentialId = bucket.credential_id;
 
   if (!credentialId) {
     throw new Error("No credential ID associated with this bucket");
@@ -39,14 +32,8 @@ async function withResolvedCredentials(
     throw new Error(`Credentials (ID: ${credentialId}) not found for this bucket`);
   }
 
-  // Ensure we always have a valid region; default to us-east-1 if missing
-  const region = partialConfig.region && partialConfig.region.trim().length > 0
-    ? partialConfig.region
-    : "us-east-1";
-
   return {
-    ...partialConfig,
-    region,
+    ...bucket,
     access_key: credential.access_key,
     secret_key: credential.secret_key,
   };
@@ -114,6 +101,7 @@ async function apiRequest(endpoint: string, body: any): Promise<any> {
   }
 }
 
+// TODO: Why would I need to list buckets?
 export async function listBuckets(config: Bucket, bucketId?: string): Promise<string[]> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {

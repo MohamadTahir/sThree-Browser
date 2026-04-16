@@ -21,6 +21,11 @@ export interface Bucket {
   group_id?: string | null;
 }
 
+export interface BucketWithCredentials extends Bucket {
+  access_key: string;
+  secret_key: string;
+}
+
 export interface Group {
   id: string;
   name: string;
