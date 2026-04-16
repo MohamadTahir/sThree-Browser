@@ -1,4 +1,4 @@
-import { BucketConfig } from "../types";
+import { Bucket } from "../types";
 import { isTauri } from "./encryptionService";
 
 // API base URL (for web mode - Next.js API routes)
@@ -6,7 +6,7 @@ import { isTauri } from "./encryptionService";
 const API_BASE_URL = typeof window !== 'undefined' ? '' : 'http://localhost:1420';
 
 // Helper to resolve bucketId for Tauri mode (use provided bucketId or look up by nickname; with duplicate names, bucketId must be provided)
-async function resolveBucketId(config: BucketConfig, bucketId?: string): Promise<string> {
+async function resolveBucketId(config: Bucket, bucketId?: string): Promise<string> {
   if (bucketId) return bucketId;
   const { loadConfigs } = await import("./storageService");
   const configs = await loadConfigs();
@@ -19,8 +19,8 @@ async function resolveBucketId(config: BucketConfig, bucketId?: string): Promise
 
 // Helper to merge a bucket config with its resolved credentials (web mode)
 async function withResolvedCredentials(
-  partialConfig: BucketConfig
-): Promise<BucketConfig & { access_key: string; secret_key: string }> {
+  partialConfig: Bucket
+): Promise<Bucket & { access_key: string; secret_key: string }> {
   const { loadConfigs } = await import("./storageService");
   const configs = await loadConfigs();
 
@@ -114,7 +114,7 @@ async function apiRequest(endpoint: string, body: any): Promise<any> {
   }
 }
 
-export async function listBuckets(config: BucketConfig, bucketId?: string): Promise<string[]> {
+export async function listBuckets(config: Bucket, bucketId?: string): Promise<string[]> {
   // Use proxy for web, Tauri commands for desktop
   if (!isTauri()) {
     try {
@@ -172,7 +172,7 @@ export interface ListObjectsResult {
 }
 
 export async function listObjects(
-  config: BucketConfig,
+  config: Bucket,
   options: ListObjectsOptions,
   bucketId?: string
 ): Promise<ListObjectsResult> {
@@ -262,7 +262,7 @@ export async function listObjects(
 }
 
 export async function getObjectContent(
-  config: BucketConfig,
+  config: Bucket,
   bucketName: string,
   key: string,
   bucketId?: string
@@ -313,7 +313,7 @@ export async function getObjectContent(
 
 // Updated signature to support PUT/upload URLs
 export async function getPresignedUrl(
-  config: BucketConfig,
+  config: Bucket,
   bucketName: string,
   key: string,
   expiresIn: number = 3600, // Default 1 hour in seconds
@@ -367,7 +367,7 @@ export async function getPresignedUrl(
 }
 
 export async function uploadFile(
-  config: BucketConfig,
+  config: Bucket,
   bucketName: string,
   key: string,
   file: File,
@@ -408,7 +408,7 @@ export async function uploadFile(
 }
 
 export async function deleteObject(
-  config: BucketConfig,
+  config: Bucket,
   bucketName: string,
   key: string,
   deleteAllVersions: boolean = false,
