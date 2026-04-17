@@ -32,7 +32,7 @@ export default function FilePreview({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && file && bucketId && bucketName && !file.is_folder) {
+    if (open && file && bucketId && bucketName && !file.isFolder) {
       loadFileContent();
     } else {
       // Reset state when modal closes

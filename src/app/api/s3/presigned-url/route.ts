@@ -2,30 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getS3Client, handleS3Error } from '@/lib/s3Client';
+import { APIPreSignUrlRequest } from '@/models/dto/requests/PresignUrl';
 
 export const dynamic = 'force-static';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { config, bucketName, key, expiresIn } = body;
+    const body: APIPreSignUrlRequest = await request.json();
 
-    if (!config || !bucketName || !key) {
+    if (!body.bucket || !body.key || !body.expiresIn) {
       return NextResponse.json(
-        { error: 'Missing required fields: config, bucketName, or key' },
+        { error: 'Missing required fields: bucket, key, or expiresIn' },
         { status: 400 }
       );
     }
 
-    const client = getS3Client(config);
+    const client = getS3Client(body.bucket);
 
     const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: key,
+      Bucket: body.bucket.bucketName,
+      Key: body.key,
     });
 
     const url = await getSignedUrl(client, command, {
-      expiresIn: expiresIn || 3600,
+      expiresIn: body.expiresIn || 3600,
     });
 
     return NextResponse.json({ url });

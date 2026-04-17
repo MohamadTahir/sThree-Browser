@@ -1,53 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getS3Client, handleS3Error } from '@/lib/s3Client';
+import { S3Object } from '@/types';
+import { APIListObjectsRequest } from '@/models/dto/requests/ListObjectsRequest';
+import { ListObjectsResponse } from '@/models/dto/responses/ListObjectResponse';
 
 export const dynamic = 'force-static';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { config, bucketName, prefix, maxKeys, continuationToken } = body;
+    const listObjectsRequest: APIListObjectsRequest = await request.json();
 
-    if (!config) {
-      return NextResponse.json(
-        { error: 'Missing config in request body' },
-        { status: 400 }
-      );
-    }
-
-    if (!bucketName) {
-      return NextResponse.json(
-        { error: 'Missing bucketName in request body' },
-        { status: 400 }
-      );
-    }
-
-    const client = getS3Client(config);
+    const client = getS3Client(listObjectsRequest.bucket);
 
     const command = new ListObjectsV2Command({
-      Bucket: bucketName,
-      Prefix: prefix || undefined,
+      Bucket: listObjectsRequest.bucket.bucketName,
+      Prefix: listObjectsRequest.prefix || undefined,
       Delimiter: '/',
-      MaxKeys: maxKeys || 100,
-      ContinuationToken: continuationToken || undefined,
+      MaxKeys: listObjectsRequest.maxKeys || 100,
+      ContinuationToken: listObjectsRequest.continuationToken || undefined,
     });
 
     const response = await client.send(command);
 
-    const objects: Array<{
-      key: string;
-      size: number;
-      lastModified: string | null;
-      isFolder: boolean;
-    }> = [];
-    const commonPrefixes: string[] = [];
+    const objects: Array<S3Object> = [];
 
     // Process common prefixes (folders)
     if (response.CommonPrefixes) {
       for (const prefixObj of response.CommonPrefixes) {
         if (prefixObj.Prefix) {
-          commonPrefixes.push(prefixObj.Prefix);
           objects.push({
             key: prefixObj.Prefix,
             size: 0,
@@ -72,12 +53,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    let listObjectsResponse: ListObjectsResponse = {
       objects,
-      commonPrefixes,
       nextContinuationToken: response.NextContinuationToken || null,
       isTruncated: response.IsTruncated || false,
-    });
+    }
+
+    return NextResponse.json(listObjectsResponse);
+
   } catch (error: any) {
     console.error('List objects error:', error);
     const { message, statusCode } = handleS3Error(error);

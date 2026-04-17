@@ -1,15 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, AlertCircle, PanelLeftOpen, RefreshCw, Upload } from "lucide-react";
+import { Folder, File, ChevronRight, Loader2, ChevronDown, Check, ChevronLeft, AlertCircle, RefreshCw, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
-import { listBuckets, listObjects, getObjectContent, uploadFile } from "../services/s3Service";
+import { listBuckets, listObjects, getObjectContent } from "../services/s3Service";
 import { loadConfigs } from "../services/storageService";
 import Breadcrumb from "./Breadcrumb";
 import DownloadToast from "./DownloadToast";
 import ObjectDetailsSidebar from "./ObjectDetailsSidebar";
 import { cn } from "../lib/utils";
 import { useToast } from "./ui/use-toast";
+import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
+import { GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
 
 interface FileExplorerProps {
   bucketId: string | null;
@@ -192,20 +194,20 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
       // Clear switching flag once we have the nickname
       isSwitchingBucketsRef.current = false;
 
-      if (config.bucket_name) {
+      if (config.bucketName) {
         // Always use the bucket_name from config, not the previous state
         // This ensures we use the correct bucket when switching between accounts
-        const currentBucket = config.bucket_name;
+        const currentBucket = config.bucketName;
 
         // Final check before setting state
         if (bucketId === requestBucketId) {
           setBucketName(currentBucket);
           // Maintain stable order - always show configured bucket first
-          setAvailableBuckets([config.bucket_name]);
+          setAvailableBuckets([config.bucketName]);
         }
       } else {
         // Fallback: try to list buckets if bucket_name is not set
-        const buckets = await listBuckets(config, requestBucketId);
+        const buckets = await listBuckets(config);
 
         // Validate bucketId hasn't changed
         if (bucketId !== requestBucketId) {
@@ -302,16 +304,16 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
 
           setUploadProgress({ fileName: file.name, progress: 0 });
 
-          await uploadFile(
-            config,
-            config.bucket_name,
-            key,
-            file,
-            (progress) => {
-              setUploadProgress({ fileName: file.name, progress });
-            },
-            bucketId
-          );
+          // await uploadFile(
+          //   config,
+          //   config.bucketName,
+          //   key,
+          //   file,
+          //   (progress) => {
+          //     setUploadProgress({ fileName: file.name, progress });
+          //   },
+          //   bucketId
+          // );
 
           toast({
             title: "Upload Successful",
@@ -459,9 +461,9 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
       }
 
       // Validate bucketName matches config
-      if (requestBucketName !== config.bucket_name && config.bucket_name) {
+      if (requestBucketName !== config.bucketName && config.bucketName) {
         // Use config's bucket name if it's different
-        const correctBucketName = config.bucket_name;
+        const correctBucketName = config.bucketName;
 
         // Double-check bucketId hasn't changed
         if (bucketId !== requestBucketId) {
@@ -479,27 +481,21 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
         return;
       }
 
-      const response = await listObjects(config, {
-        bucketName: requestBucketName,
+      let listObjectsRequest: ListObjectsRequest = {
+        bucket: config,
         prefix: currentPrefix || undefined,
         maxKeys: pageSize,
         continuationToken: token || undefined,
-      }, requestBucketId);
+      }
+
+      const response = await listObjects(listObjectsRequest);
 
       // Final validation - check if this request is still valid
       if (bucketId !== requestBucketId || bucketName !== requestBucketName) {
         return;
       }
 
-      // Convert to S3Object format
-      const s3Objects: S3Object[] = response.objects.map(obj => ({
-        key: obj.key,
-        size: obj.size,
-        last_modified: obj.lastModified,
-        is_folder: obj.isFolder,
-      }));
-
-      setObjects(s3Objects);
+      setObjects(response.objects);
       setNextContinuationToken(response.nextContinuationToken || null);
       setIsTruncated(response.isTruncated);
       setContinuationToken(token);
@@ -572,7 +568,7 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
 
   const handleObjectClick = (object: S3Object) => {
     // Folders navigate on single click
-    if (object.is_folder) {
+    if (object.isFolder) {
       setCurrentPrefix(object.key);
     } else {
       // Files open sidebar
@@ -600,8 +596,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
         return;
       }
 
-      // Get file content using client-side S3 SDK
-      const uint8Array = await getObjectContent(config, bucketName, object.key, bucketId);
+      let getObjectContentRequest: GetObjectRequest = {
+        bucket: config,
+        key: object.key,
+      }
+      const uint8Array = await getObjectContent(getObjectContentRequest);
 
       // Get file name
       const fileName = object.key.split('/').pop() || object.key;
@@ -934,7 +933,7 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
                   >
                     <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
                       <div className="flex-shrink-0">
-                        {object.is_folder ? (
+                        {object.isFolder ? (
                           <Folder className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                         ) : (
                           <File className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -943,27 +942,27 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
                       <div className="flex flex-1 items-center justify-between gap-2 sm:gap-4 min-w-0">
                         <div className="flex-1 text-left min-w-0">
                           <div className="font-medium text-sm sm:text-base truncate">
-                            {object.is_folder
+                            {object.isFolder
                               ? object.key
                                 .replace(currentPrefix, "")
                                 .replace(/\/$/, "")
                               : object.key.replace(currentPrefix, "")}
                           </div>
-                          {!object.is_folder && (
+                          {!object.isFolder && (
                             <div className="text-xs sm:text-sm text-muted-foreground">
                               {formatBytes(object.size)}
-                              {object.last_modified && (
-                                <span className="ml-2 sm:hidden">• {formatDate(object.last_modified)}</span>
+                              {object.lastModified && (
+                                <span className="ml-2 sm:hidden">• {formatDate(object.lastModified)}</span>
                               )}
                             </div>
                           )}
                         </div>
-                        {!object.is_folder && object.last_modified && (
+                        {!object.isFolder && object.lastModified && (
                           <div className="hidden sm:block text-sm text-muted-foreground flex-shrink-0">
-                            {formatDate(object.last_modified)}
+                            {formatDate(object.lastModified)}
                           </div>
                         )}
-                        {object.is_folder && (
+                        {object.isFolder && (
                           <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         )}
                       </div>

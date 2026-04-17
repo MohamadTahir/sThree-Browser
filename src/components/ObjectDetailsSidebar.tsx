@@ -48,7 +48,7 @@ export default function ObjectDetailsSidebar({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (open && object && bucketId && bucketName && !object.is_folder && isPreviewableFileType(object.key)) {
+    if (open && object && bucketId && bucketName && !object.isFolder && isPreviewableFileType(object.key)) {
       loadFileContent();
     } else {
       // Cancel any in-flight requests
@@ -78,25 +78,25 @@ export default function ObjectDetailsSidebar({
     if (!object || !bucketId || !bucketName) return;
 
     const fileType = getFileType(object.key);
-    
+
     // Different size limits for different file types
     const MAX_IMAGE_SIZE = 50 * 1024 * 1024; // 50MB for images
     const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB for PDFs
     const MAX_TEXT_SIZE = 5 * 1024 * 1024; // 5MB for text/JSON files (smaller to prevent UI freeze)
-    
+
     // Check size limits based on file type
     if (fileType === 'image' && object.size > MAX_IMAGE_SIZE) {
       setError(`Image is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_IMAGE_SIZE / 1024 / 1024}MB.`);
       setLoading(false);
       return;
     }
-    
+
     if (fileType === 'pdf' && object.size > MAX_PDF_SIZE) {
       setError(`PDF is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_PDF_SIZE / 1024 / 1024}MB.`);
       setLoading(false);
       return;
     }
-    
+
     if (fileType === 'text' && object.size > MAX_TEXT_SIZE) {
       setError(`File is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size for text files is ${MAX_TEXT_SIZE / 1024 / 1024}MB. Please download the file to view it.`);
       setLoading(false);
@@ -115,12 +115,12 @@ export default function ObjectDetailsSidebar({
 
       // Get config to use with S3 service
       const configs = await loadConfigs();
-      
+
       // Check if cancelled
       if (abortController.signal.aborted) {
         return;
       }
-      
+
       const config = configs.buckets[bucketId];
 
       if (!config) {
@@ -145,7 +145,7 @@ export default function ObjectDetailsSidebar({
           }
         }, 0);
       });
-      
+
       // Check if cancelled after loading
       if (abortController.signal.aborted) {
         return;
@@ -163,22 +163,22 @@ export default function ObjectDetailsSidebar({
         try {
           // For large files, decode in a way that doesn't block the UI
           let text: string;
-          
+
           if (uint8Array.length > 1000000) {
             // For files > 1MB, decode in chunks with yields
             const decoder = new TextDecoder('utf-8');
             let decoded = '';
             const chunkSize = 500000; // Process 500KB at a time
-            
+
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
               // Check if cancelled
               if (abortControllerRef.current?.signal.aborted) {
                 return;
               }
-              
+
               const chunk = uint8Array.slice(i, Math.min(i + chunkSize, uint8Array.length));
               decoded += decoder.decode(chunk, { stream: i + chunkSize < uint8Array.length });
-              
+
               // Yield to browser every chunk to prevent freezing
               if (i + chunkSize < uint8Array.length) {
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -191,7 +191,7 @@ export default function ObjectDetailsSidebar({
             const decoder = new TextDecoder('utf-8');
             text = decoder.decode(uint8Array);
           }
-          
+
           // Truncate if too long to prevent DOM rendering freeze
           if (text.length > MAX_PREVIEW_CHARS) {
             const truncated = text.substring(0, MAX_PREVIEW_CHARS);
@@ -234,7 +234,7 @@ export default function ObjectDetailsSidebar({
   // MUST be called before any early returns to follow Rules of Hooks
   const displayContent = useMemo(() => {
     if (!content) return null;
-    
+
     // For very large content, we've already truncated it during loading
     // But we can add additional optimizations here if needed
     return content;
@@ -242,15 +242,15 @@ export default function ObjectDetailsSidebar({
 
   if (!object) return null;
 
-  const fileName = object.is_folder
+  const fileName = object.isFolder
     ? object.key.replace(currentPrefix, "").replace(/\/$/, "")
     : object.key.split("/").pop() || object.key.replace(currentPrefix, "");
 
   const getFileIcon = () => {
-    if (object.is_folder) {
+    if (object.isFolder) {
       return <Folder className="h-8 w-8 text-primary" />;
     }
-    
+
     const extension = object.key.split(".").pop()?.toLowerCase() || "";
     if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(extension)) {
       return <ImageIcon className="h-8 w-8 text-primary" />;
@@ -268,14 +268,14 @@ export default function ObjectDetailsSidebar({
   };
 
   const getFileTypeLabel = () => {
-    if (object.is_folder) return "Folder";
+    if (object.isFolder) return "Folder";
     const extension = object.key.split(".").pop()?.toLowerCase() || "";
     if (!extension) return "File";
     return extension.toUpperCase() + " File";
   };
 
-  const canPreview = !object.is_folder && isPreviewableFileType(object.key);
-  const previewFileType = !object.is_folder ? getFileType(object.key) : null;
+  const canPreview = !object.isFolder && isPreviewableFileType(object.key);
+  const previewFileType = !object.isFolder ? getFileType(object.key) : null;
 
   return (
     <>
@@ -286,7 +286,7 @@ export default function ObjectDetailsSidebar({
           onClick={onClose}
         />
       )}
-      
+
       {/* Sidebar */}
       <div
         className={cn(
@@ -298,8 +298,8 @@ export default function ObjectDetailsSidebar({
           "shadow-lg md:shadow-none",
           "transition-transform duration-300 ease-in-out md:transition-all",
           // Mobile: slide in/out as overlay using transform
-          open 
-            ? "translate-x-0" 
+          open
+            ? "translate-x-0"
             : "translate-x-full md:translate-x-0",
           // Desktop: hide by setting width to 0 when closed
           !open && "md:w-0 md:border-0 md:overflow-hidden",
@@ -339,7 +339,7 @@ export default function ObjectDetailsSidebar({
           {/* Object Information */}
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Information</h4>
-            
+
             <div className="space-y-3">
               {/* Full Path */}
               <div>
@@ -348,7 +348,7 @@ export default function ObjectDetailsSidebar({
               </div>
 
               {/* Size */}
-              {!object.is_folder && (
+              {!object.isFolder && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <HardDrive className="h-4 w-4 text-muted-foreground" />
@@ -359,13 +359,13 @@ export default function ObjectDetailsSidebar({
               )}
 
               {/* Last Modified */}
-              {object.last_modified && (
+              {object.lastModified && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Last Modified</span>
                   </div>
-                  <span className="text-sm font-medium">{formatDate(object.last_modified)}</span>
+                  <span className="text-sm font-medium">{formatDate(object.lastModified)}</span>
                 </div>
               )}
             </div>
@@ -377,7 +377,7 @@ export default function ObjectDetailsSidebar({
               <Separator />
               <div className="space-y-3">
                 <h4 className="text-sm font-medium">Preview</h4>
-                
+
                 <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
                   {loading ? (
                     <div className="flex items-center justify-center py-12">
@@ -408,7 +408,7 @@ export default function ObjectDetailsSidebar({
                     </div>
                   ) : previewFileType === 'text' && displayContent !== null ? (
                     <div className="bg-background p-4 max-h-[400px] overflow-auto">
-                      <pre 
+                      <pre
                         className="text-xs font-mono whitespace-pre-wrap break-words"
                         style={{
                           // Optimize rendering for large content
@@ -435,9 +435,9 @@ export default function ObjectDetailsSidebar({
           {/* Actions */}
           <div className="space-y-3">
             <h4 className="text-sm font-medium">Actions</h4>
-            
+
             <div className="flex flex-col gap-2">
-              {object.is_folder ? (
+              {object.isFolder ? (
                 <Button
                   variant="default"
                   className="w-full"
@@ -492,7 +492,7 @@ export default function ObjectDetailsSidebar({
       />
 
       {/* Delete Confirmation Modal */}
-      {object && !object.is_folder && (
+      {object && !object.isFolder && (
         <DeleteConfirmationModal
           open={showDeleteModal}
           onOpenChange={setShowDeleteModal}
@@ -514,12 +514,12 @@ export default function ObjectDetailsSidebar({
               }
 
               await deleteObject(config, bucketName, object.key, deleteAllVersions, bucketId);
-              
+
               toast({
                 variant: "success",
                 title: "Object Deleted",
-                description: deleteAllVersions 
-                  ? "All versions of the object have been deleted." 
+                description: deleteAllVersions
+                  ? "All versions of the object have been deleted."
                   : "Object has been deleted successfully.",
               });
 

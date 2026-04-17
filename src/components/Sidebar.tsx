@@ -61,7 +61,7 @@ export default function Sidebar({
   const bucketsKey = useMemo(() => {
     return Object.entries(buckets)
       .sort(([idA], [idB]) => idA.localeCompare(idB))
-      .map(([id, config]) => `${id}:${config.group_id || 'none'}`)
+      .map(([id, config]) => `${id}:${config.groupId || 'none'}`)
       .join(',');
   }, [buckets]);
 
@@ -79,7 +79,7 @@ export default function Sidebar({
     const query = searchQuery.toLowerCase().trim();
     return sortedBuckets.filter(([bucketId, config]) => {
       const nickname = config.nickname.toLowerCase();
-      const bucketName = config.bucket_name.toLowerCase();
+      const bucketName = config.bucketName.toLowerCase();
       return nickname.includes(query) || bucketName.includes(query) || bucketId.toLowerCase().includes(query);
     });
   }, [sortedBuckets, searchQuery]);
@@ -90,11 +90,11 @@ export default function Sidebar({
     const ungrouped: Array<[string, typeof buckets[string]]> = [];
 
     filteredBuckets.forEach(([bucketId, config]) => {
-      if (config.group_id && groups[config.group_id]) {
-        if (!grouped[config.group_id]) {
-          grouped[config.group_id] = [];
+      if (config.groupId && groups[config.groupId]) {
+        if (!grouped[config.groupId]) {
+          grouped[config.groupId] = [];
         }
-        grouped[config.group_id].push([bucketId, config]);
+        grouped[config.groupId].push([bucketId, config]);
       } else {
         ungrouped.push([bucketId, config]);
       }
@@ -248,7 +248,7 @@ export default function Sidebar({
     }
 
     // If dropping on the same group, do nothing
-    if (currentConfig.group_id === targetGroupId) {
+    if (currentConfig.groupId === targetGroupId) {
       setDraggedBucketId(null);
       setDragOverGroupId(null);
       return;

@@ -148,7 +148,7 @@ export default function CredentialsModal({
 
     // Prevent deleting credentials in use
     const inUse = Object.values(configs.buckets).some(
-      (b) => b.credential_id === selectedId
+      (b) => b.credentialId === selectedId
     );
     if (inUse) {
       toast({

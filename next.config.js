@@ -11,10 +11,10 @@ const isTauriBuild = process.env.TAURI_BUILD === 'true';
 const nextConfig = {
   // Output standalone for Docker/production deployment, or export for Tauri
   output: isTauriBuild ? 'export' : 'standalone',
-  
+
   // Disable server-side rendering for pages (use client components)
   reactStrictMode: true,
-  
+
   // Use webpack instead of Turbopack (for compatibility with existing config)
   webpack: (config) => {
     const aliases = {

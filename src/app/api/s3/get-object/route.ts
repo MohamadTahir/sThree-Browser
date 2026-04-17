@@ -1,26 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getS3Client, handleS3Error } from '@/lib/s3Client';
+import { GetObjectResponse } from '@/models/dto/responses/GetObjectResponse';
+import { APIGetObjectRequest } from '@/models/dto/requests/GetObjectRequest';
 
 export const dynamic = 'force-static';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { config, bucketName, key } = body;
+    const body: APIGetObjectRequest = await request.json();
 
-    if (!config || !bucketName || !key) {
+    if (!body.bucket || !body.key) {
       return NextResponse.json(
         { error: 'Missing required fields: config, bucketName, or key' },
         { status: 400 }
       );
     }
 
-    const client = getS3Client(config);
+    const client = getS3Client(body.bucket);
 
     const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: key,
+      Bucket: body.bucket.bucketName,
+      Key: body.key,
     });
 
     const response = await client.send(command);
@@ -53,8 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Convert to base64 for transmission
     const base64 = Buffer.from(result).toString('base64');
-
-    return NextResponse.json({
+    return NextResponse.json<GetObjectResponse>({
       data: base64,
       size: result.length,
     });

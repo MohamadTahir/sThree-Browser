@@ -1,48 +1,11 @@
-import { S3Client } from '@aws-sdk/client-s3';
-
-interface BucketConfig {
-  nickname: string;
-  bucket_name: string;
-  access_key: string;
-  secret_key: string;
-  region: string;
-  endpoint?: string;
-}
+import { BucketWithCredentials } from '@/types';
+import { S3Client, S3ClientConfig } from '@aws-sdk/client-s3';
 
 // Cache S3 clients by bucket nickname
 const clientCache = new Map<string, S3Client>();
 
-function createS3Client(config: BucketConfig): S3Client {
-  const credentials = async () => ({
-    accessKeyId: config.access_key,
-    secretAccessKey: config.secret_key,
-  });
 
-  const clientConfig: any = {
-    region: config.region,
-    credentials,
-  };
-
-  // Handle custom endpoint (for S3-compatible storage)
-  if (config.endpoint && config.endpoint.trim()) {
-    let endpoint = config.endpoint.trim();
-
-    // Add protocol if not present
-    if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
-      endpoint = `https://${endpoint}`;
-    }
-
-    // Remove trailing slash
-    endpoint = endpoint.replace(/\/$/, '');
-
-    clientConfig.endpoint = endpoint;
-    clientConfig.forcePathStyle = true; // Required for S3-compatible storage
-  }
-
-  return new S3Client(clientConfig);
-}
-
-export function getS3Client(config: BucketConfig): S3Client {
+export function getS3Client(config: BucketWithCredentials): S3Client {
   const cacheKey = config.nickname;
 
   if (!clientCache.has(cacheKey)) {
@@ -51,6 +14,21 @@ export function getS3Client(config: BucketConfig): S3Client {
 
   return clientCache.get(cacheKey)!;
 }
+
+function createS3Client(config: BucketWithCredentials): S3Client {
+  const clientConfig: S3ClientConfig = {
+    region: config.region,
+    endpoint: config.endpoint,
+    forcePathStyle: config.forcePathStyle,
+    credentials: {
+      accessKeyId: config.access_key,
+      secretAccessKey: config.secret_key,
+    },
+  };
+
+  return new S3Client(clientConfig);
+}
+
 
 export function handleS3Error(error: any): { message: string; statusCode: number } {
   let errorMessage = error.message || 'Internal server error';

@@ -97,7 +97,7 @@ export async function addBucket(bucket: Bucket): Promise<string> {
 
   configs.buckets[bucketId] = {
     ...bucket,
-    group_id: bucket.group_id || null,
+    groupId: bucket.groupId || null,
   };
 
   await saveConfigs(configs);
@@ -112,11 +112,12 @@ export async function updateBucket(bucketId: string, bucket: Bucket): Promise<vo
   }
 
   configs.buckets[bucketId] = {
+    forcePathStyle: bucket.forcePathStyle,
     region: bucket.region,
     nickname: bucket.nickname,
-    bucket_name: bucket.bucket_name,
-    credential_id: bucket.credential_id,
-    group_id: bucket.group_id || null,
+    bucketName: bucket.bucketName,
+    credentialId: bucket.credentialId,
+    groupId: bucket.groupId || null,
     endpoint: bucket.endpoint || undefined,
   };
 
@@ -129,7 +130,7 @@ export async function updateBucketGroup(bucketId: string, groupId: string | null
     throw new Error(`Bucket ${bucketId} not found`);
   }
 
-  configs.buckets[bucketId].group_id = groupId;
+  configs.buckets[bucketId].groupId = groupId;
   await saveConfigs(configs);
 }
 
@@ -186,8 +187,8 @@ export async function deleteGroup(groupId: string): Promise<void> {
 
   // Remove group_id from all buckets in this group
   for (const bucketId in configs.buckets) {
-    if (configs.buckets[bucketId].group_id === groupId) {
-      configs.buckets[bucketId].group_id = null;
+    if (configs.buckets[bucketId].groupId === groupId) {
+      configs.buckets[bucketId].groupId = null;
     }
   }
 

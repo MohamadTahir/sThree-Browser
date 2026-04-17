@@ -66,13 +66,24 @@ export default function AddBucketModal({
         throw new Error("Please select credentials for this bucket.");
       }
 
+      let endpoint = formData.endpoint.trim() || undefined;
+      if (endpoint) {
+        try {
+          new URL(endpoint);
+        } catch (e) {
+          throw new Error("Invalid endpoint URL. Please enter a valid URI");
+        }
+      }
+
+
       await addBucket({
         nickname: formData.nickname,
-        bucket_name: formData.bucket_name,
-        credential_id: formData.credential_id,
+        bucketName: formData.bucket_name,
+        credentialId: formData.credential_id,
         region: formData.region,
         endpoint: formData.endpoint.trim() || undefined,
-        group_id: formData.group_id || null,
+        groupId: formData.group_id || null,
+        forcePathStyle: true
       });
 
       const addedNickname = formData.nickname;

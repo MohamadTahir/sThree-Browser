@@ -14,11 +14,12 @@ export interface Credential {
 
 export interface Bucket {
   nickname: string;
-  bucket_name: string;
+  bucketName: string;
   region: string;
   endpoint?: string;
-  credential_id: string;
-  group_id?: string | null;
+  credentialId: string;
+  groupId?: string | null;
+  forcePathStyle: boolean;
 }
 
 export interface BucketWithCredentials extends Bucket {
@@ -36,15 +37,6 @@ export interface Group {
 export interface S3Object {
   key: string;
   size: number;
-  last_modified: string | null;
-  is_folder: boolean;
-}
-
-export interface ListObjectsResponse {
-  objects: S3Object[];
-  prefix: string;
-  common_prefixes: string[];
-  next_continuation_token?: string | null;
-  is_truncated: boolean;
-  max_keys: number;
+  lastModified: string | null;
+  isFolder: boolean;
 }

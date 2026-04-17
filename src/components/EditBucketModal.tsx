@@ -66,11 +66,11 @@ export default function EditBucketModal({
     if (open && bucket) {
       setFormData({
         nickname: bucket.nickname,
-        bucket_name: bucket.bucket_name,
+        bucket_name: bucket.bucketName,
         region: bucket.region,
         endpoint: bucket.endpoint || "",
-        credential_id: bucket.credential_id,
-        group_id: bucket.group_id || "",
+        credential_id: bucket.credentialId,
+        group_id: bucket.groupId || "",
       });
     }
   }, [bucket, open]);
@@ -87,11 +87,11 @@ export default function EditBucketModal({
     try {
       await updateBucket(bucketId, {
         nickname: formData.nickname,
-        bucket_name: formData.bucket_name,
+        bucketName: formData.bucket_name,
         region: formData.region,
         endpoint: formData.endpoint.trim() || undefined,
-        credential_id: formData.credential_id,
-        group_id: formData.group_id || null,
+        credentialId: formData.credential_id,
+        groupId: formData.group_id || null,
       });
 
       // Refresh groups list in case a new folder was created elsewhere
