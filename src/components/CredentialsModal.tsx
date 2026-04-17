@@ -12,7 +12,6 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Configs, Credential } from "../types";
 import { loadConfigs, saveConfigs } from "../services/storageService";
-import { useToast } from "./ui/use-toast";
 
 interface CredentialsModalProps {
   open: boolean;
@@ -25,7 +24,6 @@ export default function CredentialsModal({
   onOpenChange,
   onChanged,
 }: CredentialsModalProps) {
-  const { toast } = useToast();
   const [configs, setConfigs] = useState<Configs | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
@@ -64,11 +62,11 @@ export default function CredentialsModal({
       });
     } catch (error) {
       console.error("Failed to load credentials:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Load Credentials",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Load Credentials",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     }
   };
 
@@ -96,11 +94,11 @@ export default function CredentialsModal({
     if (!configs) return;
 
     if (!formData.name.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Missing Name",
-        description: "Please provide a name for these credentials.",
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Missing Name",
+      //   description: "Please provide a name for these credentials.",
+      // });
       return;
     }
 
@@ -127,19 +125,19 @@ export default function CredentialsModal({
       setConfigs(next);
       setSelectedId(id);
       setFormData((prev) => ({ ...prev, id }));
-      toast({
-        variant: "success",
-        title: "Credentials Saved",
-        description: "Your credentials have been saved.",
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Credentials Saved",
+      //   description: "Your credentials have been saved.",
+      // });
       onChanged();
     } catch (error) {
       console.error("Failed to save credentials:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Save Credentials",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Save Credentials",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     }
   };
 
@@ -151,12 +149,12 @@ export default function CredentialsModal({
       (b) => b.credentialId === selectedId
     );
     if (inUse) {
-      toast({
-        variant: "destructive",
-        title: "Credentials In Use",
-        description:
-          "These credentials are currently used by one or more buckets. Reassign those buckets before deleting.",
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Credentials In Use",
+      //   description:
+      //     "These credentials are currently used by one or more buckets. Reassign those buckets before deleting.",
+      // });
       return;
     }
 
@@ -172,19 +170,19 @@ export default function CredentialsModal({
       await saveConfigs(next);
       setConfigs(next);
       handleNew();
-      toast({
-        variant: "success",
-        title: "Credentials Deleted",
-        description: "The credentials have been deleted.",
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Credentials Deleted",
+      //   description: "The credentials have been deleted.",
+      // });
       onChanged();
     } catch (error) {
       console.error("Failed to delete credentials:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Delete Credentials",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Delete Credentials",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     }
   };
 

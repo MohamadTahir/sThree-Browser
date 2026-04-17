@@ -12,7 +12,6 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Plus } from "lucide-react";
 import { createGroup } from "../services/storageService";
-import { useToast } from "./ui/use-toast";
 
 interface GroupManagementModalProps {
   open: boolean;
@@ -36,7 +35,6 @@ export default function GroupManagementModal({
   onOpenChange,
   onGroupsChanged,
 }: GroupManagementModalProps) {
-  const { toast } = useToast();
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupColor, setNewGroupColor] = useState(GROUP_COLORS[0].value);
   const [loading, setLoading] = useState(false);
@@ -50,22 +48,22 @@ export default function GroupManagementModal({
       const createdName = newGroupName.trim();
       setNewGroupName("");
       setNewGroupColor(GROUP_COLORS[0].value);
-      toast({
-        variant: "success",
-        title: "Folder Created",
-        description: `Folder "${createdName}" has been created successfully.`,
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Folder Created",
+      //   description: `Folder "${createdName}" has been created successfully.`,
+      // });
       // Immediately refresh the sidebar state
       onGroupsChanged();
       // Close the modal after successful creation
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to create group:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Create Folder",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Create Folder",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     } finally {
       setLoading(false);
     }
@@ -105,8 +103,8 @@ export default function GroupManagementModal({
                   type="button"
                   onClick={() => setNewGroupColor(color.value)}
                   className={`h-8 w-8 rounded-full border-2 transition-all ${newGroupColor === color.value
-                      ? "border-foreground scale-110"
-                      : "border-border hover:border-foreground/50"
+                    ? "border-foreground scale-110"
+                    : "border-border hover:border-foreground/50"
                     }`}
                   style={{ backgroundColor: color.value }}
                   title={color.name}

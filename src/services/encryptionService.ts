@@ -199,18 +199,7 @@ export async function clearAllData(): Promise<void> {
   // Clear master password
   clearMasterPassword();
 
-  if (isTauri()) {
-    // For Tauri, clear bucket configs via Rust command
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("clear_all_configs");
-    } catch (error) {
-      console.error("Failed to clear Tauri configs:", error);
-    }
-  } else {
-    // For web, clear bucket configs from localStorage
-    localStorage.removeItem("bucket-configs");
-  }
+  localStorage.removeItem("bucket-configs");
 
   // Clear any sessionStorage items (in case there are any)
   sessionStorage.clear();
@@ -224,12 +213,4 @@ export async function clearAllData(): Promise<void> {
  */
 export function isMasterPasswordUnlocked(): boolean {
   return getMasterPasswordFromMemory() !== null;
-}
-
-/**
- * Check if running in Tauri
- */
-export function isTauri(): boolean {
-  return false;
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }

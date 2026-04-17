@@ -29,6 +29,33 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+
+    /* Elevated surface for toasts (card === background, so toasts need their own step) */
+    --toast-surface: 222.2 36% 16%;
+    --toast-border: 215 25% 38%;
+
+    /* react-toastify — align with shadcn/tailwind tokens */
+    --toastify-color-dark: hsl(var(--toast-surface));
+    --toastify-color-light: hsl(var(--toast-surface));
+    --toastify-text-color-dark: hsl(var(--foreground));
+    --toastify-text-color-light: hsl(var(--foreground));
+    --toastify-toast-bd-radius: var(--radius);
+    --toastify-toast-shadow:
+      0 10px 15px -3px rgb(0 0 0 / 0.35),
+      0 4px 6px -4px rgb(0 0 0 / 0.25),
+      0 0 0 1px hsl(0 0% 100% / 0.06);
+    --toastify-font-family: inherit;
+    --toastify-color-info: hsl(var(--primary));
+    --toastify-icon-color-info: hsl(var(--primary));
+    --toastify-color-success: hsl(var(--chart-2));
+    --toastify-icon-color-success: hsl(var(--chart-2));
+    --toastify-color-warning: hsl(var(--chart-3));
+    --toastify-icon-color-warning: hsl(var(--chart-3));
+    --toastify-color-error: hsl(0 72% 51%);
+    --toastify-icon-color-error: hsl(0 72% 51%);
+    --toastify-spinner-color: hsl(var(--muted-foreground));
+    --toastify-spinner-color-empty-area: hsl(var(--border));
+    --toastify-color-progress-dark: hsl(var(--primary));
   }
 }
 
@@ -51,6 +78,28 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
+  }
+}
+
+@layer components {
+  .Toastify__toast-container {
+    color: hsl(var(--foreground));
+  }
+
+  .Toastify__toast-theme--dark,
+  .Toastify__toast-theme--light {
+    border: 1px solid hsl(var(--toast-border));
+  }
+
+  .Toastify__close-button {
+    color: hsl(var(--muted-foreground));
+    opacity: 0.85;
+  }
+
+  .Toastify__close-button:hover,
+  .Toastify__close-button:focus {
+    color: hsl(var(--foreground));
+    opacity: 1;
   }
 }
 

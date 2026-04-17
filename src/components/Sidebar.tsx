@@ -6,7 +6,6 @@ import { Input } from "./ui/input";
 import { Configs, Group } from "../types";
 import { cn } from "../lib/utils";
 import { updateGroup, deleteGroup, updateBucketGroup } from "../services/storageService";
-import { useToast } from "./ui/use-toast";
 import { twMerge } from "tailwind-merge";
 
 const GROUP_COLORS = [
@@ -43,7 +42,6 @@ export default function Sidebar({
   onGroupsChanged,
   onExpandGroup,
 }: SidebarProps) {
-  const { toast } = useToast();
   const buckets = configs?.buckets || {};
   const groups = configs?.groups || {};
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,21 +125,21 @@ export default function Sidebar({
 
     try {
       await updateGroup(groupId, editingGroupName.trim(), editingGroupColor);
-      toast({
-        variant: "success",
-        title: "Folder Updated",
-        description: `Folder has been updated successfully.`,
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Folder Updated",
+      //   description: `Folder has been updated successfully.`,
+      // });
       handleCancelEditGroup();
       // Trigger parent to refresh configs
       onGroupsChanged();
     } catch (error) {
       console.error("Failed to update group:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Update Folder",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Update Folder",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     }
   };
 
@@ -152,20 +150,20 @@ export default function Sidebar({
 
     try {
       await deleteGroup(groupId);
-      toast({
-        variant: "success",
-        title: "Folder Deleted",
-        description: `Folder has been deleted successfully.`,
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Folder Deleted",
+      //   description: `Folder has been deleted successfully.`,
+      // });
       // Trigger parent to refresh configs
       onGroupsChanged();
     } catch (error) {
       console.error("Failed to delete group:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Delete Folder",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Delete Folder",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     }
   };
 
@@ -256,22 +254,22 @@ export default function Sidebar({
 
     try {
       await updateBucketGroup(bucketId, targetGroupId);
-      toast({
-        variant: "success",
-        title: "Bucket Moved",
-        description: targetGroupId
-          ? `Bucket moved to folder successfully.`
-          : `Bucket removed from folder.`,
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Bucket Moved",
+      //   description: targetGroupId
+      //     ? `Bucket moved to folder successfully.`
+      //     : `Bucket removed from folder.`,
+      // });
       // Trigger parent to refresh configs
       onGroupsChanged();
     } catch (error) {
       console.error("Failed to move bucket:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Move Bucket",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Move Bucket",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     } finally {
       setDraggedBucketId(null);
       setDragOverGroupId(null);

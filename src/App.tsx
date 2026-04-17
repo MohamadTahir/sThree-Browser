@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import FileExplorer from "./components/FileExplorer";
 import AddBucketModal from "./components/AddBucketModal";
@@ -6,10 +6,10 @@ import EditBucketModal from "./components/EditBucketModal";
 import CredentialsModal from "./components/CredentialsModal";
 import MasterPasswordModal from "./components/MasterPasswordModal";
 import GroupManagementModal from "./components/GroupManagementModal";
-import { Toaster } from "./components/ui/toaster";
 import { Configs, Group } from "./types";
 import { loadConfigs, setActiveBucket, deleteBucket } from "./services/storageService";
 import { hasMasterPassword, isMasterPasswordUnlocked } from "./services/encryptionService";
+import { Flip, ToastContainer } from 'react-toastify';
 
 function App() {
   const [configs, setConfigs] = useState<Configs | null>(null);
@@ -163,7 +163,19 @@ function App() {
         onChanged={loadConfigsData}
       />
 
-      <Toaster />
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={true}
+        newestOnTop={false}
+        closeOnClick={true}
+        rtl={false}
+        draggable={true}
+        pauseOnHover={false}
+        theme="dark"
+        transition={Flip}
+        className="font-sans"
+      />
 
     </div>
   );

@@ -16,7 +16,6 @@ import {
   hasMasterPassword,
   clearAllData,
 } from "../services/encryptionService";
-import { useToast } from "./ui/use-toast";
 
 interface MasterPasswordModalProps {
   open: boolean;
@@ -31,7 +30,6 @@ export default function MasterPasswordModal({
   onUnlocked,
   mode: initialMode,
 }: MasterPasswordModalProps) {
-  const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -124,21 +122,21 @@ export default function MasterPasswordModal({
     ) {
       try {
         await clearAllData();
-        toast({
-          variant: "warning",
-          title: "Data Cleared",
-          description: "All data has been cleared. The app will reload.",
-        });
+        // toast({
+        //   variant: "warning",
+        //   title: "Data Cleared",
+        //   description: "All data has been cleared. The app will reload.",
+        // });
         // Reload the page to reset everything
         setTimeout(() => {
           window.location.reload();
         }, 1000);
       } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Failed to Clear Data",
-          description: error instanceof Error ? error.message : String(error),
-        });
+        // toast({
+        //   variant: "destructive",
+        //   title: "Failed to Clear Data",
+        //   description: error instanceof Error ? error.message : String(error),
+        // });
       }
     }
   };

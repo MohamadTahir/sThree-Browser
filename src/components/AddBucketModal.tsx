@@ -19,7 +19,6 @@ import {
 } from "./ui/select";
 import { addBucket, loadConfigs } from "../services/storageService";
 import { Credential, Group } from "../types";
-import { useToast } from "./ui/use-toast";
 
 interface AddBucketModalProps {
   open: boolean;
@@ -32,7 +31,6 @@ export default function AddBucketModal({
   onOpenChange,
   onSuccess,
 }: AddBucketModalProps) {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
@@ -95,21 +93,21 @@ export default function AddBucketModal({
         endpoint: "",
         group_id: "",
       });
-      toast({
-        variant: "success",
-        title: "Bucket Added",
-        description: `Connection "${addedNickname}" has been added successfully.`,
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Bucket Added",
+      //   description: `Connection "${addedNickname}" has been added successfully.`,
+      // });
       // Refresh groups list in case a new folder was created elsewhere
       await loadInitialData();
       onSuccess();
     } catch (error) {
       console.error("Failed to add bucket:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Add Bucket",
-        description: error instanceof Error ? error.message : String(error),
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Add Bucket",
+      //   description: error instanceof Error ? error.message : String(error),
+      // });
     } finally {
       setLoading(false);
     }

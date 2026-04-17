@@ -19,7 +19,6 @@ import {
 } from "./ui/select";
 import { Bucket, Credential, Group } from "../types";
 import { updateBucket, loadConfigs } from "../services/storageService";
-import { useToast } from "./ui/use-toast";
 
 interface EditBucketModalProps {
   open: boolean;
@@ -36,7 +35,7 @@ export default function EditBucketModal({
   onClose,
   onSuccess,
 }: EditBucketModalProps) {
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
@@ -85,14 +84,17 @@ export default function EditBucketModal({
     setLoading(true);
 
     try {
-      await updateBucket(bucketId, {
+      var request: Bucket = {
         nickname: formData.nickname,
         bucketName: formData.bucket_name,
         region: formData.region,
         endpoint: formData.endpoint.trim() || undefined,
         credentialId: formData.credential_id,
         groupId: formData.group_id || null,
-      });
+        forcePathStyle: true
+      };
+
+      await updateBucket(bucketId, request);
 
       // Refresh groups list in case a new folder was created elsewhere
       await loadInitialData();
@@ -100,19 +102,19 @@ export default function EditBucketModal({
       // Use setTimeout to ensure the save operation completes before reloading
       await new Promise(resolve => setTimeout(resolve, 0));
       onSuccess();
-      toast({
-        variant: "success",
-        title: "Bucket Updated",
-        description: `Connection "${formData.nickname}" has been updated successfully.`,
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Bucket Updated",
+      //   description: `Connection "${formData.nickname}" has been updated successfully.`,
+      // });
     } catch (error) {
       console.error("Failed to update bucket:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Update Bucket",
-        description: errorMessage,
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Update Bucket",
+      //   description: errorMessage,
+      // });
     } finally {
       setLoading(false);
     }

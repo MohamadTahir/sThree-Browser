@@ -9,7 +9,6 @@ import Breadcrumb from "./Breadcrumb";
 import DownloadToast from "./DownloadToast";
 import ObjectDetailsSidebar from "./ObjectDetailsSidebar";
 import { cn } from "../lib/utils";
-import { useToast } from "./ui/use-toast";
 import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
 import { GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
 
@@ -18,7 +17,6 @@ interface FileExplorerProps {
 }
 
 export default function FileExplorer({ bucketId }: FileExplorerProps) {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [objects, setObjects] = useState<S3Object[]>([]);
@@ -256,11 +254,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
       // Use setTimeout to ensure bucketId hasn't changed by the time toast is shown
       setTimeout(() => {
         if (bucketId === requestBucketId && errorBucketIdRef.current === requestBucketId) {
-          toast({
-            variant: "destructive",
-            title: "Failed to Load Bucket",
-            description: errorMsg,
-          });
+          // toast({
+          //   variant: "destructive",
+          //   title: "Failed to Load Bucket",
+          //   description: errorMsg,
+          // });
         }
       }, 0);
       // Clear initial loading even on error, but ensure minimum display duration
@@ -315,30 +313,30 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
           //   bucketId
           // );
 
-          toast({
-            title: "Upload Successful",
-            description: `Uploaded ${file.name}`,
-          });
+          // toast({
+          //   title: "Upload Successful",
+          //   description: `Uploaded ${file.name}`,
+          // });
 
           loadObjects(null);
 
         } catch (error: any) {
           console.error("Upload error:", error);
-          toast({
-            variant: "destructive",
-            title: "Upload Failed",
-            description: error.message || `Failed to upload ${file.name}`,
-          });
+          // toast({
+          //   variant: "destructive",
+          //   title: "Upload Failed",
+          //   description: error.message || `Failed to upload ${file.name}`,
+          // });
         } finally {
           setUploadProgress(null);
         }
       }
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Configuration Error",
-        description: "Could not load bucket configuration for upload.",
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Configuration Error",
+      //   description: "Could not load bucket configuration for upload.",
+      // });
     }
   };
 
@@ -527,11 +525,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
       // Use setTimeout to ensure bucketId hasn't changed by the time toast is shown
       setTimeout(() => {
         if (bucketId === requestBucketId && bucketName === requestBucketName && errorBucketIdRef.current === requestBucketId) {
-          toast({
-            variant: "destructive",
-            title: "Failed to Load Objects",
-            description: errorMsg,
-          });
+          // toast({
+          //   variant: "destructive",
+          //   title: "Failed to Load Objects",
+          //   description: errorMsg,
+          // });
         }
       }, 0);
       // Clear initial loading even on error, but ensure minimum display duration
@@ -646,11 +644,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      toast({
-        variant: "destructive",
-        title: "Download Failed",
-        description: errorMsg,
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Download Failed",
+      //   description: errorMsg,
+      // });
       console.error("Download error:", err);
     } finally {
       setLoading(false);
@@ -664,11 +662,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
 
     if (!isTauri) {
       // Web: Can't open files directly, show message
-      toast({
-        variant: "warning",
-        title: "Desktop Only",
-        description: "File opening is only available in the desktop app",
-      });
+      // toast({
+      //   variant: "warning",
+      //   title: "Desktop Only",
+      //   description: "File opening is only available in the desktop app",
+      // });
       return;
     }
 
@@ -680,11 +678,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     } catch (err) {
       console.error("Failed to open file:", err);
       const errorMsg = err instanceof Error ? err.message : String(err);
-      toast({
-        variant: "destructive",
-        title: "Failed to Open File",
-        description: errorMsg,
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Open File",
+      //   description: errorMsg,
+      // });
     }
   };
 
@@ -695,11 +693,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
 
     if (!isTauri) {
       // Web: Can't open folders directly, show message
-      toast({
-        variant: "warning",
-        title: "Desktop Only",
-        description: "Opening file location is only available in the desktop app",
-      });
+      // toast({
+      //   variant: "warning",
+      //   title: "Desktop Only",
+      //   description: "Opening file location is only available in the desktop app",
+      // });
       return;
     }
 
@@ -711,11 +709,11 @@ export default function FileExplorer({ bucketId }: FileExplorerProps) {
     } catch (err) {
       console.error("Failed to open file location:", err);
       const errorMsg = err instanceof Error ? err.message : String(err);
-      toast({
-        variant: "destructive",
-        title: "Failed to Open File Location",
-        description: errorMsg,
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Open File Location",
+      //   description: errorMsg,
+      // });
     }
   };
 

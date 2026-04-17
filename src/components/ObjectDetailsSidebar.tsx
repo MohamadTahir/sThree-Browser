@@ -4,13 +4,14 @@ import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
-import { isPreviewableFileType, getFileType, getMimeType } from "../lib/fileUtils";
+import { canPreviewFile, getFileType, getMimeType } from "../lib/fileUtils";
 import { getObjectContent, deleteObject } from "../services/s3Service";
 import { loadConfigs } from "../services/storageService";
 import { cn } from "../lib/utils";
 import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
-import { useToast } from "./ui/use-toast";
+import { GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
+import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
 
 // Constants for preview limits
 const MAX_PREVIEW_CHARS = 500000; // Max characters to render (prevents DOM freeze)
@@ -38,7 +39,6 @@ export default function ObjectDetailsSidebar({
   onNavigate,
   onObjectDeleted,
 }: ObjectDetailsSidebarProps) {
-  const { toast } = useToast();
   const [content, setContent] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,7 @@ export default function ObjectDetailsSidebar({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (open && object && bucketId && bucketName && !object.isFolder && isPreviewableFileType(object.key)) {
+    if (open && object && bucketId && bucketName && !object.isFolder && canPreviewFile(object.key)) {
       loadFileContent();
     } else {
       // Cancel any in-flight requests
@@ -138,7 +138,13 @@ export default function ObjectDetailsSidebar({
               reject(new Error('Cancelled'));
               return;
             }
-            const data = await getObjectContent(config, bucketName, object.key, bucketId);
+
+            let getObjectContentRequest: GetObjectRequest = {
+              bucket: config,
+              key: object.key,
+            }
+
+            const data = await getObjectContent(getObjectContentRequest);
             resolve(data);
           } catch (err) {
             reject(err);
@@ -274,7 +280,7 @@ export default function ObjectDetailsSidebar({
     return extension.toUpperCase() + " File";
   };
 
-  const canPreview = !object.isFolder && isPreviewableFileType(object.key);
+  const canPreview = !object.isFolder && canPreviewFile(object.key);
   const previewFileType = !object.isFolder ? getFileType(object.key) : null;
 
   return (
@@ -505,34 +511,39 @@ export default function ObjectDetailsSidebar({
               const config = configs.buckets[bucketId];
 
               if (!config) {
-                toast({
-                  variant: "destructive",
-                  title: "Error",
-                  description: "Bucket configuration not found.",
-                });
+                // toast({
+                //   variant: "destructive",
+                //   title: "Error",
+                //   description: "Bucket configuration not found.",
+                // });
                 return;
               }
 
-              await deleteObject(config, bucketName, object.key, deleteAllVersions, bucketId);
+              let deleteObjectRequest: DeleteObjectRequest = {
+                bucket: config,
+                key: object.key,
+              }
 
-              toast({
-                variant: "success",
-                title: "Object Deleted",
-                description: deleteAllVersions
-                  ? "All versions of the object have been deleted."
-                  : "Object has been deleted successfully.",
-              });
+              await deleteObject(deleteObjectRequest);
+
+              // toast({
+              //   variant: "success",
+              //   title: "Object Deleted",
+              //   description: deleteAllVersions
+              //     ? "All versions of the object have been deleted."
+              //     : "Object has been deleted successfully.",
+              // });
 
               // Close sidebar and refresh file list
               onClose();
               onObjectDeleted();
             } catch (error) {
               const errorMsg = error instanceof Error ? error.message : String(error);
-              toast({
-                variant: "destructive",
-                title: "Failed to Delete Object",
-                description: errorMsg,
-              });
+              // toast({
+              //   variant: "destructive",
+              //   title: "Failed to Delete Object",
+              //   description: errorMsg,
+              // });
               throw error; // Re-throw to prevent modal from closing
             }
           }}

@@ -14,7 +14,7 @@ import { Input } from "./ui/input";
 import { S3Object } from "../types";
 import { getPresignedUrl } from "../services/s3Service";
 import { loadConfigs } from "../services/storageService";
-import { useToast } from "./ui/use-toast";
+import { PreSignUrlRequest } from "@/models/dto/requests/PresignUrl";
 
 interface ShareModalProps {
   open: boolean;
@@ -39,7 +39,6 @@ export default function ShareModal({
   bucketId,
   bucketName,
 }: ShareModalProps) {
-  const { toast } = useToast();
   const [duration, setDuration] = useState(3600); // Default 1 hour
   const [customDuration, setCustomDuration] = useState("");
   const [useCustomDuration, setUseCustomDuration] = useState(false);
@@ -55,22 +54,22 @@ export default function ShareModal({
       : duration;
 
     if (isNaN(expiresIn) || expiresIn <= 0) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Duration",
-        description: "Please enter a valid duration in seconds (greater than 0).",
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Invalid Duration",
+      //   description: "Please enter a valid duration in seconds (greater than 0).",
+      // });
       return;
     }
 
     // Maximum 7 days (604800 seconds) for security
     const MAX_DURATION = 604800;
     if (expiresIn > MAX_DURATION) {
-      toast({
-        variant: "destructive",
-        title: "Duration Too Long",
-        description: `Maximum duration is ${MAX_DURATION / 86400} days (${MAX_DURATION} seconds).`,
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Duration Too Long",
+      //   description: `Maximum duration is ${MAX_DURATION / 86400} days (${MAX_DURATION} seconds).`,
+      // });
       return;
     }
 
@@ -82,23 +81,29 @@ export default function ShareModal({
       const config = configs.buckets[bucketId];
 
       if (!config) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Bucket configuration not found.",
-        });
+        // toast({
+        //   variant: "destructive",
+        //   title: "Error",
+        //   description: "Bucket configuration not found.",
+        // });
         return;
       }
 
-      const url = await getPresignedUrl(config, bucketName, object.key, expiresIn, bucketId);
+      let getPresignedUrlRequest: PreSignUrlRequest = {
+        bucket: config,
+        key: object.key,
+        expiresIn: expiresIn,
+      }
+
+      const url = await getPresignedUrl(getPresignedUrlRequest);
       setPresignedUrl(url);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Generate Link",
-        description: errorMsg,
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Generate Link",
+      //   description: errorMsg,
+      // });
     } finally {
       setLoading(false);
     }
@@ -110,18 +115,18 @@ export default function ShareModal({
     try {
       await navigator.clipboard.writeText(presignedUrl);
       setCopied(true);
-      toast({
-        variant: "success",
-        title: "Copied",
-        description: "Link copied to clipboard.",
-      });
+      // toast({
+      //   variant: "success",
+      //   title: "Copied",
+      //   description: "Link copied to clipboard.",
+      // });
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Copy",
-        description: "Could not copy to clipboard.",
-      });
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to Copy",
+      //   description: "Could not copy to clipboard.",
+      // });
     }
   };
 
