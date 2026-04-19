@@ -13,6 +13,7 @@ export interface Credential {
 }
 
 export interface Bucket {
+  id: string;
   nickname: string;
   bucketName: string;
   region: string;

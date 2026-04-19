@@ -75,6 +75,7 @@ export default function AddBucketModal({
 
 
       await addBucket({
+        id: `bucket_${Date.now()}`,
         nickname: formData.nickname,
         bucketName: formData.bucket_name,
         credentialId: formData.credential_id,

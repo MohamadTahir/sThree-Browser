@@ -93,15 +93,14 @@ export async function saveConfigs(configs: Configs): Promise<void> {
 export async function addBucket(bucket: Bucket): Promise<string> {
   const configs = await loadConfigs();
 
-  const bucketId = `bucket_${Date.now()}`;
 
-  configs.buckets[bucketId] = {
+  configs.buckets[bucket.id] = {
     ...bucket,
     groupId: bucket.groupId || null,
   };
 
   await saveConfigs(configs);
-  return bucketId;
+  return bucket.id;
 }
 
 export async function updateBucket(bucketId: string, bucket: Bucket): Promise<void> {
@@ -112,6 +111,7 @@ export async function updateBucket(bucketId: string, bucket: Bucket): Promise<vo
   }
 
   configs.buckets[bucketId] = {
+    id: bucket.id,
     forcePathStyle: bucket.forcePathStyle,
     region: bucket.region,
     nickname: bucket.nickname,
@@ -176,21 +176,6 @@ export async function updateGroup(groupId: string, name: string, color?: string)
     name,
     color,
   };
-
-  await saveConfigs(configs);
-}
-
-export async function deleteGroup(groupId: string): Promise<void> {
-  const configs = await loadConfigs();
-
-  delete configs.groups[groupId];
-
-  // Remove group_id from all buckets in this group
-  for (const bucketId in configs.buckets) {
-    if (configs.buckets[bucketId].groupId === groupId) {
-      configs.buckets[bucketId].groupId = null;
-    }
-  }
 
   await saveConfigs(configs);
 }

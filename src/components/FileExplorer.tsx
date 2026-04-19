@@ -11,12 +11,13 @@ import ObjectDetailsSidebar from "./ObjectDetailsSidebar";
 import { cn } from "../lib/utils";
 import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
 import { GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
+import { useConfig } from "@/context/config";
 
-interface FileExplorerProps {
-  bucketId: string | null;
-}
 
-export default function FileExplorer({ bucketId }: FileExplorerProps) {
+export default function FileExplorer() {
+  const { configs } = useConfig();
+  const bucketId = configs.active_bucket;
+  
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [objects, setObjects] = useState<S3Object[]>([]);

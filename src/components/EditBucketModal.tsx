@@ -85,6 +85,7 @@ export default function EditBucketModal({
 
     try {
       var request: Bucket = {
+        id: bucketId,
         nickname: formData.nickname,
         bucketName: formData.bucket_name,
         region: formData.region,
