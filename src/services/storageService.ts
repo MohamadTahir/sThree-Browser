@@ -7,6 +7,7 @@ import {
 
 const STORAGE_KEY = "bucket-configs";
 
+// TODO: the below function should only be used by the context provider.
 export async function loadConfigs(): Promise<Configs> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -55,6 +56,7 @@ export async function loadConfigs(): Promise<Configs> {
   }
 }
 
+// TODO: the below function should only be used by the context provider.
 export async function saveConfigs(configs: Configs): Promise<void> {
   const masterPassword = getMasterPasswordFromMemory();
   if (!masterPassword) {

@@ -3,9 +3,10 @@ import { Bucket, BucketWithCredentials } from "../types";
 import { loadConfigs } from "./storageService";
 import { APIGetObjectRequest, GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
 import { GetObjectResponse } from "@/models/dto/responses/GetObjectResponse";
-import { APIPreSignUrlRequest, PreSignUrlRequest } from "@/models/dto/requests/PresignUrl";
+import { APIPreSignUrlRequest, PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
 import { APIDeleteObjectRequest, DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
 import { ListObjectsResponse } from "@/models/dto/responses/ListObjectResponse";
+import { PreSignUrlResponse } from "@/models/dto/responses/PreSignUrl";
 
 const API_BASE_URL = 'http://localhost:1420';
 
@@ -151,7 +152,7 @@ export async function getObjectContent(request: GetObjectRequest): Promise<Uint8
   }
 }
 
-export async function getPresignedUrl(request: PreSignUrlRequest): Promise<string> {
+export async function getPresignedUrl(request: PreSignUrlRequest): Promise<PreSignUrlResponse> {
   try {
 
     let apiPreSignUrlRequest: APIPreSignUrlRequest = {
@@ -159,7 +160,7 @@ export async function getPresignedUrl(request: PreSignUrlRequest): Promise<strin
       bucket: await withResolvedCredentials(request.bucket),
     }
 
-    return await apiRequest<string>('/api/s3/presigned-url', apiPreSignUrlRequest);
+    return await apiRequest<PreSignUrlResponse>('/api/s3/presigned-url', apiPreSignUrlRequest);
   } catch (error: any) {
     throw new Error(error.message || "Failed to generate presigned URL");
   }

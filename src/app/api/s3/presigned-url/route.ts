@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getS3Client, handleS3Error } from '@/lib/s3Client';
-import { APIPreSignUrlRequest } from '@/models/dto/requests/PresignUrl';
+import { APIPreSignUrlRequest } from '@/models/dto/requests/PreSignUrl';
 
 export const dynamic = 'force-static';
 

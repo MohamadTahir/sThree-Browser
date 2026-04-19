@@ -1,5 +1,18 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { X, Download, File, Folder, Calendar, HardDrive, FileText, Image as ImageIcon, FileCode, Loader2, Share2, Trash2 } from "lucide-react";
+import {
+  X,
+  Download,
+  File,
+  Folder,
+  Calendar,
+  HardDrive,
+  FileText,
+  Image as ImageIcon,
+  FileCode,
+  Loader2,
+  Share2,
+  Trash2,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { S3Object } from "../types";
@@ -12,6 +25,7 @@ import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
 import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
+import { useConfig } from "@/context/config";
 
 // Constants for preview limits
 const MAX_PREVIEW_CHARS = 500000; // Max characters to render (prevents DOM freeze)
@@ -19,7 +33,7 @@ const MAX_PREVIEW_CHARS = 500000; // Max characters to render (prevents DOM free
 interface ObjectDetailsSidebarProps {
   object: S3Object | null;
   currentPrefix: string;
-  bucketId: string | null;
+  bucketId: string;
   bucketName: string | null;
   open: boolean;
   onClose: () => void;
@@ -46,9 +60,18 @@ export default function ObjectDetailsSidebar({
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const { configs } = useConfig();
+  const bucket = configs.buckets[bucketId];
 
   useEffect(() => {
-    if (open && object && bucketId && bucketName && !object.isFolder && canPreviewFile(object.key)) {
+    if (
+      open &&
+      object &&
+      bucketId &&
+      bucketName &&
+      !object.isFolder &&
+      canPreviewFile(object.key)
+    ) {
       loadFileContent();
     } else {
       // Cancel any in-flight requests
@@ -85,20 +108,26 @@ export default function ObjectDetailsSidebar({
     const MAX_TEXT_SIZE = 5 * 1024 * 1024; // 5MB for text/JSON files (smaller to prevent UI freeze)
 
     // Check size limits based on file type
-    if (fileType === 'image' && object.size > MAX_IMAGE_SIZE) {
-      setError(`Image is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_IMAGE_SIZE / 1024 / 1024}MB.`);
+    if (fileType === "image" && object.size > MAX_IMAGE_SIZE) {
+      setError(
+        `Image is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_IMAGE_SIZE / 1024 / 1024}MB.`,
+      );
       setLoading(false);
       return;
     }
 
-    if (fileType === 'pdf' && object.size > MAX_PDF_SIZE) {
-      setError(`PDF is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_PDF_SIZE / 1024 / 1024}MB.`);
+    if (fileType === "pdf" && object.size > MAX_PDF_SIZE) {
+      setError(
+        `PDF is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is ${MAX_PDF_SIZE / 1024 / 1024}MB.`,
+      );
       setLoading(false);
       return;
     }
 
-    if (fileType === 'text' && object.size > MAX_TEXT_SIZE) {
-      setError(`File is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size for text files is ${MAX_TEXT_SIZE / 1024 / 1024}MB. Please download the file to view it.`);
+    if (fileType === "text" && object.size > MAX_TEXT_SIZE) {
+      setError(
+        `File is too large to preview (${(object.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size for text files is ${MAX_TEXT_SIZE / 1024 / 1024}MB. Please download the file to view it.`,
+      );
       setLoading(false);
       return;
     }
@@ -135,14 +164,14 @@ export default function ObjectDetailsSidebar({
         setTimeout(async () => {
           try {
             if (abortController.signal.aborted) {
-              reject(new Error('Cancelled'));
+              reject(new Error("Cancelled"));
               return;
             }
 
             let getObjectContentRequest: GetObjectRequest = {
               bucket: config,
               key: object.key,
-            }
+            };
 
             const data = await getObjectContent(getObjectContentRequest);
             resolve(data);
@@ -157,14 +186,14 @@ export default function ObjectDetailsSidebar({
         return;
       }
 
-      if (fileType === 'image') {
+      if (fileType === "image") {
         // Create blob URL for images
         const mimeType = getMimeType(object.key);
         const dataCopy = new Uint8Array(uint8Array);
         const blob = new Blob([dataCopy], { type: mimeType });
         const url = URL.createObjectURL(blob);
         setImageUrl(url);
-      } else if (fileType === 'text') {
+      } else if (fileType === "text") {
         // Decode as text - use setTimeout to yield to browser and prevent blocking
         try {
           // For large files, decode in a way that doesn't block the UI
@@ -172,8 +201,8 @@ export default function ObjectDetailsSidebar({
 
           if (uint8Array.length > 1000000) {
             // For files > 1MB, decode in chunks with yields
-            const decoder = new TextDecoder('utf-8');
-            let decoded = '';
+            const decoder = new TextDecoder("utf-8");
+            let decoded = "";
             const chunkSize = 500000; // Process 500KB at a time
 
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
@@ -182,19 +211,24 @@ export default function ObjectDetailsSidebar({
                 return;
               }
 
-              const chunk = uint8Array.slice(i, Math.min(i + chunkSize, uint8Array.length));
-              decoded += decoder.decode(chunk, { stream: i + chunkSize < uint8Array.length });
+              const chunk = uint8Array.slice(
+                i,
+                Math.min(i + chunkSize, uint8Array.length),
+              );
+              decoded += decoder.decode(chunk, {
+                stream: i + chunkSize < uint8Array.length,
+              });
 
               // Yield to browser every chunk to prevent freezing
               if (i + chunkSize < uint8Array.length) {
-                await new Promise(resolve => setTimeout(resolve, 0));
+                await new Promise((resolve) => setTimeout(resolve, 0));
               }
             }
             text = decoded;
           } else {
             // For smaller files, decode normally but still yield
-            await new Promise(resolve => setTimeout(resolve, 0));
-            const decoder = new TextDecoder('utf-8');
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            const decoder = new TextDecoder("utf-8");
             text = decoder.decode(uint8Array);
           }
 
@@ -202,7 +236,10 @@ export default function ObjectDetailsSidebar({
           if (text.length > MAX_PREVIEW_CHARS) {
             const truncated = text.substring(0, MAX_PREVIEW_CHARS);
             const remaining = text.length - MAX_PREVIEW_CHARS;
-            setContent(truncated + `\n\n... (${remaining.toLocaleString()} more characters - file truncated for preview)`);
+            setContent(
+              truncated +
+                `\n\n... (${remaining.toLocaleString()} more characters - file truncated for preview)`,
+            );
           } else {
             setContent(text);
           }
@@ -210,12 +247,12 @@ export default function ObjectDetailsSidebar({
           if (abortControllerRef.current?.signal.aborted) {
             return; // Don't set error if cancelled
           }
-          setContent('Unable to decode file as text. File may be binary.');
+          setContent("Unable to decode file as text. File may be binary.");
         }
-      } else if (fileType === 'pdf') {
+      } else if (fileType === "pdf") {
         // Create blob URL for PDF
         const dataCopy = new Uint8Array(uint8Array);
-        const blob = new Blob([dataCopy], { type: 'application/pdf' });
+        const blob = new Blob([dataCopy], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
         setImageUrl(url);
       } else {
@@ -267,7 +304,20 @@ export default function ObjectDetailsSidebar({
     if (["txt", "md", "json", "xml", "yaml", "yml"].includes(extension)) {
       return <FileText className="h-8 w-8 text-primary" />;
     }
-    if (["js", "ts", "jsx", "tsx", "html", "css", "py", "java", "cpp", "c"].includes(extension)) {
+    if (
+      [
+        "js",
+        "ts",
+        "jsx",
+        "tsx",
+        "html",
+        "css",
+        "py",
+        "java",
+        "cpp",
+        "c",
+      ].includes(extension)
+    ) {
       return <FileCode className="h-8 w-8 text-primary" />;
     }
     return <File className="h-8 w-8 text-muted-foreground" />;
@@ -304,16 +354,14 @@ export default function ObjectDetailsSidebar({
           "shadow-lg md:shadow-none",
           "transition-transform duration-300 ease-in-out md:transition-all",
           // Mobile: slide in/out as overlay using transform
-          open
-            ? "translate-x-0"
-            : "translate-x-full md:translate-x-0",
+          open ? "translate-x-0" : "translate-x-full md:translate-x-0",
           // Desktop: hide by setting width to 0 when closed
           !open && "md:w-0 md:border-0 md:overflow-hidden",
-          open && "md:w-full md:max-w-md"
+          open && "md:w-full md:max-w-md",
         )}
         style={{
           // Ensure smooth animation
-          willChange: 'transform',
+          willChange: "transform",
         }}
       >
         {/* Header */}
@@ -336,7 +384,9 @@ export default function ObjectDetailsSidebar({
             {getFileIcon()}
             <div className="text-center">
               <h3 className="text-lg font-semibold break-words">{fileName}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{getFileTypeLabel()}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {getFileTypeLabel()}
+              </p>
             </div>
           </div>
 
@@ -350,7 +400,9 @@ export default function ObjectDetailsSidebar({
               {/* Full Path */}
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Full Path</p>
-                <p className="text-sm break-all font-mono bg-muted/50 p-2 rounded">{object.key}</p>
+                <p className="text-sm break-all font-mono bg-muted/50 p-2 rounded">
+                  {object.key}
+                </p>
               </div>
 
               {/* Size */}
@@ -360,7 +412,9 @@ export default function ObjectDetailsSidebar({
                     <HardDrive className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Size</span>
                   </div>
-                  <span className="text-sm font-medium">{formatBytes(object.size)}</span>
+                  <span className="text-sm font-medium">
+                    {formatBytes(object.size)}
+                  </span>
                 </div>
               )}
 
@@ -369,9 +423,13 @@ export default function ObjectDetailsSidebar({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Last Modified</span>
+                    <span className="text-sm text-muted-foreground">
+                      Last Modified
+                    </span>
                   </div>
-                  <span className="text-sm font-medium">{formatDate(object.lastModified)}</span>
+                  <span className="text-sm font-medium">
+                    {formatDate(object.lastModified)}
+                  </span>
                 </div>
               )}
             </div>
@@ -393,7 +451,7 @@ export default function ObjectDetailsSidebar({
                     <div className="flex flex-col items-center justify-center py-8 text-center text-destructive px-4">
                       <p className="text-sm">{error}</p>
                     </div>
-                  ) : previewFileType === 'image' && imageUrl ? (
+                  ) : previewFileType === "image" && imageUrl ? (
                     <div className="flex items-center justify-center bg-background p-4">
                       <img
                         src={imageUrl}
@@ -404,7 +462,7 @@ export default function ObjectDetailsSidebar({
                         }}
                       />
                     </div>
-                  ) : previewFileType === 'pdf' && imageUrl ? (
+                  ) : previewFileType === "pdf" && imageUrl ? (
                     <div className="w-full h-[400px] bg-background">
                       <iframe
                         src={imageUrl}
@@ -412,23 +470,26 @@ export default function ObjectDetailsSidebar({
                         title={fileName}
                       />
                     </div>
-                  ) : previewFileType === 'text' && displayContent !== null ? (
+                  ) : previewFileType === "text" && displayContent !== null ? (
                     <div className="bg-background p-4 max-h-[400px] overflow-auto">
                       <pre
                         className="text-xs font-mono whitespace-pre-wrap break-words"
                         style={{
                           // Optimize rendering for large content
-                          contain: 'layout style paint',
-                          willChange: 'scroll-position',
+                          contain: "layout style paint",
+                          willChange: "scroll-position",
                         }}
                       >
                         {displayContent}
                       </pre>
-                      {displayContent && displayContent.length >= MAX_PREVIEW_CHARS && (
-                        <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground">
-                          File preview truncated to {MAX_PREVIEW_CHARS.toLocaleString()} characters. Download the file to view the complete content.
-                        </div>
-                      )}
+                      {displayContent &&
+                        displayContent.length >= MAX_PREVIEW_CHARS && (
+                          <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground">
+                            File preview truncated to{" "}
+                            {MAX_PREVIEW_CHARS.toLocaleString()} characters.
+                            Download the file to view the complete content.
+                          </div>
+                        )}
                     </div>
                   ) : null}
                 </div>
@@ -491,10 +552,9 @@ export default function ObjectDetailsSidebar({
       {/* Share Modal */}
       <ShareModal
         open={showShareModal}
-        onOpenChange={setShowShareModal}
+        onClose={() => setShowShareModal(false)}
         object={object}
-        bucketId={bucketId}
-        bucketName={bucketName}
+        bucket={bucket}
       />
 
       {/* Delete Confirmation Modal */}
@@ -522,7 +582,7 @@ export default function ObjectDetailsSidebar({
               let deleteObjectRequest: DeleteObjectRequest = {
                 bucket: config,
                 key: object.key,
-              }
+              };
 
               await deleteObject(deleteObjectRequest);
 
@@ -538,7 +598,8 @@ export default function ObjectDetailsSidebar({
               onClose();
               onObjectDeleted();
             } catch (error) {
-              const errorMsg = error instanceof Error ? error.message : String(error);
+              const errorMsg =
+                error instanceof Error ? error.message : String(error);
               // toast({
               //   variant: "destructive",
               //   title: "Failed to Delete Object",
