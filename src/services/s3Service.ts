@@ -27,8 +27,8 @@ async function withResolvedCredentials(bucket: Bucket): Promise<BucketWithCreden
 
   return {
     ...bucket,
-    access_key: credential.access_key,
-    secret_key: credential.secret_key,
+    accessKey: credential.accessKey,
+    secretKey: credential.secretKey,
   };
 }
 

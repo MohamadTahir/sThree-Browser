@@ -242,6 +242,7 @@ function GroupsList({
 
   const ungroupedBuckets = buckets.filter((bucket) => bucket.groupId === null);
 
+  groups = groups.sort((a, b) => a.name.localeCompare(b.name));
   return (
     <div className="flex-1 overflow-y-auto p-2 space-y-3">
       <div className="space-y-2 p-3 rounded-lg border border-border/50 overflow-hidden">

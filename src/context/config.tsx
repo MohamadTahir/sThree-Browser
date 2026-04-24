@@ -2,9 +2,10 @@
 
 import React from "react";
 import { createContext, useState, useContext, useEffect } from "react";
-import { Bucket, Configs, Group } from "../types";
+import { Bucket, Configs, Group, Credential } from "../types";
 import { encrypt, decrypt } from "@/services/encryptionService";
 import { getMasterPasswordFromMemory } from "@/services/encryptionService";
+import { toast } from "react-toastify";
 
 export async function loadConfigsFromStorage(): Promise<Configs> {
   try {
@@ -49,6 +50,9 @@ type ConfigContextType = {
   deleteBucket: (bucketId: string) => Promise<void>;
   addBucket: (bucket: Bucket) => Promise<void>;
   updateBucket: (bucket: Bucket) => Promise<void>;
+  addCredential: (credential: Credential) => Promise<void>;
+  deleteCredential: (credentialId: string) => Promise<void>;
+  updateCredential: (credential: Credential) => Promise<void>;
 };
 
 const ConfigContext = createContext<ConfigContextType | null>(null);
@@ -69,6 +73,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       setConfigs(result);
     } catch (error) {
       console.error("Failed to load configs:", error);
+      toast.error("Failed to load configs");
     }
   };
 
@@ -197,6 +202,39 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     setConfigs(next);
   };
 
+  const addCredential = async (credential: Credential) => {
+    const nextCredentials = { ...configs.credentials };
+    nextCredentials[credential.id] = credential;
+    const next = {
+      ...configs,
+      credentials: nextCredentials,
+    };
+    await persistConfigsToStorage(next);
+    setConfigs(next);
+  };
+
+  const deleteCredential = async (credentialId: string) => {
+    const nextCredentials = { ...configs.credentials };
+    delete nextCredentials[credentialId];
+    const next = {
+      ...configs,
+      credentials: nextCredentials,
+    };
+    await persistConfigsToStorage(next);
+    setConfigs(next);
+  };
+
+  const updateCredential = async (credential: Credential) => {
+    const nextCredentials = { ...configs.credentials };
+    nextCredentials[credential.id] = credential;
+    const next = {
+      ...configs,
+      credentials: nextCredentials,
+    };
+    await persistConfigsToStorage(next);
+    setConfigs(next);
+  };
+
   return (
     <ConfigContext.Provider
       value={{
@@ -209,6 +247,9 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
         deleteBucket,
         addBucket,
         updateBucket,
+        addCredential,
+        deleteCredential,
+        updateCredential,
       }}
     >
       {children}

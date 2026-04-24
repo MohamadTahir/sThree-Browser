@@ -8,8 +8,8 @@ export interface Configs {
 export interface Credential {
   id: string;
   name: string;
-  access_key: string;
-  secret_key: string;
+  accessKey: string;
+  secretKey: string;
 }
 
 export interface Bucket {
@@ -24,8 +24,8 @@ export interface Bucket {
 }
 
 export interface BucketWithCredentials extends Bucket {
-  access_key: string;
-  secret_key: string;
+  accessKey: string;
+  secretKey: string;
 }
 
 export interface Group {

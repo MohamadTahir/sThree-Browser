@@ -70,36 +70,26 @@ export default function GroupManagementModal({
   };
 
   async function handleCreateGroup(formGroupData: GroupFormData) {
-    try {
-      const nextGroup: Group = {
-        id: uuidv4(),
-        name: formGroupData.name,
-        color: formGroupData.color,
-      };
-      await addGroup(nextGroup);
-      handleClose();
-      toast.success(`Folder "${nextGroup.name}" created successfully`);
-    } catch (error) {
-      console.error("Failed to create group:", error);
-      toast.error("Failed to create group");
-    }
+    const nextGroup: Group = {
+      id: uuidv4(),
+      name: formGroupData.name,
+      color: formGroupData.color,
+    };
+    await addGroup(nextGroup);
+    handleClose();
+    toast.success(`Folder "${nextGroup.name}" created successfully`);
   }
 
   async function handleUpdateGroup(formGroupData: GroupFormData) {
-    try {
-      const nextGroup: Group = {
-        id: groupModalState.group!.id,
-        name: formGroupData.name,
-        color: formGroupData.color,
-        active: groupModalState.group!.active,
-      };
-      await updateGroup(nextGroup);
-      handleClose();
-      toast.success(`Folder "${nextGroup.name}" updated successfully`);
-    } catch (error) {
-      console.error("Failed to update group:", error);
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
+    const nextGroup: Group = {
+      id: groupModalState.group!.id,
+      name: formGroupData.name,
+      color: formGroupData.color,
+      active: groupModalState.group!.active,
+    };
+    await updateGroup(nextGroup);
+    handleClose();
+    toast.success(`Folder "${nextGroup.name}" updated successfully`);
   }
 
   return (

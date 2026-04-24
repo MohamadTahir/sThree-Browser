@@ -21,8 +21,8 @@ function createS3Client(config: BucketWithCredentials): S3Client {
     endpoint: config.endpoint,
     forcePathStyle: config.forcePathStyle,
     credentials: {
-      accessKeyId: config.access_key,
-      secretAccessKey: config.secret_key,
+      accessKeyId: config.accessKey,
+      secretAccessKey: config.secretKey,
     },
   };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,8 +10,17 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Configs, Credential } from "../../types";
+import { Credential } from "../../types";
 import { useConfig } from "@/context/config";
+import { FormProvider, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  CredentialFormData,
+  CredentialFormSchema,
+  DefaultCredentialFormData,
+} from "./CredentialsSchema";
+import { toast } from "react-toastify";
+import { v4 as uuidv4 } from "uuid";
 
 interface CredentialsModalProps {
   open: boolean;
@@ -22,267 +31,170 @@ export default function CredentialsModal({
   open,
   onClose,
 }: CredentialsModalProps) {
-  const { configs } = useConfig();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<{
-    id: string | null;
-    name: string;
-    access_key: string;
-    secret_key: string;
-  }>({
-    id: null,
-    name: "",
-    access_key: "",
-    secret_key: "",
+  const { configs, addCredential, deleteCredential, updateCredential } =
+    useConfig();
+
+  const methods = useForm({
+    resolver: zodResolver(CredentialFormSchema),
+    defaultValues: DefaultCredentialFormData,
   });
 
-  useEffect(() => {
-    if (open) {
-      load();
-    }
-  }, [open]);
+  const [selectedCredential, setSelectedCredential] =
+    useState<Credential | null>(null);
 
-  const load = async () => {
-    try {
-      setFormData({
-        id: null,
-        name: "",
-        access_key: "",
-        secret_key: "",
-      });
-    } catch (error) {
-      console.error("Failed to load credentials:", error);
-      // toast({
-      //   variant: "destructive",
-      //   title: "Failed to Load Credentials",
-      //   description: error instanceof Error ? error.message : String(error),
-      // });
-    }
-  };
-
-  const handleSelect = (id: string, cred: Credential) => {
-    setSelectedId(id);
-    setFormData({
-      id,
-      name: cred.name,
-      access_key: cred.access_key,
-      secret_key: cred.secret_key,
-    });
+  const handleSelect = (cred: Credential) => {
+    setSelectedCredential(cred);
+    methods.reset(cred);
   };
 
   const handleNew = () => {
-    setSelectedId(null);
-    setFormData({
-      id: null,
-      name: "",
-      access_key: "",
-      secret_key: "",
-    });
+    setSelectedCredential(null);
+    methods.reset(DefaultCredentialFormData);
   };
 
-  const handleSave = async () => {
-    if (!configs) return;
+  const handleClose = () => {
+    methods.reset(DefaultCredentialFormData);
+    onClose();
+  };
 
-    if (!formData.name.trim()) {
-      // toast({
-      //   variant: "destructive",
-      //   title: "Missing Name",
-      //   description: "Please provide a name for these credentials.",
-      // });
-      return;
+  const handleSave = async (credentialData: CredentialFormData) => {
+    if (selectedCredential) {
+      await handleUpdateCredential(credentialData);
+    } else {
+      await handleCreateCredential(credentialData);
     }
+  };
 
-    const next: Configs = {
-      ...configs,
-      buckets: { ...configs.buckets },
-      credentials: { ...(configs.credentials || {}) },
-      groups: { ...configs.groups },
+  const handleCreateCredential = async (credentialData: CredentialFormData) => {
+    const nextCredential: Credential = {
+      id: uuidv4(),
+      name: credentialData.name,
+      accessKey: credentialData.accessKey,
+      secretKey: credentialData.secretKey,
     };
+    await addCredential(nextCredential);
+  };
 
-    const id =
-      formData.id ||
-      `cred_${formData.name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
-
-    next.credentials[id] = {
-      id,
-      name: formData.name.trim(),
-      access_key: formData.access_key,
-      secret_key: formData.secret_key,
+  const handleUpdateCredential = async (credentialData: CredentialFormData) => {
+    const nextCredential: Credential = {
+      id: selectedCredential!.id,
+      name: credentialData.name,
+      accessKey: credentialData.accessKey,
+      secretKey: credentialData.secretKey,
     };
-
-    try {
-      // await saveConfigs(next);
-      setSelectedId(id);
-      setFormData((prev) => ({ ...prev, id }));
-      // toast({
-      //   variant: "success",
-      //   title: "Credentials Saved",
-      //   description: "Your credentials have been saved.",
-      // });
-      onClose();
-    } catch (error) {
-      console.error("Failed to save credentials:", error);
-      // toast({
-      //   variant: "destructive",
-      //   title: "Failed to Save Credentials",
-      //   description: error instanceof Error ? error.message : String(error),
-      // });
-    }
+    await updateCredential(nextCredential);
   };
 
   const handleDelete = async () => {
-    if (!configs || !selectedId) return;
-
-    // Prevent deleting credentials in use
-    const inUse = Object.values(configs.buckets).some(
-      (b) => b.credentialId === selectedId,
-    );
-    if (inUse) {
-      // toast({
-      //   variant: "destructive",
-      //   title: "Credentials In Use",
-      //   description:
-      //     "These credentials are currently used by one or more buckets. Reassign those buckets before deleting.",
-      // });
-      return;
-    }
-
-    const next: Configs = {
-      ...configs,
-      buckets: { ...configs.buckets },
-      credentials: { ...(configs.credentials || {}) },
-      groups: { ...configs.groups },
-    };
-    delete next.credentials[selectedId];
-
-    try {
-      // await saveConfigs(next);
-      // setConfigs(next);
-      handleNew();
-      // toast({
-      //   variant: "success",
-      //   title: "Credentials Deleted",
-      //   description: "The credentials have been deleted.",
-      // });
-      onClose();
-    } catch (error) {
-      console.error("Failed to delete credentials:", error);
-      // toast({
-      //   variant: "destructive",
-      //   title: "Failed to Delete Credentials",
-      //   description: error instanceof Error ? error.message : String(error),
-      // });
-    }
+    await deleteCredential(selectedCredential!.id);
+    handleNew();
   };
 
-  const credentialList = configs
-    ? Object.values(configs.credentials || {})
-    : [];
+  const credentialList = Object.values(configs.credentials);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[720px]">
-        <DialogHeader>
-          <DialogTitle>Manage Credentials</DialogTitle>
-          <DialogDescription>
-            Create and manage reusable S3 credentials that can be shared across
-            multiple buckets.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-6 py-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <div className="space-y-2 border-r pr-4 max-h-[400px] overflow-y-auto">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium">Saved Credentials</h3>
-              <Button size="sm" variant="outline" onClick={handleNew}>
-                New
-              </Button>
-            </div>
-            {credentialList.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No credentials yet. Create your first credentials on the right.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {credentialList.map((cred) => (
-                  <button
-                    key={cred.id}
-                    type="button"
-                    onClick={() => handleSelect(cred.id, cred)}
-                    className={`w-full text-left px-2 py-1.5 rounded-md text-sm border ${
-                      selectedId === cred.id
-                        ? "bg-accent text-accent-foreground border-border"
-                        : "border-transparent hover:bg-accent/50"
-                    }`}
-                  >
-                    <div className="font-medium truncate">{cred.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {/* Don't show region/endpoint here; credentials are just keys */}
-                    </div>
-                  </button>
-                ))}
+    <FormProvider {...methods}>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[720px]">
+          <DialogHeader>
+            <DialogTitle>Manage Credentials</DialogTitle>
+            <DialogDescription>
+              Create and manage reusable S3 credentials that can be shared
+              across multiple buckets.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={methods.handleSubmit(handleSave)}>
+            <div className="grid gap-6 py-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+              <div className="space-y-2 border-r pr-4 max-h-[400px] overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium">Saved Credentials</h3>
+                  <Button size="sm" variant="outline" onClick={handleNew}>
+                    New
+                  </Button>
+                </div>
+                {credentialList.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No credentials yet. Create your first credentials on the
+                    right.
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {credentialList.map((cred) => (
+                      <button
+                        key={cred.id}
+                        type="button"
+                        onClick={() => handleSelect(cred)}
+                        className={`w-full text-left px-2 py-1.5 rounded-md text-sm border ${
+                          selectedCredential?.id === cred.id
+                            ? "bg-accent text-accent-foreground border-border"
+                            : "border-transparent hover:bg-accent/50"
+                        }`}
+                      >
+                        <div className="font-medium truncate">{cred.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {/* Don't show region/endpoint here; credentials are just keys */}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="cred-name">Name</Label>
-              <Input
-                id="cred-name"
-                placeholder="Production account"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
+              <div className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="cred-name">Name</Label>
+                  <Input
+                    id="cred-name"
+                    placeholder="Production account"
+                    value={methods.watch("name")}
+                    {...methods.register("name")}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="cred-access">Access Key</Label>
+                  <Input
+                    id="cred-access"
+                    type="password"
+                    placeholder="AKIAIOSFODNN7EXAMPLE"
+                    value={methods.watch("accessKey")}
+                    {...methods.register("accessKey")}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="cred-secret">Secret Key</Label>
+                  <Input
+                    id="cred-secret"
+                    type="password"
+                    placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                    value={methods.watch("secretKey")}
+                    {...methods.register("secretKey")}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cred-access">Access Key</Label>
-              <Input
-                id="cred-access"
-                type="password"
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                value={formData.access_key}
-                onChange={(e) =>
-                  setFormData({ ...formData, access_key: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cred-secret">Secret Key</Label>
-              <Input
-                id="cred-secret"
-                type="password"
-                placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                value={formData.secret_key}
-                onChange={(e) =>
-                  setFormData({ ...formData, secret_key: e.target.value })
-                }
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="flex justify-between">
-          <div>
-            {selectedId && (
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={handleDelete}
-              >
-                Delete
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Close
-            </Button>
-            <Button type="button" onClick={handleSave}>
-              Save
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <DialogFooter className="flex justify-between">
+              <div>
+                {selectedCredential && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleDelete}
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={handleClose}>
+                  Close
+                </Button>
+                <Button type="submit" disabled={methods.formState.isLoading}>
+                  {methods.formState.isLoading ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </FormProvider>
   );
 }

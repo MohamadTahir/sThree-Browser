@@ -67,45 +67,35 @@ export default function BucketManagementModal({
   };
 
   const handlerCreateBucket = async (formBucketData: BucketFormData) => {
-    try {
-      const nextBucket: Bucket = {
-        id: uuidv4().toString(),
-        nickname: formBucketData.nickname,
-        bucketName: formBucketData.bucketName,
-        region: formBucketData.region,
-        endpoint: formBucketData.endpoint?.trim() || undefined,
-        groupId: formBucketData.groupId || null,
-        credentialId: formBucketData.credentialId,
-        forcePathStyle: formBucketData.forcePathStyle,
-      };
-      await addBucket(nextBucket);
-      handleClose();
-      toast.success(`Bucket "${formBucketData.nickname}" added successfully`);
-    } catch (error) {
-      console.error("Failed to add bucket:", error);
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
+    const nextBucket: Bucket = {
+      id: uuidv4().toString(),
+      nickname: formBucketData.nickname,
+      bucketName: formBucketData.bucketName,
+      region: formBucketData.region,
+      endpoint: formBucketData.endpoint?.trim() || undefined,
+      groupId: formBucketData.groupId || null,
+      credentialId: formBucketData.credentialId,
+      forcePathStyle: formBucketData.forcePathStyle,
+    };
+    await addBucket(nextBucket);
+    handleClose();
+    toast.success(`Bucket "${formBucketData.nickname}" added successfully`);
   };
 
   const handlerUpdateBucket = async (formBucketData: BucketFormData) => {
-    try {
-      const nextBucket: Bucket = {
-        id: bucketModalState.bucket!.id,
-        nickname: formBucketData.nickname,
-        bucketName: formBucketData.bucketName,
-        region: formBucketData.region,
-        endpoint: formBucketData.endpoint?.trim() || undefined,
-        groupId: formBucketData.groupId || null,
-        credentialId: formBucketData.credentialId,
-        forcePathStyle: formBucketData.forcePathStyle,
-      };
-      await updateBucket(nextBucket);
-      handleClose();
-      toast.success(`Bucket "${formBucketData.nickname}" updated successfully`);
-    } catch (error) {
-      console.error("Failed to update bucket:", error);
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
+    const nextBucket: Bucket = {
+      id: bucketModalState.bucket!.id,
+      nickname: formBucketData.nickname,
+      bucketName: formBucketData.bucketName,
+      region: formBucketData.region,
+      endpoint: formBucketData.endpoint?.trim() || undefined,
+      groupId: formBucketData.groupId || null,
+      credentialId: formBucketData.credentialId,
+      forcePathStyle: formBucketData.forcePathStyle,
+    };
+    await updateBucket(nextBucket);
+    handleClose();
+    toast.success(`Bucket "${formBucketData.nickname}" updated successfully`);
   };
 
   function forcePathStyle() {
