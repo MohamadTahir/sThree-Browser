@@ -17,9 +17,9 @@ export const DefaultBucketFormData: BucketFormData = {
   nickname: "",
   bucketName: "",
   region: "us-east-1",
-  endpoint: undefined,
+  endpoint: "",
   credentialId: "",
-  groupId: undefined,
+  groupId: "",
   forcePathStyle: true,
 };
 
