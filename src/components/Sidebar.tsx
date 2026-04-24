@@ -48,13 +48,9 @@ export default function Sidebar() {
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
 
   const bucketsFiltered = useMemo(() => {
-    const grouped: Map<string, Bucket[]> = new Map([["ungrouped", []]]);
+    const grouped: Bucket[] = [];
 
-    Object.entries(configs.groups).forEach(([_, group]) => {
-      grouped.set(group.id, []);
-    });
-
-    Object.entries(configs.buckets).forEach(([_, bucket]) => {
+    Object.values(configs.buckets).forEach((bucket) => {
       if (
         !bucket.nickname
           .toLowerCase()
@@ -63,15 +59,11 @@ export default function Sidebar() {
         return;
       }
 
-      if (!bucket.groupId) {
-        grouped.get("ungrouped")?.push(bucket);
-        return;
-      }
-
-      grouped.get(bucket.groupId)?.push(bucket);
+      grouped.push(bucket);
     });
+
     return grouped;
-  }, [configs.buckets, configs.groups, searchQuery]);
+  }, [configs.buckets, searchQuery]);
 
   return (
     <div
@@ -102,6 +94,7 @@ export default function Sidebar() {
 
         <GroupsList
           buckets={bucketsFiltered}
+          groups={Object.values(configs.groups)}
           setGroupModalState={setGroupModalState}
           setBucketModalState={setBucketModalState}
         />
@@ -221,14 +214,16 @@ function SearchBar({
 
 function GroupsList({
   buckets,
+  groups,
   setBucketModalState,
   setGroupModalState,
 }: {
-  buckets: Map<string, Bucket[]>;
+  buckets: Bucket[];
+  groups: Group[];
   setBucketModalState: (bucketModalState: BucketModalState) => void;
   setGroupModalState: (groupModalState: GroupModalState) => void;
 }) {
-  if (buckets.size === 0) {
+  if (buckets.length === 0 && groups.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
         <Folder className="mb-2 h-8 w-8 opacity-50" />
@@ -245,21 +240,16 @@ function GroupsList({
     );
   }
 
-  const ungroupedBuckets = buckets.get("ungrouped") ?? [];
-  const groupedBuckets = buckets
-    .entries()
-    .filter(([key]) => key !== "ungrouped");
-
-  const { configs } = useConfig();
+  const ungroupedBuckets = buckets.filter((bucket) => bucket.groupId === null);
 
   return (
     <div className="flex-1 overflow-y-auto p-2 space-y-3">
       <div className="space-y-2 p-3 rounded-lg border border-border/50 overflow-hidden">
-        {[...groupedBuckets].map(([key, buckets]) => (
+        {groups.map((group) => (
           <GroupItem
-            key={key}
-            group={configs.groups[key]}
-            buckets={buckets}
+            key={group.id}
+            group={group}
+            buckets={buckets.filter((bucket) => bucket.groupId === group.id)}
             setBucketModalState={setBucketModalState}
             setGroupModalState={setGroupModalState}
           />

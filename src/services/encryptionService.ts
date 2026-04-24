@@ -3,6 +3,8 @@
  * Uses Web Crypto API for AES-GCM encryption
  */
 
+import { Configs } from "@/types";
+
 const MASTER_PASSWORD_KEY = "s3browser_master_password_hash";
 const ENCRYPTION_ALGORITHM = "AES-GCM";
 const KEY_LENGTH = 256;
@@ -60,15 +62,19 @@ function generateIV(): Uint8Array {
  * Encrypt data using AES-GCM
  */
 export async function encrypt(
-  data: string,
+  data: Configs,
   password: string
 ): Promise<string> {
+  // Serialize data if not a string
+  let serialized: string;
+  serialized = JSON.stringify(data);
+
   const salt = generateSalt();
   const iv = generateIV();
   const key = await deriveKeyFromPassword(password, salt);
 
   const encoder = new TextEncoder();
-  const dataBuffer = encoder.encode(data);
+  const dataBuffer = encoder.encode(serialized);
 
   // Create new Uint8Array to avoid type issues
   const ivArray = new Uint8Array(iv);
@@ -100,7 +106,7 @@ export async function encrypt(
 export async function decrypt(
   encryptedData: string,
   password: string
-): Promise<string> {
+): Promise<Configs> {
   // Decode from base64
   const base64Data = atob(encryptedData);
   const combined = new Uint8Array(base64Data.length);
@@ -128,7 +134,10 @@ export async function decrypt(
   );
 
   const decoder = new TextDecoder();
-  return decoder.decode(decryptedData);
+  const decodedString = decoder.decode(decryptedData);
+
+  // Parse JSON string into Configs object and return
+  return JSON.parse(decodedString) as Configs;
 }
 
 /**

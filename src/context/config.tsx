@@ -13,87 +13,31 @@ export async function loadConfigsFromStorage(): Promise<Configs> {
       return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
     }
 
-    const encryptedConfigs: Configs = JSON.parse(stored);
-
     const masterPassword = getMasterPasswordFromMemory();
     if (!masterPassword) {
       return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
     }
 
-    // Decrypt all credential configs
-    const decryptedConfigs = { ...encryptedConfigs };
-
-    for (const [credId, encryptedConfig] of Object.entries(
-      encryptedConfigs.credentials || {},
-    )) {
-      try {
-        const decryptedAccessKey = await decrypt(
-          encryptedConfig.access_key,
-          masterPassword,
-        );
-
-        const decryptedSecretKey = await decrypt(
-          encryptedConfig.secret_key,
-          masterPassword,
-        );
-
-        decryptedConfigs.credentials[credId] = {
-          id: encryptedConfig.id,
-          name: encryptedConfig.name,
-          access_key: decryptedAccessKey,
-          secret_key: decryptedSecretKey,
-        };
-      } catch (error) {
-        console.error(`Failed to decrypt credential for ${credId}:`, error);
-      }
-    }
-
+    const decryptedConfigs = await decrypt(stored, masterPassword);
     return decryptedConfigs;
   } catch (error) {
     console.error("Error loading configs:", error);
-    // Fallback to empty configs if there's an error
     return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
   }
 }
 
-// TODO: the below function should only be used by the context provider.
 async function persistConfigsToStorage(configs: Configs): Promise<void> {
   const masterPassword = getMasterPasswordFromMemory();
+
   if (!masterPassword) {
     throw new Error("Master password not unlocked. Please unlock first.");
   }
 
-  // Encrypt all credential configs
-  const encryptedConfigs: Configs = {
-    buckets: configs.buckets || {},
-    credentials: {},
-    groups: configs.groups || {},
-    active_bucket: configs.active_bucket,
-  };
-
-  for (const [credId, cred] of Object.entries(configs.credentials || {})) {
-    const encryptedAccessKey = await encrypt(cred.access_key, masterPassword);
-    const encryptedSecretKey = await encrypt(cred.secret_key, masterPassword);
-
-    encryptedConfigs.credentials[credId] = {
-      id: cred.id,
-      name: cred.name,
-      access_key: encryptedAccessKey,
-      secret_key: encryptedSecretKey,
-    };
-  }
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(encryptedConfigs));
+  const encryptedConfigs = await encrypt(configs, masterPassword);
+  localStorage.setItem(STORAGE_KEY, encryptedConfigs);
 }
 
 const STORAGE_KEY = "bucket-configs";
-
-const emptyConfig: Configs = {
-  buckets: {},
-  credentials: {},
-  groups: {},
-  active_bucket: null,
-};
 
 type ConfigContextType = {
   configs: Configs;
@@ -112,7 +56,12 @@ const ConfigContext = createContext<ConfigContextType | null>(null);
 export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [configs, setConfigs] = useState<Configs>(emptyConfig);
+  const [configs, setConfigs] = useState<Configs>({
+    buckets: {},
+    credentials: {},
+    groups: {},
+    active_bucket: null,
+  });
 
   const init = async () => {
     try {
@@ -120,7 +69,6 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       setConfigs(result);
     } catch (error) {
       console.error("Failed to load configs:", error);
-      setConfigs(emptyConfig);
     }
   };
 
@@ -177,8 +125,6 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const addGroup = async (group: Group) => {
     const nextGroups = { ...configs.groups };
     nextGroups[group.id] = group;
-
-    console.log("nextGroups", nextGroups);
 
     const next = {
       ...configs,
