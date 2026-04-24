@@ -11,7 +11,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Configs, Credential } from "../types";
-import { loadConfigs, saveConfigs } from "../services/storageService";
+import { useConfig } from "@/context/config";
 
 interface CredentialsModalProps {
   open: boolean;
@@ -24,7 +24,7 @@ export default function CredentialsModal({
   onOpenChange,
   onChanged,
 }: CredentialsModalProps) {
-  const [configs, setConfigs] = useState<Configs | null>(null);
+  const { configs } = useConfig();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
     id: string | null;
@@ -46,14 +46,6 @@ export default function CredentialsModal({
 
   const load = async () => {
     try {
-      const loaded = await loadConfigs();
-      // Ensure credentials map exists
-      if (!loaded.credentials) {
-        loaded.credentials = {};
-      }
-      setConfigs(loaded);
-      // Reset selection/form when opening
-      setSelectedId(null);
       setFormData({
         id: null,
         name: "",
@@ -121,8 +113,7 @@ export default function CredentialsModal({
     };
 
     try {
-      await saveConfigs(next);
-      setConfigs(next);
+      // await saveConfigs(next);
       setSelectedId(id);
       setFormData((prev) => ({ ...prev, id }));
       // toast({
@@ -146,7 +137,7 @@ export default function CredentialsModal({
 
     // Prevent deleting credentials in use
     const inUse = Object.values(configs.buckets).some(
-      (b) => b.credentialId === selectedId
+      (b) => b.credentialId === selectedId,
     );
     if (inUse) {
       // toast({
@@ -167,8 +158,8 @@ export default function CredentialsModal({
     delete next.credentials[selectedId];
 
     try {
-      await saveConfigs(next);
-      setConfigs(next);
+      // await saveConfigs(next);
+      // setConfigs(next);
       handleNew();
       // toast({
       //   variant: "success",
@@ -186,7 +177,9 @@ export default function CredentialsModal({
     }
   };
 
-  const credentialList = configs ? Object.values(configs.credentials || {}) : [];
+  const credentialList = configs
+    ? Object.values(configs.credentials || {})
+    : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -194,7 +187,8 @@ export default function CredentialsModal({
         <DialogHeader>
           <DialogTitle>Manage Credentials</DialogTitle>
           <DialogDescription>
-            Create and manage reusable S3 credentials that can be shared across multiple buckets.
+            Create and manage reusable S3 credentials that can be shared across
+            multiple buckets.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -216,10 +210,11 @@ export default function CredentialsModal({
                     key={cred.id}
                     type="button"
                     onClick={() => handleSelect(cred.id, cred)}
-                    className={`w-full text-left px-2 py-1.5 rounded-md text-sm border ${selectedId === cred.id
-                      ? "bg-accent text-accent-foreground border-border"
-                      : "border-transparent hover:bg-accent/50"
-                      }`}
+                    className={`w-full text-left px-2 py-1.5 rounded-md text-sm border ${
+                      selectedId === cred.id
+                        ? "bg-accent text-accent-foreground border-border"
+                        : "border-transparent hover:bg-accent/50"
+                    }`}
                   >
                     <div className="font-medium truncate">{cred.name}</div>
                     <div className="text-xs text-muted-foreground truncate">
@@ -297,4 +292,3 @@ export default function CredentialsModal({
     </Dialog>
   );
 }
-

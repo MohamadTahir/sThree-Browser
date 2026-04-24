@@ -17,7 +17,7 @@ export interface Bucket {
   nickname: string;
   bucketName: string;
   region: string;
-  endpoint?: string;
+  endpoint?: string | undefined;
   credentialId: string;
   groupId?: string | null;
   forcePathStyle: boolean;

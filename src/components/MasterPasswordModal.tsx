@@ -34,9 +34,7 @@ export default function MasterPasswordModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"setup" | "unlock">(
-    initialMode || "unlock"
-  );
+  const [mode, setMode] = useState<"setup" | "unlock">(initialMode || "unlock");
 
   useEffect(() => {
     if (open) {
@@ -117,7 +115,7 @@ export default function MasterPasswordModal({
     // For critical destructive actions, window.confirm is acceptable, but we can improve it later
     if (
       window.confirm(
-        "Are you sure you want to forget your password? This will delete ALL your stored bucket configurations and reset the app to its initial state. This action cannot be undone."
+        "Are you sure you want to forget your password? This will delete ALL your stored bucket configurations and reset the app to its initial state. This action cannot be undone.",
       )
     ) {
       try {
@@ -189,7 +187,8 @@ export default function MasterPasswordModal({
               />
               {mode === "setup" && (
                 <p className="text-xs text-muted-foreground">
-                  Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.
+                  Password must contain at least 8 characters, including
+                  uppercase, lowercase, number, and special character.
                 </p>
               )}
             </div>
@@ -206,9 +205,7 @@ export default function MasterPasswordModal({
                 />
               </div>
             )}
-            {error && (
-              <div className="text-sm text-destructive">{error}</div>
-            )}
+            {error && <div className="text-sm text-destructive">{error}</div>}
           </div>
           <DialogFooter className="gap-2">
             {mode === "unlock" && (

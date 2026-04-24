@@ -1,18 +1,18 @@
 import { APIListObjectsRequest, ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
 import { Bucket, BucketWithCredentials } from "../types";
-import { loadConfigs } from "./storageService";
 import { APIGetObjectRequest, GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
 import { GetObjectResponse } from "@/models/dto/responses/GetObjectResponse";
 import { APIPreSignUrlRequest, PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
 import { APIDeleteObjectRequest, DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
 import { ListObjectsResponse } from "@/models/dto/responses/ListObjectResponse";
 import { PreSignUrlResponse } from "@/models/dto/responses/PreSignUrl";
+import { loadConfigsFromStorage } from "@/context/config";
 
 const API_BASE_URL = 'http://localhost:1420';
 
 // Helper to merge a bucket config with its resolved credentials (web mode)
 async function withResolvedCredentials(bucket: Bucket): Promise<BucketWithCredentials> {
-  const configs = await loadConfigs();
+  const configs = await loadConfigsFromStorage();
   const credentialId = bucket.credentialId;
 
   if (!credentialId) {

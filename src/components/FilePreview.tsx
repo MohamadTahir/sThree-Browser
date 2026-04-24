@@ -1,15 +1,10 @@
 import { useState, useEffect } from "react";
 import { Loader2, FileText, Image as ImageIcon } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { getFileType, getMimeType } from "../lib/fileUtils";
 import { S3Object } from "../types";
 import { getObjectContent } from "../services/s3Service";
-import { loadConfigs } from "../services/storageService";
+import { loadConfigsFromStorage } from "@/context/config";
 
 interface FilePreviewProps {
   open: boolean;
@@ -52,7 +47,9 @@ export default function FilePreview({
     // Don't preview files larger than 50MB
     const MAX_PREVIEW_SIZE = 50 * 1024 * 1024; // 50MB
     if (file.size > MAX_PREVIEW_SIZE) {
-      setError(`File is too large to preview (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is 50MB.`);
+      setError(
+        `File is too large to preview (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum preview size is 50MB.`,
+      );
       setLoading(false);
       return;
     }
@@ -66,7 +63,7 @@ export default function FilePreview({
       const fileType = getFileType(file.key);
 
       // Get config to use with S3 service
-      const configs = await loadConfigs();
+      const configs = await loadConfigsFromStorage();
       const config = configs.buckets[bucketId];
 
       if (!config) {
@@ -76,9 +73,12 @@ export default function FilePreview({
       }
 
       // Get file content using client-side S3 SDK
-      const uint8Array = await getObjectContent({ bucket: config, key: file.key });
+      const uint8Array = await getObjectContent({
+        bucket: config,
+        key: file.key,
+      });
 
-      if (fileType === 'image') {
+      if (fileType === "image") {
         // Create blob URL for images
         const mimeType = getMimeType(file.key);
         // Create a new Uint8Array copy to ensure proper typing
@@ -86,20 +86,20 @@ export default function FilePreview({
         const blob = new Blob([dataCopy], { type: mimeType });
         const url = URL.createObjectURL(blob);
         setImageUrl(url);
-      } else if (fileType === 'text') {
+      } else if (fileType === "text") {
         // Decode as text
-        const decoder = new TextDecoder('utf-8');
+        const decoder = new TextDecoder("utf-8");
         try {
           const text = decoder.decode(uint8Array);
           setContent(text);
         } catch (e) {
-          setContent('Unable to decode file as text. File may be binary.');
+          setContent("Unable to decode file as text. File may be binary.");
         }
-      } else if (fileType === 'pdf') {
+      } else if (fileType === "pdf") {
         // Create blob URL for PDF
         // Create a new Uint8Array copy to ensure proper typing
         const dataCopy = new Uint8Array(uint8Array);
-        const blob = new Blob([dataCopy], { type: 'application/pdf' });
+        const blob = new Blob([dataCopy], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
         setImageUrl(url); // Reuse imageUrl for PDF viewer
       } else {
@@ -123,20 +123,19 @@ export default function FilePreview({
     onOpenChange(false);
   };
 
-
   if (!file) return null;
 
   const fileType = getFileType(file.key);
-  const fileName = file.key.split('/').pop() || file.key;
+  const fileName = file.key.split("/").pop() || file.key;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {fileType === 'image' && <ImageIcon className="h-5 w-5" />}
-            {fileType === 'text' && <FileText className="h-5 w-5" />}
-            {fileType === 'pdf' && <FileText className="h-5 w-5" />}
+            {fileType === "image" && <ImageIcon className="h-5 w-5" />}
+            {fileType === "text" && <FileText className="h-5 w-5" />}
+            {fileType === "pdf" && <FileText className="h-5 w-5" />}
             <span className="truncate">{fileName}</span>
           </DialogTitle>
         </DialogHeader>
@@ -150,7 +149,7 @@ export default function FilePreview({
             <div className="flex flex-col items-center justify-center py-12 text-center text-destructive">
               <p className="text-lg">{error}</p>
             </div>
-          ) : fileType === 'image' && imageUrl ? (
+          ) : fileType === "image" && imageUrl ? (
             <div className="flex items-center justify-center">
               <img
                 src={imageUrl}
@@ -161,7 +160,7 @@ export default function FilePreview({
                 }}
               />
             </div>
-          ) : fileType === 'pdf' && imageUrl ? (
+          ) : fileType === "pdf" && imageUrl ? (
             <div className="w-full h-[70vh]">
               <iframe
                 src={imageUrl}
@@ -169,7 +168,7 @@ export default function FilePreview({
                 title={fileName}
               />
             </div>
-          ) : fileType === 'text' && content !== null ? (
+          ) : fileType === "text" && content !== null ? (
             <div className="rounded-lg border border-border bg-card p-4">
               <pre className="text-sm font-mono whitespace-pre-wrap break-words overflow-x-auto">
                 {content}

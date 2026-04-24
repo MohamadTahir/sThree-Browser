@@ -17,39 +17,34 @@ import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
 import { Bucket, Group } from "../types";
-import {
-  setActiveBucket,
-} from "../services/storageService";
 import { twMerge } from "tailwind-merge";
 import { useConfig } from "@/context/config";
-import AddBucketModal from "./AddBucketModal";
-import EditBucketModal from "./EditBucketModal";
-import GroupManagementModal from "./GroupManagementModal";
 import CredentialsModal from "./CredentialsModal";
 import { Collapse } from "react-collapse";
-
-const GROUP_COLORS = [
-  { name: "Blue", value: "#3b82f6" },
-  { name: "Green", value: "#10b981" },
-  { name: "Purple", value: "#8b5cf6" },
-  { name: "Orange", value: "#f59e0b" },
-  { name: "Red", value: "#ef4444" },
-  { name: "Pink", value: "#ec4899" },
-  { name: "Teal", value: "#14b8a6" },
-  { name: "Gray", value: "#6b7280" },
-];
+import {
+  BucketModalState,
+  DefaultBucketModalState,
+} from "./BucketModal/BucketSchema";
+import {
+  DefaultGroupModalState,
+  GroupModalState,
+} from "./GroupModal/GroupSchema";
+import AddBucketModal from "./BucketModal/AddBucketModal";
+import GroupManagementModal from "./GroupModal/GroupManagementModal";
 
 export default function Sidebar() {
   const { configs } = useConfig();
-
+  const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [groupModalState, setGroupModalState] = useState<GroupModalState>(
+    DefaultGroupModalState,
+  );
 
-  const [editingBucketId, setEditingBucketId] = useState<string | null>(null);
+  const [bucketModalState, setBucketModalState] = useState<BucketModalState>(
+    DefaultBucketModalState,
+  );
 
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [showAddBucketModal, setShowAddBucketModal] = useState(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
 
   const bucketsFiltered = useMemo(() => {
@@ -93,9 +88,9 @@ export default function Sidebar() {
     >
       <SideBarHeader
         sidebarOpen={sidebarOpen}
+        setGroupModalState={setGroupModalState}
+        setBucketModalState={setBucketModalState}
         setShowCredentialsModal={setShowCredentialsModal}
-        setShowGroupModal={setShowGroupModal}
-        setShowAddBucketModal={setShowAddBucketModal}
       />
 
       <div className={sidebarOpen ? "opacity-100" : "opacity-0"}>
@@ -107,7 +102,8 @@ export default function Sidebar() {
 
         <GroupsList
           buckets={bucketsFiltered}
-          setShowAddBucketModal={setShowAddBucketModal}
+          setGroupModalState={setGroupModalState}
+          setBucketModalState={setBucketModalState}
         />
       </div>
 
@@ -117,27 +113,13 @@ export default function Sidebar() {
       />
 
       <AddBucketModal
-        open={showAddBucketModal}
-        onOpenChange={setShowAddBucketModal}
-        onSuccess={() => {
-          setShowAddBucketModal(false);
-        }}
-      />
-
-      <EditBucketModal
-        open={editingBucketId != null}
-        bucketId={editingBucketId}
-        bucket={editingBucketId ? configs?.buckets?.[editingBucketId] : null}
-        onSuccess={() => {
-          setEditingBucketId(null);
-        }}
-        onClose={() => setEditingBucketId(null)}
+        bucketModalState={bucketModalState}
+        onClose={() => setBucketModalState({ open: false, bucket: null })}
       />
 
       <GroupManagementModal
-        open={showGroupModal}
-        onOpenChange={setShowGroupModal}
-        onGroupsChanged={() => {}}
+        groupModalState={groupModalState}
+        onClose={() => setGroupModalState({ open: false, group: null })}
       />
 
       <CredentialsModal
@@ -151,14 +133,14 @@ export default function Sidebar() {
 
 function SideBarHeader({
   sidebarOpen,
+  setGroupModalState,
+  setBucketModalState,
   setShowCredentialsModal,
-  setShowGroupModal,
-  setShowAddBucketModal,
 }: {
   sidebarOpen: boolean;
+  setGroupModalState: (groupModalState: GroupModalState) => void;
+  setBucketModalState: (bucketModalState: BucketModalState) => void;
   setShowCredentialsModal: (open: boolean) => void;
-  setShowGroupModal: (open: boolean) => void;
-  setShowAddBucketModal: (open: boolean) => void;
 }) {
   return (
     <div className="flex flex-col items-start justify-start mx-2 my-2">
@@ -173,13 +155,13 @@ function SideBarHeader({
           sidebarOpen={sidebarOpen}
           icon={<FolderOpen className="h-4 w-4" />}
           label="Add Folders"
-          onClick={() => setShowGroupModal(true)}
+          onClick={() => setGroupModalState({ open: true, group: null })}
         />
         <SideBarButton
           sidebarOpen={sidebarOpen}
           icon={<Plus className="h-4 w-4" />}
           label="Add Bucket"
-          onClick={() => setShowAddBucketModal(true)}
+          onClick={() => setBucketModalState({ open: true, bucket: null })}
         />
       </div>
     </div>
@@ -240,10 +222,12 @@ function SearchBar({
 
 function GroupsList({
   buckets,
-  setShowAddBucketModal,
+  setBucketModalState,
+  setGroupModalState,
 }: {
   buckets: Map<string, Bucket[]>;
-  setShowAddBucketModal: (open: boolean) => void;
+  setBucketModalState: (bucketModalState: BucketModalState) => void;
+  setGroupModalState: (groupModalState: GroupModalState) => void;
 }) {
   if (buckets.size === 0) {
     return (
@@ -254,7 +238,7 @@ function GroupsList({
           variant="outline"
           size="sm"
           className="mt-4"
-          onClick={() => setShowAddBucketModal(true)}
+          onClick={() => setBucketModalState({ open: true, bucket: null })}
         >
           Add Bucket
         </Button>
@@ -263,37 +247,58 @@ function GroupsList({
   }
 
   const ungroupedBuckets = buckets.get("ungrouped") ?? [];
-  const groupedBuckets = buckets.entries().filter(
-    ([key]) => key !== "ungrouped",
-  );
+  const groupedBuckets = buckets
+    .entries()
+    .filter(([key]) => key !== "ungrouped");
+
   const { configs } = useConfig();
 
   return (
     <div className="flex-1 overflow-y-auto p-2 space-y-3">
       <div className="space-y-2 p-3 rounded-lg border border-border/50 overflow-hidden">
-        {groupedBuckets.map(([key, buckets]) =>  <GroupItem key={key} group={configs.groups[key]} buckets={buckets} />)}
-        {ungroupedBuckets.length > 0 && <BucketsList child={false} isExpanded={true} key="ungrouped" buckets={ungroupedBuckets} />}
+        {[...groupedBuckets].map(([key, buckets]) => (
+          <GroupItem
+            key={key}
+            group={configs.groups[key]}
+            buckets={buckets}
+            setBucketModalState={setBucketModalState}
+            setGroupModalState={setGroupModalState}
+          />
+        ))}
+
+        {ungroupedBuckets.length > 0 && (
+          <BucketsList
+            child={false}
+            isExpanded={true}
+            key="ungrouped"
+            buckets={ungroupedBuckets}
+            setBucketModalState={setBucketModalState}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-function GroupItem({ group, buckets }: { group: Group; buckets: Bucket[] }) {
-  const { configs, saveConfigs, deleteGroup } = useConfig();
-    const isExpanded = group?.active ?? false;
-
+function GroupItem({
+  group,
+  buckets,
+  setBucketModalState,
+  setGroupModalState,
+}: {
+  group: Group;
+  buckets: Bucket[];
+  setBucketModalState: (bucketModalState: BucketModalState) => void;
+  setGroupModalState: (groupModalState: GroupModalState) => void;
+}) {
+  const { setActiveGroup, deleteGroup } = useConfig();
+  const isExpanded = group?.active ?? false;
   return (
     <div>
       <div
         className="group/folder relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent/50 cursor-pointer"
         onClick={() => {
-          saveConfigs({
-            ...configs,
-            groups: {
-              ...configs.groups,
-              [group.id]: { ...group, active: !group.active },
-            },
-          });
+          setActiveGroup(group.id);
         }}
       >
         {isExpanded ? (
@@ -314,7 +319,7 @@ function GroupItem({ group, buckets }: { group: Group; buckets: Bucket[] }) {
             className="h-6 w-6"
             onClick={(e) => {
               e.stopPropagation();
-              // TODO: Edit group
+              setGroupModalState({ open: true, group: group });
             }}
           >
             <Pencil className="h-3 w-3" />
@@ -333,71 +338,90 @@ function GroupItem({ group, buckets }: { group: Group; buckets: Bucket[] }) {
           </Button>
         </div>
       </div>
-      <BucketsList isExpanded={isExpanded} child={true} buckets={buckets} />
+      <BucketsList
+        isExpanded={isExpanded}
+        child={true}
+        buckets={buckets}
+        setBucketModalState={setBucketModalState}
+      />
     </div>
   );
 }
 
-function BucketsList({ isExpanded, child, buckets }: { isExpanded: boolean; child: boolean; buckets: Bucket[] }) {
-  const {deleteBucket } = useConfig();
+function BucketsList({
+  isExpanded,
+  child,
+  buckets,
+  setBucketModalState,
+}: {
+  isExpanded: boolean;
+  child: boolean;
+  buckets: Bucket[];
+  setBucketModalState: (bucketModalState: BucketModalState) => void;
+}) {
+  const { deleteBucket, setActiveBucket } = useConfig();
   if (buckets.length === 0) {
     return (
       <Collapse isOpened={isExpanded}>
-        <div className={`${child ? "ml-4" : "ml-0"} space-y-1 rounded-lg min-h-[20px] mt-1`}>
+        <div
+          className={`${child ? "ml-4" : "ml-0"} space-y-1 rounded-lg min-h-[20px] mt-1`}
+        >
           <div className="px-2 py-1 text-xs text-muted-foreground">
             No buckets in this folder
           </div>
         </div>
       </Collapse>
-    )
+    );
   }
 
-  return <Collapse isOpened={isExpanded}>
-        <div className={`${child ? "ml-4" : "ml-0"} space-y-1 rounded-lg mt-1 overflow-hidden`}>
-          {buckets.map((bucket) => (
-            <div
-              key={bucket.id}
-              draggable
-              className="group relative flex items-center justify-between rounded-lg hover:bg-accent/50"
-              onClick={async () => await setActiveBucket(bucket.id)}
-              title={bucket.nickname}
-            >
-              <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
-                <Folder className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate text-sm font-medium min-w-0">
-                  {bucket.nickname}
-                </span>
-              </div>
-              <div
-                className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-md bg-background/95 shadow-sm border border-border/50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto py-0.5 px-0.5"
-              >
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // TODO: Edit bucket
-                  }}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await deleteBucket(bucket.id);
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+  return (
+    <Collapse isOpened={isExpanded}>
+      <div
+        className={`${child ? "ml-4" : "ml-0"} space-y-1 rounded-lg mt-1 overflow-hidden`}
+      >
+        {buckets.map((bucket) => (
+          <div
+            key={bucket.id}
+            draggable
+            className="group relative flex items-center justify-between rounded-lg hover:bg-accent/50"
+            onClick={async () => await setActiveBucket(bucket.id)}
+            title={bucket.nickname}
+          >
+            <div className="flex flex-1 items-center gap-2 p-2 min-w-0">
+              <Folder className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate text-sm font-medium min-w-0">
+                {bucket.nickname}
+              </span>
             </div>
-          ))}
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 rounded-md bg-background/95 shadow-sm border border-border/50 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto py-0.5 px-0.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBucketModalState({ open: true, bucket: bucket });
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  await deleteBucket(bucket.id);
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        ))}
       </div>
-  </Collapse>
+    </Collapse>
+  );
 }
 function OpenCloseSidebarSection({
   sidebarOpen,

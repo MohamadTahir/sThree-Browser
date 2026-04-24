@@ -19,13 +19,13 @@ import { S3Object } from "../types";
 import { formatBytes, formatDate } from "../lib/utils";
 import { canPreviewFile, getFileType, getMimeType } from "../lib/fileUtils";
 import { getObjectContent, deleteObject } from "../services/s3Service";
-import { loadConfigs } from "../services/storageService";
 import { cn } from "../lib/utils";
 import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
 import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
 import { useConfig } from "@/context/config";
+import { loadConfigsFromStorage } from "@/context/config";
 
 // Constants for preview limits
 const MAX_PREVIEW_CHARS = 500000; // Max characters to render (prevents DOM freeze)
@@ -143,7 +143,7 @@ export default function ObjectDetailsSidebar({
       setImageUrl(null);
 
       // Get config to use with S3 service
-      const configs = await loadConfigs();
+      const configs = await loadConfigsFromStorage();
 
       // Check if cancelled
       if (abortController.signal.aborted) {
@@ -567,7 +567,7 @@ export default function ObjectDetailsSidebar({
             if (!bucketId || !bucketName) return;
 
             try {
-              const configs = await loadConfigs();
+              const configs = await loadConfigsFromStorage();
               const config = configs.buckets[bucketId];
 
               if (!config) {
