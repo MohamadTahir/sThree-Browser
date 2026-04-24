@@ -97,7 +97,9 @@ export default function GroupManagementModal({
       <Dialog open={groupModalState.open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Create Folder</DialogTitle>
+            <DialogTitle>
+              {groupModalState.group ? "Edit Folder" : "Create Folder"}
+            </DialogTitle>
             <DialogDescription>
               Create a new folder to organize your buckets. You can edit folders
               directly from the sidebar.
@@ -141,7 +143,11 @@ export default function GroupManagementModal({
                 Cancel
               </Button>
               <Button type="submit" disabled={methods.formState.isLoading}>
-                {methods.formState.isLoading ? "Creating..." : "Create Folder"}
+                {methods.formState.isLoading
+                  ? "Saving..."
+                  : groupModalState.group
+                    ? "Save"
+                    : "Create"}
               </Button>
             </DialogFooter>
           </form>

@@ -195,7 +195,9 @@ export default function BucketManagementModal({
       <Dialog open={bucketModalState.open} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Add S3 Bucket</DialogTitle>
+            <DialogTitle>
+              {bucketModalState.bucket ? "Edit S3 Bucket" : "Add S3 Bucket"}
+            </DialogTitle>
             <DialogDescription>
               Configure access to an S3 bucket or S3-compatible storage.
             </DialogDescription>
@@ -240,7 +242,11 @@ export default function BucketManagementModal({
                 Cancel
               </Button>
               <Button type="submit" disabled={methods.formState.isLoading}>
-                {methods.formState.isLoading ? "Adding..." : "Add Bucket"}
+                {methods.formState.isLoading
+                  ? "Saving..."
+                  : bucketModalState.bucket
+                    ? "Save"
+                    : "Add"}
               </Button>
             </DialogFooter>
           </form>
