@@ -31,15 +31,15 @@ import {
   SelectValue,
 } from "../ui/select";
 
-interface AddBucketModalProps {
+interface BucketManagementModalProps {
   bucketModalState: BucketModalState;
   onClose: () => void;
 }
 
-export default function AddBucketModal({
+export default function BucketManagementModal({
   bucketModalState,
   onClose,
-}: AddBucketModalProps) {
+}: BucketManagementModalProps) {
   const { configs, addBucket, updateBucket } = useConfig();
 
   const methods = useForm({

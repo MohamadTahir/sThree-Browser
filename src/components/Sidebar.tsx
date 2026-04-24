@@ -29,8 +29,8 @@ import {
   DefaultGroupModalState,
   GroupModalState,
 } from "./GroupModal/GroupSchema";
-import AddBucketModal from "./BucketModal/AddBucketModal";
 import GroupManagementModal from "./GroupModal/GroupManagementModal";
+import BucketManagementModal from "./BucketModal/BucketManagementModal";
 
 export default function Sidebar() {
   const { configs } = useConfig();
@@ -112,7 +112,7 @@ export default function Sidebar() {
         setSidebarOpen={setSidebarOpen}
       />
 
-      <AddBucketModal
+      <BucketManagementModal
         bucketModalState={bucketModalState}
         onClose={() => setBucketModalState({ open: false, bucket: null })}
       />
