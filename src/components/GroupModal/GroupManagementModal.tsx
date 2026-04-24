@@ -52,7 +52,6 @@ export default function GroupManagementModal({
 
   useEffect(() => {
     if (groupModalState.open && groupModalState.group) {
-      console.log("useEffect reset", groupModalState.group);
       methods.reset(groupModalState.group as GroupFormData);
     }
   }, [groupModalState.open, groupModalState.group]);
@@ -71,7 +70,6 @@ export default function GroupManagementModal({
   };
 
   async function handleCreateGroup(formGroupData: GroupFormData) {
-    console.log("handleCreateGroup", formGroupData);
     try {
       const nextGroup: Group = {
         id: uuidv4(),
@@ -88,12 +86,12 @@ export default function GroupManagementModal({
   }
 
   async function handleUpdateGroup(formGroupData: GroupFormData) {
-    console.log("handleUpdateGroup", formGroupData);
     try {
       const nextGroup: Group = {
         id: groupModalState.group!.id,
         name: formGroupData.name,
         color: formGroupData.color,
+        active: groupModalState.group!.active,
       };
       await updateGroup(nextGroup);
       handleClose();

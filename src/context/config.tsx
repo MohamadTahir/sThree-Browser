@@ -195,6 +195,8 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       ...configs,
       groups: nextGroups,
     };
+    await persistConfigsToStorage(next);
+    setConfigs(next);
   };
 
   const setActiveBucket = async (bucketId: string) => {
