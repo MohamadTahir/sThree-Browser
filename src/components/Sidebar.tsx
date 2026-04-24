@@ -19,7 +19,7 @@ import { Input } from "./ui/input";
 import { Bucket, Group } from "../types";
 import { twMerge } from "tailwind-merge";
 import { useConfig } from "@/context/config";
-import CredentialsModal from "./CredentialsModal";
+import CredentialsModal from "./CredentialModal/CredentialsModal";
 import { Collapse } from "react-collapse";
 import {
   BucketModalState,
@@ -124,8 +124,7 @@ export default function Sidebar() {
 
       <CredentialsModal
         open={showCredentialsModal}
-        onOpenChange={setShowCredentialsModal}
-        onChanged={() => {}}
+        onClose={() => setShowCredentialsModal(false)}
       />
     </div>
   );

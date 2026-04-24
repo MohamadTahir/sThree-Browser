@@ -6,23 +6,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Configs, Credential } from "../types";
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Configs, Credential } from "../../types";
 import { useConfig } from "@/context/config";
 
 interface CredentialsModalProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onChanged: () => void;
+  onClose: () => void;
 }
 
 export default function CredentialsModal({
   open,
-  onOpenChange,
-  onChanged,
+  onClose,
 }: CredentialsModalProps) {
   const { configs } = useConfig();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -121,7 +119,7 @@ export default function CredentialsModal({
       //   title: "Credentials Saved",
       //   description: "Your credentials have been saved.",
       // });
-      onChanged();
+      onClose();
     } catch (error) {
       console.error("Failed to save credentials:", error);
       // toast({
@@ -166,7 +164,7 @@ export default function CredentialsModal({
       //   title: "Credentials Deleted",
       //   description: "The credentials have been deleted.",
       // });
-      onChanged();
+      onClose();
     } catch (error) {
       console.error("Failed to delete credentials:", error);
       // toast({
@@ -182,7 +180,7 @@ export default function CredentialsModal({
     : [];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[720px]">
         <DialogHeader>
           <DialogTitle>Manage Credentials</DialogTitle>
@@ -276,11 +274,7 @@ export default function CredentialsModal({
             )}
           </div>
           <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={onClose}>
               Close
             </Button>
             <Button type="button" onClick={handleSave}>
