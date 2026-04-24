@@ -11,7 +11,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, type, ...props }, ref) => {
     return (
-      <div className="grid gap-2">
+      <div className="grid gap-2 w-full">
         {label && <Label>{label}</Label>}
         <input
           max={2}

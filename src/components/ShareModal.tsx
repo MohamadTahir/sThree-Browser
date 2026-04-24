@@ -278,7 +278,7 @@ function ShareLink({
     : "Your share link will appear here";
 
   return (
-    <div className="flex flex-row gap-1">
+    <div className="flex flex-row items-center gap-1">
       <Input
         readOnly
         value={presignedUrl ?? ""}
