@@ -9,10 +9,11 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Bucket, S3Object } from "../types";
+import { Bucket, S3Object } from "../models/types";
 import { getPresignedUrl } from "../services/s3Service";
 import { PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
 import { toast } from "react-toastify";
+import { useConfig } from "@/context/config";
 
 interface ShareModalProps {
   open: boolean;
@@ -42,6 +43,7 @@ export default function ShareModal({
   bucket,
   onClose,
 }: ShareModalProps) {
+  const { configs } = useConfig();
   const [days, setDays] = useState(0);
   const [hours, setHours] = useState(12);
   const [minutes, setMinutes] = useState(0);
@@ -85,8 +87,20 @@ export default function ShareModal({
     try {
       setLoading(true);
 
+      const credential = configs.credentials[bucket.credentialId];
+      if (!credential) {
+        toast.error("Missing credentials for this bucket");
+        setPresignedUrl(null);
+        return;
+      }
+
       const getPresignedUrlRequest: PreSignUrlRequest = {
-        bucket: bucket,
+        bucketName: bucket.bucketName,
+        region: bucket.region,
+        endpoint: bucket.endpoint,
+        forcePathStyle: bucket.forcePathStyle,
+        accessKey: credential.accessKey,
+        secretKey: credential.secretKey,
         key: object.key,
         expiresIn: totalSeconds,
       };
@@ -99,7 +113,7 @@ export default function ShareModal({
     } finally {
       setLoading(false);
     }
-  }, [object, bucket, totalSeconds]);
+  }, [object, bucket, totalSeconds, configs.credentials]);
 
   useEffect(() => {
     if (!open) return;

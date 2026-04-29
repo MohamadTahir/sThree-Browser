@@ -2,43 +2,12 @@
 
 import React from "react";
 import { createContext, useState, useContext, useEffect } from "react";
-import { Bucket, Configs, Group, Credential } from "../types";
-import { encrypt, decrypt } from "@/services/encryptionService";
-import { getMasterPasswordFromMemory } from "@/services/encryptionService";
+import { Bucket, Configs, Group, Credential } from "../models/types";
 import { toast } from "react-toastify";
-
-export async function loadConfigsFromStorage(): Promise<Configs> {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
-    }
-
-    const masterPassword = getMasterPasswordFromMemory();
-    if (!masterPassword) {
-      return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
-    }
-
-    const decryptedConfigs = await decrypt(stored, masterPassword);
-    return decryptedConfigs;
-  } catch (error) {
-    console.error("Error loading configs:", error);
-    return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
-  }
-}
-
-async function persistConfigsToStorage(configs: Configs): Promise<void> {
-  const masterPassword = getMasterPasswordFromMemory();
-
-  if (!masterPassword) {
-    throw new Error("Master password not unlocked. Please unlock first.");
-  }
-
-  const encryptedConfigs = await encrypt(configs, masterPassword);
-  localStorage.setItem(STORAGE_KEY, encryptedConfigs);
-}
-
-const STORAGE_KEY = "bucket-configs";
+import {
+  loadConfigsFromStorage,
+  persistConfigsToStorage,
+} from "@/services/storage";
 
 type ConfigContextType = {
   configs: Configs;
@@ -151,6 +120,10 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const setActiveBucket = async (bucketId: string) => {
+    if (configs.active_bucket === bucketId) {
+      return;
+    }
+
     const next = {
       ...configs,
       active_bucket: bucketId,

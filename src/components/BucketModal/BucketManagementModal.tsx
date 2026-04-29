@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm } from "react-hook-form";
 
 import { useConfig } from "@/context/config";
-import { Bucket } from "@/types";
+import { Bucket } from "@/models/types";
 import { toast } from "react-toastify";
 import { useEffect } from "react";
 import { Button } from "../ui/button";

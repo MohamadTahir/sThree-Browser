@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
-import { Bucket, Group } from "../types";
+import { Bucket, Group } from "../models/types";
 import { twMerge } from "tailwind-merge";
 import { useConfig } from "@/context/config";
 import CredentialsModal from "./CredentialModal/CredentialsModal";

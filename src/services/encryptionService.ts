@@ -3,7 +3,7 @@
  * Uses Web Crypto API for AES-GCM encryption
  */
 
-import { Configs } from "@/types";
+import { Configs } from "@/models/types";
 
 const MASTER_PASSWORD_KEY = "s3browser_master_password_hash";
 const ENCRYPTION_ALGORITHM = "AES-GCM";

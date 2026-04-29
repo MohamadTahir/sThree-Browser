@@ -1,6 +1,6 @@
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Group } from "@/types";
+import { Group } from "@/models/types";
 import { useConfig } from "@/context/config";
 import { toast } from "react-toastify";
 import { useEffect } from "react";

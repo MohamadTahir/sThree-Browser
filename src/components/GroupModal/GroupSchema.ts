@@ -1,5 +1,5 @@
 import z from "zod";
-import { Group } from "@/types";
+import { Group } from "@/models/types";
 
 export const GroupFormSchema = z.object({
   name: z.string().min(1, "Name is required"),

@@ -2,7 +2,6 @@
 
 import { ContextProvider } from "@/context/config";
 import { AuthGuard } from "@/context/authGuard";
-import dynamic from "next/dynamic";
 import { StrictMode } from "react";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { Flip, ToastContainer } from "react-toastify";
@@ -41,7 +40,7 @@ export default function Home() {
             closeOnClick={true}
             rtl={false}
             draggable={true}
-            pauseOnHover={false}
+            pauseOnHover={true}
             theme="dark"
             transition={Flip}
             className="font-sans"

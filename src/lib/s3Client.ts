@@ -1,34 +1,20 @@
-import { BucketWithCredentials } from '@/types';
 import { S3Client, S3ClientConfig } from '@aws-sdk/client-s3';
-
-// Cache S3 clients by bucket nickname
-const clientCache = new Map<string, S3Client>();
+import { S3Request } from '@/models/S3';
 
 
-export function getS3Client(config: BucketWithCredentials): S3Client {
-  const cacheKey = config.nickname;
-
-  if (!clientCache.has(cacheKey)) {
-    clientCache.set(cacheKey, createS3Client(config));
-  }
-
-  return clientCache.get(cacheKey)!;
-}
-
-function createS3Client(config: BucketWithCredentials): S3Client {
+export async function getS3Client(s3Request: S3Request): Promise<S3Client> {
   const clientConfig: S3ClientConfig = {
-    region: config.region,
-    endpoint: config.endpoint,
-    forcePathStyle: config.forcePathStyle,
+    region: s3Request.region,
+    endpoint: s3Request.endpoint,
+    forcePathStyle: s3Request.forcePathStyle,
     credentials: {
-      accessKeyId: config.accessKey,
-      secretAccessKey: config.secretKey,
+      accessKeyId: s3Request.accessKey,
+      secretAccessKey: s3Request.secretKey,
     },
   };
 
   return new S3Client(clientConfig);
 }
-
 
 export function handleS3Error(error: any): { message: string; statusCode: number } {
   let errorMessage = error.message || 'Internal server error';

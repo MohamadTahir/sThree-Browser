@@ -1,222 +1,139 @@
-import { APIListObjectsRequest, ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
-import { Bucket, BucketWithCredentials } from "../types";
-import { APIGetObjectRequest, GetObjectRequest } from "@/models/dto/requests/GetObjectRequest";
-import { GetObjectResponse } from "@/models/dto/responses/GetObjectResponse";
-import { APIPreSignUrlRequest, PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
-import { APIDeleteObjectRequest, DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
+import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
+import { GetMimeTypeRequest } from "@/models/dto/requests/GetMimeTypeRequest";
+import { PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
+import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
 import { ListObjectsResponse } from "@/models/dto/responses/ListObjectResponse";
 import { PreSignUrlResponse } from "@/models/dto/responses/PreSignUrl";
-import { loadConfigsFromStorage } from "@/context/config";
+import { GetMimeTypeResponse } from "@/models/dto/responses/GetMimeTypeResponse";
+import { DeleteObjectResponse } from "@/models/dto/responses/DeleteObjectResponse";
+import { InitUploadRequest } from "@/models/dto/requests/InitUploadRequest";
+import { InitUploadResponse } from "@/models/dto/responses/initUploadResponse";
+import { CompleteUploadResponse } from "@/models/dto/responses/CompleteUplaodRequest";
+import { CompleteUploadRequest, CompleteUploadPart } from "@/models/dto/requests/CompleteUploadRequest";
+
+const CHUNK_SIZE = 5 * 1024 * 1024;
 
 const API_BASE_URL = 'http://localhost:1420';
 
-// Helper to merge a bucket config with its resolved credentials (web mode)
-async function withResolvedCredentials(bucket: Bucket): Promise<BucketWithCredentials> {
-  const configs = await loadConfigsFromStorage();
-  const credentialId = bucket.credentialId;
-
-  if (!credentialId) {
-    throw new Error("No credential ID associated with this bucket");
-  }
-
-  const credential = configs.credentials?.[credentialId];
-
-  if (!credential) {
-    throw new Error(`Credentials (ID: ${credentialId}) not found for this bucket`);
-  }
-
-  return {
-    ...bucket,
-    accessKey: credential.accessKey,
-    secretKey: credential.secretKey,
-  };
-}
-
 // API request helpers (for web mode - Next.js API routes)
-async function apiRequest<T>(endpoint: string, body: any): Promise<T> {
-  try {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+async function apiRequest<T>(path: string, body: any): Promise<T> {
+  const url = `${API_BASE_URL}${path}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
 
-    // Check if response is JSON
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType && contentType.includes('application/json');
-
-    if (!response.ok) {
-      let errorMessage = `HTTP error! status: ${response.status}`;
-
-      if (isJson) {
-        try {
-          const error = await response.json();
-          errorMessage = error.error || error.message || errorMessage;
-        } catch (e) {
-          // If JSON parsing fails, try to get text
-          const text = await response.text();
-          errorMessage = text || errorMessage;
-        }
-      } else {
-        // Not JSON, try to get text
-        try {
-          const text = await response.text();
-          errorMessage = text || errorMessage;
-        } catch (e) {
-          // Ignore text parsing errors
-        }
-      }
-
-      throw new Error(errorMessage);
-    }
-
-    if (!isJson) {
-      const text = await response.text();
-      throw new Error(`Expected JSON response but got: ${contentType || 'unknown type'}. Response: ${text.substring(0, 100)}`);
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    // Handle network errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error(
-        `Failed to connect to API server. ` +
-        `Make sure Next.js dev server is running (pnpm run dev). ` +
-        `Original error: ${error.message}`
-      );
-    }
-
-    // Re-throw other errors as-is
-    throw error;
+  if (!response.ok) {
+    return {
+      error: response.statusText,
+      statusCode: response.status,
+    } as T;
   }
-}
 
-// TODO: Why would I need to list buckets?
-export async function listBuckets(bucket: Bucket): Promise<string[]> {
-  try {
-    const bucketWithCredentials = await withResolvedCredentials(bucket);
-    const result = await apiRequest<any>('/api/s3/list-buckets', { config: bucketWithCredentials });
-    return result.buckets || [];
-  } catch (error: any) {
-    // Provide helpful error messages
-    if (error.message?.includes("InvalidAccessKeyId")) {
-      throw new Error("Invalid access key. Please check your credentials.");
-    }
-    if (error.message?.includes("SignatureDoesNotMatch")) {
-      throw new Error("Invalid secret key. Please check your credentials.");
-    }
-    throw error;
-  }
+  return await response.json();
 }
 
 export async function listObjects(request: ListObjectsRequest): Promise<ListObjectsResponse> {
-  try {
-    let apiListObjectsRequest: APIListObjectsRequest = {
-      ...request,
-      bucket: await withResolvedCredentials(request.bucket),
-    }
-
-    return await apiRequest<ListObjectsResponse>('/api/s3/list-objects', apiListObjectsRequest);
-
-  } catch (error: any) {
-    // Provide helpful error messages
-    if (error.message?.includes("InvalidAccessKeyId")) {
-      throw new Error("Invalid access key. Please check your credentials.");
-    }
-    if (error.message?.includes("SignatureDoesNotMatch")) {
-      throw new Error("Invalid secret key. Please check your credentials.");
-    }
-    throw error;
-  }
+  return await apiRequest<ListObjectsResponse>('/api/s3/list-objects', request);
 }
 
-export async function getObjectContent(request: GetObjectRequest): Promise<Uint8Array> {
-  try {
-    let apiGetObjectRequest: APIGetObjectRequest = {
-      ...request,
-      bucket: await withResolvedCredentials(request.bucket),
-    }
-
-    const result = await apiRequest<GetObjectResponse>('/api/s3/get-object', apiGetObjectRequest);
-    const binaryString = atob(result.data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  } catch (error: any) {
-    throw new Error(error.message || "Failed to get object");
-  }
+export async function deleteObject(request: DeleteObjectRequest): Promise<DeleteObjectResponse> {
+  return await apiRequest<DeleteObjectResponse>('/api/s3/delete-object', request);
 }
 
 export async function getPresignedUrl(request: PreSignUrlRequest): Promise<PreSignUrlResponse> {
-  try {
-
-    let apiPreSignUrlRequest: APIPreSignUrlRequest = {
-      ...request,
-      bucket: await withResolvedCredentials(request.bucket),
-    }
-
-    return await apiRequest<PreSignUrlResponse>('/api/s3/presigned-url', apiPreSignUrlRequest);
-  } catch (error: any) {
-    throw new Error(error.message || "Failed to generate presigned URL");
-  }
+  return await apiRequest<PreSignUrlResponse>('/api/s3/presigned-url', request);
 }
 
-// export async function uploadFile(
-//   config: Bucket,
-//   bucketName: string,
-//   key: string,
-//   file: File,
-//   onProgress?: (progress: number) => void,
-//   bucketId?: string
-// ): Promise<void> {
-//   const presignedUrl = await getPresignedUrl(config, bucketName, key, 3600, bucketId);
+export async function getMimeType(request: GetMimeTypeRequest): Promise<GetMimeTypeResponse> {
+    return await apiRequest<GetMimeTypeResponse>('/api/s3/mime-type', request);
+}
 
-//   // Perform the upload using XMLHttpRequest to track progress (fetch doesn't support upload progress yet easily)
-//   return new Promise((resolve, reject) => {
-//     const xhr = new XMLHttpRequest();
-//     xhr.open('PUT', presignedUrl);
-//     xhr.setRequestHeader('Content-Type', file.type);
 
-//     if (onProgress) {
-//       xhr.upload.onprogress = (event) => {
-//         if (event.lengthComputable) {
-//           const percentComplete = (event.loaded / event.total) * 100;
-//           onProgress(percentComplete);
-//         }
-//       };
-//     }
+export async function uploadFile(file: File, request: InitUploadRequest, onProgress?: (progress: number) => void): Promise<void> {
 
-//     xhr.onload = () => {
-//       if (xhr.status >= 200 && xhr.status < 300) {
-//         resolve();
-//       } else {
-//         reject(new Error(`Upload failed with status ${xhr.status}`));
-//       }
-//     };
+  const totalSize = file.size;
+  const totalParts = Math.ceil(totalSize / CHUNK_SIZE);
 
-//     xhr.onerror = () => {
-//       reject(new Error("Upload network error"));
-//     };
+  const initUploadRequest: InitUploadRequest = {
+    bucketName: request.bucketName,
+    key: request.key,
+    contentType: file.type,
+    parts: totalParts,
+    region:  request.region,
+    forcePathStyle: request.forcePathStyle,
+    accessKey: request.accessKey,
+    secretKey: request.secretKey,
+    endpoint: request.endpoint,
+  };
 
-//     xhr.send(file);
-//   });
-// }
+  const initUploadResponse = await apiRequest<InitUploadResponse>('/api/s3/upload/init', initUploadRequest);
 
-export async function deleteObject(request: DeleteObjectRequest): Promise<void> {
-  try {
 
-    let apiDeleteObjectRequest: APIDeleteObjectRequest = {
-      ...request,
-      bucket: await withResolvedCredentials(request.bucket),
-    }
+  if (initUploadResponse.error) {
+    throw new Error(initUploadResponse.error);
+  }
 
-    return await apiRequest<void>('/api/s3/delete-object', apiDeleteObjectRequest);
-  } catch (error: any) {
-    throw new Error(error.message || "Failed to delete object");
+  const partProgress: Record<number, number> = {};
+
+  const uploadPromises = initUploadResponse.parts.map((url: string, index: number) => {
+    const partNumber = index + 1;
+    const start = index * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, totalSize);
+    const blob = file.slice(start, end);
+
+    return new Promise<CompleteUploadPart>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", url);
+
+      // Update progress for this specific part
+      xhr.upload.onprogress = (event: ProgressEvent) => {
+        partProgress[partNumber] = event.loaded;
+
+        const totalLoaded = Object.values(partProgress).reduce((a, b) => a + b, 0);
+        const currentPercent = totalLoaded / totalSize;
+        onProgress?.(currentPercent > 1 ? 1 : currentPercent);
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          const etag = xhr.getResponseHeader("ETag");
+          const uploadedPart: CompleteUploadPart = {
+            ETag: etag || "",
+            PartNumber: partNumber,
+          };
+          resolve(uploadedPart);
+        } else {
+          reject();
+        }
+      };
+
+      xhr.onerror = reject;
+      xhr.send(blob);
+    });
+  });
+
+
+  const uploadedParts = await Promise.all(uploadPromises);
+
+  const completeUploadRequest: CompleteUploadRequest = {
+    bucketName: request.bucketName,
+    key: request.key,
+    uploadId: initUploadResponse.uploadId,
+    parts: uploadedParts,
+    region: request.region,
+    forcePathStyle: request.forcePathStyle,
+    accessKey: request.accessKey,
+    secretKey: request.secretKey,
+    endpoint: request.endpoint,
+  };
+
+  const completeUploadResponse = await apiRequest<CompleteUploadResponse>('/api/s3/upload/complete', completeUploadRequest);
+
+  if (completeUploadResponse.error) {
+    throw new Error(completeUploadResponse.error);
   }
 }

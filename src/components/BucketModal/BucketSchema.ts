@@ -1,4 +1,4 @@
-import { Bucket } from "@/types";
+import { Bucket } from "@/models/types";
 import { z } from "zod";
 
 export const BucketFormSchema = z.object({

@@ -1,3 +1,5 @@
+import { S3Client } from "@aws-sdk/client-s3";
+
 export interface Configs {
   buckets: Record<string, Bucket>;
   credentials: Record<string, Credential>;
@@ -21,11 +23,6 @@ export interface Bucket {
   credentialId: string;
   groupId?: string | null;
   forcePathStyle: boolean;
-}
-
-export interface BucketWithCredentials extends Bucket {
-  accessKey: string;
-  secretKey: string;
 }
 
 export interface Group {

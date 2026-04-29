@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getS3Client, handleS3Error } from '@/lib/s3Client';
-import { S3Object } from '@/types';
-import { APIListObjectsRequest } from '@/models/dto/requests/ListObjectsRequest';
+import { S3Object } from '@/models/types';
+import { ListObjectsRequest, validateListObjectsRequest } from '@/models/dto/requests/ListObjectsRequest';
 import { ListObjectsResponse } from '@/models/dto/responses/ListObjectResponse';
 
 export const dynamic = 'force-static';
 
 export async function POST(request: NextRequest) {
   try {
-    const listObjectsRequest: APIListObjectsRequest = await request.json();
+    const listObjectsRequest = await request.json() as ListObjectsRequest;
 
-    const client = getS3Client(listObjectsRequest.bucket);
+    const error = validateListObjectsRequest(listObjectsRequest);
+    if (error) {
+      return NextResponse.json(error, { status: error.statusCode });
+    }
+
+    const client = await getS3Client(listObjectsRequest);
 
     const command = new ListObjectsV2Command({
-      Bucket: listObjectsRequest.bucket.bucketName,
+      Bucket: listObjectsRequest.bucketName,
       Prefix: listObjectsRequest.prefix || undefined,
       Delimiter: '/',
       MaxKeys: listObjectsRequest.maxKeys || 100,
@@ -57,6 +62,8 @@ export async function POST(request: NextRequest) {
       objects,
       nextContinuationToken: response.NextContinuationToken || null,
       isTruncated: response.IsTruncated || false,
+      error: undefined,
+      statusCode: undefined
     }
 
     return NextResponse.json(listObjectsResponse);
@@ -64,9 +71,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('List objects error:', error);
     const { message, statusCode } = handleS3Error(error);
-    return NextResponse.json(
-      { error: message, name: error.name },
-      { status: statusCode }
-    );
+    const listObjectsResponse = {error: message, statusCode: statusCode} as ListObjectsResponse;
+    return NextResponse.json(listObjectsResponse, { status: statusCode });
   }
 }
