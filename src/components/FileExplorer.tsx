@@ -78,6 +78,7 @@ export default function FileExplorer() {
 
       setPageState({
         ...pageState,
+        selectedObject: null,
         objects: response.objects,
         nextContinuationToken: response.nextContinuationToken,
         isTruncated: response.isTruncated,
@@ -424,8 +425,12 @@ export default function FileExplorer() {
       <ObjectDetailsSidebar
         object={pageState.selectedObject}
         bucketId={activeBucket?.id || ""}
-        onClose={() => {
-          setPageState({ ...pageState, selectedObject: null });
+        onClose={(reload) => {
+          if (reload) {
+            loadObjects();
+          } else {
+            setPageState({ ...pageState, selectedObject: null });
+          }
         }}
       />
     </div>

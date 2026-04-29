@@ -9,43 +9,61 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Label } from "./ui/label";
-import { Checkbox } from "./ui/checkbox";
+import { useConfig } from "@/context/config";
+import { toast } from "react-toastify";
+import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
+import { deleteObject } from "@/services/s3Service";
 
 interface DeleteConfirmationModalProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  fileName: string;
-  onConfirm: (deleteAllVersions: boolean) => Promise<void>;
+  objectKey: string;
+  bucketId: string;
+  onClose: (deleted?: boolean) => void;
 }
 
 export default function DeleteConfirmationModal({
   open,
-  onOpenChange,
-  fileName,
-  onConfirm,
+  objectKey,
+  bucketId,
+  onClose,
 }: DeleteConfirmationModalProps) {
-  const [deleteAllVersions, setDeleteAllVersions] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { configs } = useConfig();
+  const bucket = configs.buckets[bucketId];
 
-  const handleConfirm = async () => {
+  const handleDelete = async () => {
+    const credentials = configs.credentials[bucket.credentialId];
+
+    if (!credentials) {
+      toast.error("Failed to delete object");
+      return;
+    }
+
     setLoading(true);
+
     try {
-      await onConfirm(deleteAllVersions);
-      onOpenChange(false);
-      setDeleteAllVersions(false);
-    } catch (error) {
-      // Error handling is done in parent component
-      console.error("Delete error:", error);
-    } finally {
+      const deleteObjectRequest: DeleteObjectRequest = {
+        bucketName: bucket.bucketName,
+        region: bucket.region,
+        endpoint: bucket.endpoint,
+        forcePathStyle: bucket.forcePathStyle,
+        accessKey: credentials.accessKey,
+        secretKey: credentials.secretKey,
+        key: objectKey,
+      };
+      await deleteObject(deleteObjectRequest);
+      toast.success("Object deleted successfully");
+      onClose(true);
+    } catch (err) {
+      console.error("Failed to delete object", err);
+      toast.error("Failed to delete object");
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
     if (!loading) {
-      setDeleteAllVersions(false);
-      onOpenChange(false);
+      onClose(false);
     }
   };
 
@@ -58,29 +76,13 @@ export default function DeleteConfirmationModal({
             Delete Object
           </DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "{fileName}"? This action cannot be undone.
+            Are you sure you want to delete{" "}
+            <span className="font-bold text-foreground break-all">
+              {objectKey}
+            </span>
+            ? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="py-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="delete-all-versions"
-              checked={deleteAllVersions}
-              onCheckedChange={(checked) => setDeleteAllVersions(checked === true)}
-              disabled={loading}
-            />
-            <Label
-              htmlFor="delete-all-versions"
-              className="text-sm font-normal cursor-pointer"
-            >
-              Delete all versions of this object
-            </Label>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2 ml-6">
-            If enabled, all versions and delete markers will be permanently deleted.
-          </p>
-        </div>
 
         <DialogFooter>
           <Button
@@ -94,7 +96,7 @@ export default function DeleteConfirmationModal({
           <Button
             type="button"
             variant="destructive"
-            onClick={handleConfirm}
+            onClick={handleDelete}
             disabled={loading}
           >
             {loading ? (

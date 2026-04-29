@@ -82,7 +82,7 @@ const codeExtensions = [
 interface ObjectDetailsSidebarProps {
   object: S3Object | null;
   bucketId: string;
-  onClose: () => void;
+  onClose: (reload?: boolean) => void;
 }
 
 export default function ObjectDetailsSidebar({
@@ -367,57 +367,6 @@ export default function ObjectDetailsSidebar({
             // placeHolderImage="https://example.com/placeholder.png"
             // errorImage="https://example.com/error.png"
           />
-          {/*  <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-destructive px-4">
-                <p className="text-sm">{error}</p>
-              </div>
-            ) : previewFileType === "image" && imageUrl ? (
-              <div className="flex items-center justify-center bg-background p-4">
-                <img
-                  src={imageUrl}
-                  alt={fileName}
-                  className="max-w-full max-h-[400px] object-contain rounded-lg"
-                  onError={() => {
-                    setError("Failed to display image");
-                  }}
-                />
-              </div>
-            ) : previewFileType === "pdf" && imageUrl ? (
-              <div className="w-full h-[400px] bg-background">
-                <iframe
-                  src={imageUrl}
-                  className="w-full h-full border-0"
-                  title={fileName}
-                />
-              </div>
-            ) : previewFileType === "text" && displayContent !== null ? (
-              <div className="bg-background p-4 max-h-[400px] overflow-auto">
-                <pre
-                  className="text-xs font-mono whitespace-pre-wrap break-words"
-                  style={{
-                    // Optimize rendering for large content
-                    contain: "layout style paint",
-                    willChange: "scroll-position",
-                  }}
-                >
-                  {displayContent}
-                </pre>
-                {displayContent &&
-                  displayContent.length >= MAX_PREVIEW_CHARS && (
-                    <div className="mt-2 p-2 bg-muted rounded text-xs text-muted-foreground">
-                      File preview truncated to{" "}
-                      {MAX_PREVIEW_CHARS.toLocaleString()} characters. Download
-                      the file to view the complete content.
-                    </div>
-                  )}
-              </div>
-            ) : null}
-          </div>*/}
         </div>
       </>
     );
@@ -489,7 +438,7 @@ export default function ObjectDetailsSidebar({
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose}
+            onClick={() => onClose(false)}
             className="h-8 w-8"
           >
             <X className="h-4 w-4" />
@@ -529,71 +478,20 @@ export default function ObjectDetailsSidebar({
         bucket={bucket}
       />
 
-      {/*
-
-        {downloadToast && (
-          <DownloadToast
-            fileName={downloadToast.fileName}
-            filePath={downloadToast.filePath}
-            onOpen={handleOpenFile}
-            onOpenLocation={handleOpenFileLocation}
-            onClose={() => setDownloadToast(null)}
-            open={downloadToast.open}
-          />
-        )}
-/> */}
-
       {/* Delete Confirmation Modal */}
-      {object && !object.isFolder && (
-        <DeleteConfirmationModal
-          open={showDeleteModal}
-          onOpenChange={setShowDeleteModal}
-          fileName={fileName || ""}
-          onConfirm={async (deleteAllVersions) => {
-            try {
-              // const configs = await loadConfigsFromStorage();
-              // const config = configs.buckets[bucketId];
-
-              // if (!config) {
-              //   // toast({
-              //   //   variant: "destructive",
-              //   //   title: "Error",
-              //   //   description: "Bucket configuration not found.",
-              //   // });
-              //   return;
-              // }
-
-              // let deleteObjectRequest: DeleteObjectRequest = {
-              //   bucket: config,
-              //   key: object.key,
-              // };
-
-              // await deleteObject(deleteObjectRequest);
-
-              // toast({
-              //   variant: "success",
-              //   title: "Object Deleted",
-              //   description: deleteAllVersions
-              //     ? "All versions of the object have been deleted."
-              //     : "Object has been deleted successfully.",
-              // });
-
-              // Close sidebar and refresh file list
-              onClose();
-              // onObjectDeleted();
-            } catch (error) {
-              const errorMsg =
-                error instanceof Error ? error.message : String(error);
-              // toast({
-              //   variant: "destructive",
-              //   title: "Failed to Delete Object",
-              //   description: errorMsg,
-              // });
-              throw error; // Re-throw to prevent modal from closing
-            }
-          }}
-        />
-      )}
+      <DeleteConfirmationModal
+        open={showDeleteModal}
+        objectKey={object?.key}
+        bucketId={bucketId}
+        onClose={(deleted) => {
+          if (deleted) {
+            setShowDeleteModal(false);
+            onClose(true);
+          } else {
+            setShowDeleteModal(false);
+          }
+        }}
+      />
     </>
   );
 }
