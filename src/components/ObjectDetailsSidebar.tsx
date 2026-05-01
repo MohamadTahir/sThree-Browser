@@ -22,7 +22,7 @@ import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { useConfig } from "@/context/config";
 import { twMerge } from "tailwind-merge";
-import { getMimeType, getPresignedUrl } from "@/services/s3Service";
+import { getHeadObject, getPresignedUrl } from "@/services/s3Service";
 import { toast } from "react-toastify";
 import dynamic from "next/dynamic";
 
@@ -115,7 +115,7 @@ export default function ObjectDetailsSidebar({
     }
 
     try {
-      const response = await getMimeType({
+      const response = await getHeadObject({
         key: object.key,
         bucketName: bucket.bucketName,
         region: bucket.region,
@@ -130,9 +130,9 @@ export default function ObjectDetailsSidebar({
         return;
       }
 
-      setMimeType(response.mimeType);
+      setMimeType(response.MimeType);
 
-      if (!supportedImageMimeTypes.includes(response.mimeType)) {
+      if (!supportedImageMimeTypes.includes(response.MimeType)) {
         return;
       }
 

@@ -2,11 +2,11 @@ import { ErrorResponse } from "@/models/ErrorResponse";
 import { buildS3RequestQueryParams, S3Request, validateS3Request } from "../../S3";
 import { NextRequest } from "next/server";
 
-export interface GetMimeTypeRequest extends S3Request {
+export interface HeadObjectRequest extends S3Request {
     key: string;
 }
 
-export function validateGetMimeTypeRequest(request: GetMimeTypeRequest): ErrorResponse | null {
+export function validateHeadObjectRequest(request: HeadObjectRequest): ErrorResponse | null {
     const error = validateS3Request(request);
     if (error) {
         return error;
@@ -22,9 +22,9 @@ export function validateGetMimeTypeRequest(request: GetMimeTypeRequest): ErrorRe
     return null;
 }
 
-export function buildGetMimeTypeRequest(request : NextRequest): GetMimeTypeRequest {
+export function buildHeadObjectRequest(request : NextRequest): HeadObjectRequest {
     return {
         ...buildS3RequestQueryParams(request),
         key: request.nextUrl.searchParams.get("key") ?? "",
-    } as GetMimeTypeRequest;
+    } as HeadObjectRequest;
 }

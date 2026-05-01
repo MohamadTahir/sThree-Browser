@@ -1,16 +1,16 @@
 import axios, { isAxiosError } from "axios";
 import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
-import { GetMimeTypeRequest } from "@/models/dto/requests/GetMimeTypeRequest";
 import { PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
 import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
 import { ListObjectsResponse } from "@/models/dto/responses/ListObjectResponse";
 import { PreSignUrlResponse } from "@/models/dto/responses/PreSignUrl";
-import { GetMimeTypeResponse } from "@/models/dto/responses/GetMimeTypeResponse";
+import { GetHeadObjectResponse } from "@/models/dto/responses/GetHeadObjectResponse";
 import { DeleteObjectResponse } from "@/models/dto/responses/DeleteObjectResponse";
 import { InitUploadRequest } from "@/models/dto/requests/InitUploadRequest";
 import { InitUploadResponse } from "@/models/dto/responses/initUploadResponse";
 import { CompleteUploadResponse } from "@/models/dto/responses/CompleteUplaodRequest";
 import { CompleteUploadRequest, CompleteUploadPart } from "@/models/dto/requests/CompleteUploadRequest";
+import { HeadObjectRequest } from "@/models/dto/requests/GetHeadObjectRequest";
 
 const CHUNK_SIZE = 5 * 1024 * 1024;
 
@@ -107,8 +107,8 @@ export async function getPresignedUrl(request: PreSignUrlRequest): Promise<PreSi
   });
 }
 
-export async function getMimeType(request: GetMimeTypeRequest): Promise<GetMimeTypeResponse> {
-  return apiRequestJson<GetMimeTypeResponse>("GET", "/api/s3/mime-type", {
+export async function getHeadObject(request: HeadObjectRequest): Promise<GetHeadObjectResponse> {
+  return apiRequestJson<GetHeadObjectResponse>("GET", "/api/s3/head-object", {
     params: requestToQueryParams({ ...request }),
   });
 }
