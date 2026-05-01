@@ -1,5 +1,6 @@
 import { ErrorResponse } from "@/models/ErrorResponse";
-import { S3Request, validateS3Request } from "../../S3";
+import { buildS3RequestQueryParams, S3Request, validateS3Request } from "../../S3";
+import { NextRequest } from "next/server";
 
 export interface GetMimeTypeRequest extends S3Request {
     key: string;
@@ -19,4 +20,11 @@ export function validateGetMimeTypeRequest(request: GetMimeTypeRequest): ErrorRe
     }
 
     return null;
+}
+
+export function buildGetMimeTypeRequest(request : NextRequest): GetMimeTypeRequest {
+    return {
+        ...buildS3RequestQueryParams(request),
+        key: request.nextUrl.searchParams.get("key") ?? "",
+    } as GetMimeTypeRequest;
 }

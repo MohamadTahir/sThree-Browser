@@ -1,38 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { getS3Client, handleS3Error } from '@/lib/s3Client';
-import { DeleteObjectRequest, validateDeleteObjectRequest } from '@/models/dto/requests/DeleteObjectRequest';
-import { DeleteObjectResponse } from '@/models/dto/responses/DeleteObjectResponse';
+import { NextRequest, NextResponse } from "next/server";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getS3Client, handleS3Error } from "@/lib/s3Client";
+import { buildDeleteObjectRequest, validateDeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
+import { DeleteObjectResponse } from "@/models/dto/responses/DeleteObjectResponse";
 
-export const dynamic = 'force-static';
+export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
-    const body: DeleteObjectRequest = await request.json();
-    const error = validateDeleteObjectRequest(body);
+    const deleteObjectRequest = buildDeleteObjectRequest(request);
+
+    const error = validateDeleteObjectRequest(deleteObjectRequest);
     if (error) {
-      return NextResponse.json(error, { status: error.statusCode });
+      return NextResponse.json(error, { status: error.statusCode ?? 400 });
     }
 
-    const client = await getS3Client(body);
+    const client = await getS3Client(deleteObjectRequest);
 
     const command = new DeleteObjectCommand({
-      Bucket: body.bucketName,
-      Key: body.key,
+      Bucket: deleteObjectRequest.bucketName,
+      Key: deleteObjectRequest.key,
     });
 
     await client.send(command);
 
-    const response = {success: true} as DeleteObjectResponse;
+    const response = { success: true } as DeleteObjectResponse;
 
     return NextResponse.json(response);
-
-  } catch (error: any) {
-    console.error('Delete object error:', error);
+  } catch (error: unknown) {
+    console.error("Delete object error:", error);
     const { message, statusCode } = handleS3Error(error);
     return NextResponse.json(
-      { success: false, error: message, statusCode: statusCode } as DeleteObjectResponse,
-      { status: statusCode }
+      { success: false, error: message, statusCode } as DeleteObjectResponse,
+      { status: statusCode },
     );
   }
 }

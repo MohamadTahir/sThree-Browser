@@ -1,5 +1,6 @@
 import { ErrorResponse } from "@/models/ErrorResponse";
-import { S3Request, validateS3Request } from "../../S3";
+import { buildS3RequestQueryParams, S3Request, validateS3Request } from "../../S3";
+import { NextRequest } from "next/server";
 
 export interface DeleteObjectRequest extends S3Request {
     key: string;
@@ -20,4 +21,11 @@ export function validateDeleteObjectRequest(request: DeleteObjectRequest): Error
     }
 
     return null;
+}
+
+export function buildDeleteObjectRequest(request : NextRequest): DeleteObjectRequest {
+    return {
+        ...buildS3RequestQueryParams(request),
+        key: request.nextUrl.searchParams.get("key") ?? "",
+    } as DeleteObjectRequest;
 }

@@ -1,5 +1,6 @@
 import { ErrorResponse } from "@/models/ErrorResponse";
-import { S3Request, validateS3Request } from "../../S3";
+import { buildS3RequestQueryParams, S3Request, validateS3Request } from "../../S3";
+import { NextRequest } from "next/server";
 
 export interface PreSignUrlRequest extends S3Request {
     key: string;
@@ -19,12 +20,24 @@ export function validatePreSignUrlRequest(request: PreSignUrlRequest): ErrorResp
         };
     }
 
-    if (!request.expiresIn) {
+    if (
+        request.expiresIn == null ||
+        !Number.isFinite(request.expiresIn) ||
+        request.expiresIn <= 0
+    ) {
         return {
-            error: 'Missing required fields: expiresIn',
+            error: "Invalid or missing expiresIn",
             statusCode: 400,
         };
     }
 
     return null;
+}
+
+export function buildPreSignUrlRequest(request : NextRequest): PreSignUrlRequest {
+    return {
+        ...buildS3RequestQueryParams(request),
+        key: request.nextUrl.searchParams.get("key") ?? "",
+        expiresIn: request.nextUrl.searchParams.get("expiresIn") ? Number(request.nextUrl.searchParams.get("expiresIn")) : 3600,
+    } as PreSignUrlRequest;
 }

@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { ErrorResponse } from "./ErrorResponse";
 
 export interface S3Request {
@@ -24,9 +25,9 @@ export function validateS3Request(request: S3Request): ErrorResponse | null {
         };
     }
 
-    if (!request.forcePathStyle) {
+    if (typeof request.forcePathStyle !== "boolean") {
         return {
-            error: 'Missing required fields: forcePathStyle',
+            error: "Missing or invalid field: forcePathStyle (must be true or false)",
             statusCode: 400,
         };
     }
@@ -44,4 +45,15 @@ export function validateS3Request(request: S3Request): ErrorResponse | null {
     }
 
     return null;
+}
+
+export function buildS3RequestQueryParams(request : NextRequest): S3Request {
+    return {
+        bucketName: request.nextUrl.searchParams.get("bucketName") ?? "",
+        region: request.nextUrl.searchParams.get("region") ?? "",
+        endpoint: request.nextUrl.searchParams.get("endpoint") || null,
+        forcePathStyle: request.nextUrl.searchParams.get("forcePathStyle") === 'true',
+        accessKey: request.nextUrl.searchParams.get("accessKey") ?? "",
+        secretKey: request.nextUrl.searchParams.get("secretKey") ?? "",
+    } as S3Request;
 }

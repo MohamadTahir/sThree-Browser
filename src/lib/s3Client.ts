@@ -16,21 +16,28 @@ export async function getS3Client(s3Request: S3Request): Promise<S3Client> {
   return new S3Client(clientConfig);
 }
 
-export function handleS3Error(error: any): { message: string; statusCode: number } {
-  let errorMessage = error.message || 'Internal server error';
+export function handleS3Error(error: unknown): { message: string; statusCode: number } {
+  const err = error as {
+    name?: string;
+    message?: string;
+    bucketName?: string;
+    config?: { endpoint?: string };
+  };
+
+  let errorMessage = err?.message || "Internal server error";
   let statusCode = 500;
 
-  if (error.name === 'InvalidAccessKeyId' || error.message?.includes('InvalidAccessKeyId')) {
-    errorMessage = 'Invalid access key. Please check your credentials.';
+  if (err?.name === "InvalidAccessKeyId" || err?.message?.includes("InvalidAccessKeyId")) {
+    errorMessage = "Invalid access key. Please check your credentials.";
     statusCode = 401;
-  } else if (error.name === 'SignatureDoesNotMatch' || error.message?.includes('SignatureDoesNotMatch')) {
-    errorMessage = 'Invalid secret key. Please check your credentials.';
+  } else if (err?.name === "SignatureDoesNotMatch" || err?.message?.includes("SignatureDoesNotMatch")) {
+    errorMessage = "Invalid secret key. Please check your credentials.";
     statusCode = 401;
-  } else if (error.name === 'UnknownEndpoint' || error.message?.includes('UnknownEndpoint')) {
-    errorMessage = `Invalid endpoint: ${error.config?.endpoint || 'unknown'}. Please check your endpoint URL.`;
+  } else if (err?.name === "UnknownEndpoint" || err?.message?.includes("UnknownEndpoint")) {
+    errorMessage = `Invalid endpoint: ${err.config?.endpoint || "unknown"}. Please check your endpoint URL.`;
     statusCode = 400;
-  } else if (error.name === 'NoSuchBucket' || error.message?.includes('NoSuchBucket')) {
-    errorMessage = `Bucket not found: ${error.bucketName || 'unknown'}`;
+  } else if (err?.name === "NoSuchBucket" || err?.message?.includes("NoSuchBucket")) {
+    errorMessage = `Bucket not found: ${err.bucketName || "unknown"}`;
     statusCode = 404;
   }
 
