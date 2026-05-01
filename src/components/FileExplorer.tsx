@@ -160,7 +160,7 @@ export default function FileExplorer() {
 
     try {
       for (const file of files) {
-        const toastId = toast.info(`Uploading ${file.name}...`, {
+        const toastId = toast.loading(`Uploading ${file.name}...`, {
           hideProgressBar: false,
           closeOnClick: false,
           pauseOnHover: false,

@@ -25,6 +25,8 @@ import { twMerge } from "tailwind-merge";
 import { getHeadObject, getPresignedUrl } from "@/services/s3Service";
 import { toast } from "react-toastify";
 import dynamic from "next/dynamic";
+import { GetHeadObjectResponse } from "@/models/dto/responses/GetHeadObjectResponse";
+import axios from "axios";
 
 const FilePreview = dynamic(() => import("reactjs-file-preview"), {
   ssr: false,
@@ -94,7 +96,9 @@ export default function ObjectDetailsSidebar({
   const bucket = configs.buckets[bucketId];
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [mimeType, setMimeType] = useState<string>("");
+  const [headObject, setHeadObject] = useState<GetHeadObjectResponse | null>(
+    null,
+  );
   const [showShareModal, setShowShareModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -130,7 +134,7 @@ export default function ObjectDetailsSidebar({
         return;
       }
 
-      setMimeType(response.MimeType);
+      setHeadObject(response);
 
       if (!supportedImageMimeTypes.includes(response.MimeType)) {
         return;
@@ -159,84 +163,93 @@ export default function ObjectDetailsSidebar({
     return;
   }
 
-  const handleDownload = async (object: S3Object, e?: React.MouseEvent) => {
-    // if (e) {
-    //   e.stopPropagation(); // Prevent triggering the file click handler
-    // }
-    // try {
-    //   setLoading(true);
-    //   // Get config to use with S3 service
-    //   const configs = await loadConfigsFromStorage();
-    //   const config = configs.buckets[bucketId];
-    //   if (!config) {
-    //     setError("Bucket configuration not found");
-    //     return;
-    //   }
-    //   let getObjectContentRequest: GetObjectRequest = {
-    //     bucket: config,
-    //     key: object.key,
-    //   };
-    //   const uint8Array = await getObjectContent(getObjectContentRequest);
-    //   // Get file name
-    //   const fileName = object.key.split("/").pop() || object.key;
-    //   // Check if we're in Tauri (desktop) or browser (web)
-    //   const isTauri =
-    //     typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-    //   if (isTauri) {
-    //     // Desktop: Save to downloads folder using Tauri
-    //     const { invoke } = await import("@tauri-apps/api/core");
-    //     const fileData = Array.from(uint8Array);
-    //     const filePath = await invoke<string>("save_file_to_downloads", {
-    //       fileName,
-    //       fileData,
-    //     });
-    //     // Show download toast with the actual file path
-    //     setDownloadToast({
-    //       fileName,
-    //       filePath,
-    //       open: true,
-    //     });
-    //   } else {
-    //     // Web: Use browser download
-    //     // Create a new Uint8Array copy to ensure proper typing
-    //     const dataCopy = new Uint8Array(uint8Array);
-    //     const blob = new Blob([dataCopy]);
-    //     const url = URL.createObjectURL(blob);
-    //     const link = document.createElement("a");
-    //     link.href = url;
-    //     link.download = fileName;
-    //     document.body.appendChild(link);
-    //     link.click();
-    //     document.body.removeChild(link);
-    //     URL.revokeObjectURL(url);
-    //     // Show toast (web version could show a simple notification)
-    //     setDownloadToast({
-    //       fileName,
-    //       filePath: fileName, // Web doesn't have a file path
-    //       open: true,
-    //     });
-    //   }
-    // } catch (err) {
-    //   const errorMsg = err instanceof Error ? err.message : String(err);
-    //   // toast({
-    //   //   variant: "destructive",
-    //   //   title: "Download Failed",
-    //   //   description: errorMsg,
-    //   // });
-    //   console.error("Download error:", err);
-    // } finally {
-    //   setLoading(false);
-    // }
-  };
+  const handleDownload = async () => {
+    // toast(({}) => <DownloadCompletedToast filePath="file" />, {
+    //   closeButton: false,
+    //   style: {
+    //     backgroundColor: "var(--toast-surface)",
+    //   },
+    // });
 
-  // const handleDownload = (fileUrl, fileName) => {
-  //   const link = document.createElement("a");
-  //   link.href = fileUrl;
-  //   link.setAttribute("download", fileName);
-  //   document.body.appendChild(link);
-  //   link.click();
-  //   link.parentNode.removeChild(link);
-  // };
+    try {
+      const credentials = configs.credentials[bucket.credentialId];
+
+      if (!credentials) {
+        toast.error("Failed to preview image");
+        return;
+      }
+
+      const presignedUrl = await getPresignedUrl({
+        key: object.key,
+        expiresIn: 3600,
+        bucketName: bucket.bucketName,
+        region: bucket.region,
+        endpoint: bucket.endpoint,
+        forcePathStyle: bucket.forcePathStyle,
+        accessKey: credentials.accessKey,
+        secretKey: credentials.secretKey,
+      });
+
+      if (presignedUrl.error) {
+        toast.error("failed to get presigned url: " + presignedUrl.error);
+        return;
+      }
+
+      const toastId = toast.loading(`Downloading ${object.key}...`, {
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: false,
+        draggable: false,
+        autoClose: false,
+        isLoading: false,
+        progress: 0,
+      });
+
+      await axios({
+        url: presignedUrl.url,
+        method: "GET",
+        responseType: "blob",
+        onDownloadProgress: (progressEvent) => {
+          const contentLength = headObject?.ContentLength ?? 0;
+
+          if (contentLength === 0) {
+            return;
+          }
+
+          // Use the size from your API instead of progressEvent.total
+          const percent = progressEvent.loaded / contentLength;
+
+          toast.update(toastId, {
+            progress: percent,
+          });
+        },
+      }).then((response) => {
+        // Trigger save-to-disk logic here
+        toast.update(toastId, {
+          render: `Downloaded ${object.key}`,
+          type: "success",
+          isLoading: false,
+          autoClose: 2000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          progress: 0,
+        });
+
+        const downloadUrl = window.URL.createObjectURL(
+          new Blob([response.data]),
+        );
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", object.key.split("/").pop() ?? "");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      });
+    } catch (err) {
+      console.error("Failed to download file", err);
+      toast.error("Failed to download file");
+    }
+  };
 
   const handleOpenFile = async () => {
     // if (!downloadToast) return;
@@ -299,15 +312,17 @@ export default function ObjectDetailsSidebar({
   const fileName = object.key.split("/").pop();
 
   const fileNameAndIcon = () => {
+    const mimeTypeString = headObject?.MimeType ?? "";
+
     let icon: React.ReactNode;
     switch (true) {
-      case imageExtensions.includes(mimeType):
+      case imageExtensions.includes(mimeTypeString):
         icon = <ImageIcon className="h-8 w-8 text-primary" />;
         break;
-      case textExtensions.includes(mimeType):
+      case textExtensions.includes(mimeTypeString):
         icon = <FileText className="h-8 w-8 text-primary" />;
         break;
-      case codeExtensions.includes(mimeType):
+      case codeExtensions.includes(mimeTypeString):
         icon = <FileCode className="h-8 w-8 text-primary" />;
         break;
       default:
@@ -364,7 +379,8 @@ export default function ObjectDetailsSidebar({
   };
 
   const preview = () => {
-    if (!supportedImageMimeTypes.includes(mimeType)) return null;
+    if (!supportedImageMimeTypes.includes(headObject?.MimeType ?? ""))
+      return null;
 
     return (
       <>
@@ -396,14 +412,7 @@ export default function ObjectDetailsSidebar({
             Share
           </Button>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={
-              () => {}
-              // onDownload(object)
-            }
-          >
+          <Button variant="outline" className="w-full" onClick={handleDownload}>
             <Download className="mr-2 h-4 w-4" />
             Download
           </Button>
