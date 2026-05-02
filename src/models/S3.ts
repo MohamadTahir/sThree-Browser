@@ -47,7 +47,7 @@ export function validateS3Request(request: S3Request): ErrorResponse | null {
     return null;
 }
 
-export function buildS3RequestQueryParams(request : NextRequest): S3Request {;
+export function buildS3RequestQueryParams(request : NextRequest): S3Request {
     return {
         bucketName: request.nextUrl.searchParams.get("bucketName") ?? "",
         region: request.nextUrl.searchParams.get("region") ?? "",

@@ -66,7 +66,6 @@ async function apiRequestJson<T>(
   body?: unknown,
 ): Promise<T> {
   try {
-    console.log(headers);
     const { data, status, statusText } = await apiClient.request<T>({
       method,
       url: path,
@@ -144,8 +143,8 @@ export async function uploadFile(file: File, request: InitUploadRequest, onProgr
     parts: totalParts,
     region: request.region,
     forcePathStyle: request.forcePathStyle,
-    accessKey: request.accessKey,
-    secretKey: request.secretKey,
+    accessKey: "",
+    secretKey: "",
     endpoint: request.endpoint,
   };
 
@@ -209,8 +208,8 @@ export async function uploadFile(file: File, request: InitUploadRequest, onProgr
     parts: uploadedParts,
     region: request.region,
     forcePathStyle: request.forcePathStyle,
-    accessKey: request.accessKey,
-    secretKey: request.secretKey,
+    accessKey: "",
+    secretKey: "",
     endpoint: request.endpoint,
   };
 

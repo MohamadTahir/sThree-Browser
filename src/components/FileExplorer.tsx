@@ -59,7 +59,7 @@ export default function FileExplorer() {
       return;
     }
 
-    setPageState((prev) => ({ ...prev, loading: true }));
+    setPageState((prev) => ({ ...prev, loading: true, error: null }));
 
     const listObjectsRequest: ListObjectsRequest = {
       bucketName: activeBucket.bucketName,
@@ -82,7 +82,7 @@ export default function FileExplorer() {
         objects: response.objects,
         nextContinuationToken: response.nextContinuationToken,
         isTruncated: response.isTruncated,
-        continuationToken: pageState.continuationToken,
+        continuationToken: prev.continuationToken,
         loading: false,
         error: response.error ? response.error : null,
       }));
@@ -103,7 +103,6 @@ export default function FileExplorer() {
     configs.activeBucket,
     pageState.currentPrefix,
     pageState.continuationToken,
-    pageState.error,
   ]);
 
   if (!configs.activeBucket) {
@@ -128,7 +127,7 @@ export default function FileExplorer() {
           <Button
             variant="outline"
             onClick={() => {
-              setPageState((prev) => ({ ...prev, error: null }));
+              loadObjects();
             }}
             className="gap-2"
           >
@@ -260,7 +259,7 @@ export default function FileExplorer() {
       const previousTokens = [...pageState.pageHistory];
       const previousToken = previousTokens.pop() || null;
       setPageState((prev) => ({
-        ...pageState,
+        ...prev,
         pageHistory: previousTokens,
         continuationToken: previousToken,
       }));
