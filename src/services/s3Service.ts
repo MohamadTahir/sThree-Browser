@@ -1,4 +1,4 @@
-import axios, { AxiosRequestHeaders, isAxiosError, RawAxiosRequestHeaders } from "axios";
+import axios, { isAxiosError } from "axios";
 import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
 import { PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
 import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
