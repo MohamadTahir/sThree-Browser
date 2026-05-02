@@ -1,4 +1,4 @@
-import axios, { isAxiosError } from "axios";
+import axios, { AxiosRequestHeaders, isAxiosError, RawAxiosRequestHeaders } from "axios";
 import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
 import { PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
 import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
@@ -8,7 +8,7 @@ import { GetHeadObjectResponse } from "@/models/dto/responses/GetHeadObjectRespo
 import { DeleteObjectResponse } from "@/models/dto/responses/DeleteObjectResponse";
 import { InitUploadRequest } from "@/models/dto/requests/InitUploadRequest";
 import { InitUploadResponse } from "@/models/dto/responses/initUploadResponse";
-import { CompleteUploadResponse } from "@/models/dto/responses/CompleteUplaodRequest";
+import { CompleteUploadResponse } from "@/models/dto/responses/CompleteUplaodResponse";
 import { CompleteUploadRequest, CompleteUploadPart } from "@/models/dto/requests/CompleteUploadRequest";
 import { HeadObjectRequest } from "@/models/dto/requests/GetHeadObjectRequest";
 
@@ -34,11 +34,14 @@ function isErrorPayload(value: unknown): value is { error?: string; statusCode?:
   return typeof value === "object" && value !== null && "error" in value;
 }
 
-function requestToQueryParams(
-  input: Record<string, unknown>,
-): Record<string, string | number | boolean> {
+function requestToQueryParams(input: Record<string, unknown>): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};
   for (const [k, v] of Object.entries(input)) {
+
+    if (k === "accessKey" || k === "secretKey") {
+      continue;
+    }
+
     if (v === undefined || v === null) continue;
     if (typeof v === "boolean") out[k] = v;
     else if (typeof v === "number") out[k] = v;
@@ -47,18 +50,30 @@ function requestToQueryParams(
   return out;
 }
 
+
+function setAccessKeyAndSecretKeyHeaders(accessKey: string, secretKey: string): Record<string, any> {
+  return {
+    "x-accessKey": accessKey,
+    "x-secretKey": secretKey,
+  };
+}
+
 async function apiRequestJson<T>(
   method: "GET" | "POST" | "DELETE",
   path: string,
-  options: { data?: unknown; params?: Record<string, string | number | boolean> },
+  headers: any,
+  queryParams?: any,
+  body?: unknown,
 ): Promise<T> {
   try {
+    console.log(headers);
     const { data, status, statusText } = await apiClient.request<T>({
       method,
       url: path,
       baseURL: getApiBaseUrl(),
-      data: options.data,
-      params: options.params,
+      data: body,
+      params: queryParams,
+      headers: headers,
       validateStatus: () => true,
     });
 
@@ -90,27 +105,31 @@ async function apiRequestJson<T>(
 }
 
 export async function listObjects(request: ListObjectsRequest): Promise<ListObjectsResponse> {
-  return apiRequestJson<ListObjectsResponse>("GET", "/api/s3/list-objects", {
-    params: requestToQueryParams({ ...request }),
-  });
+  return apiRequestJson<ListObjectsResponse>("GET", "/api/s3/list-objects",
+    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
+    requestToQueryParams({ ...request }),
+);
 }
 
 export async function deleteObject(request: DeleteObjectRequest): Promise<DeleteObjectResponse> {
-  return apiRequestJson<DeleteObjectResponse>("DELETE", "/api/s3/delete-object", {
-    params: requestToQueryParams({ ...request }),
-  });
+  return apiRequestJson<DeleteObjectResponse>("DELETE", "/api/s3/delete-object",
+    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
+    requestToQueryParams({ ...request }),
+  );
 }
 
 export async function getPresignedUrl(request: PreSignUrlRequest): Promise<PreSignUrlResponse> {
-  return apiRequestJson<PreSignUrlResponse>("GET", "/api/s3/presigned-url", {
-    params: requestToQueryParams({ ...request }),
-  });
+  return apiRequestJson<PreSignUrlResponse>("GET", "/api/s3/presigned-url",
+    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
+    requestToQueryParams({ ...request }),
+  );
 }
 
 export async function getHeadObject(request: HeadObjectRequest): Promise<GetHeadObjectResponse> {
-  return apiRequestJson<GetHeadObjectResponse>("GET", "/api/s3/head-object", {
-    params: requestToQueryParams({ ...request }),
-  });
+  return apiRequestJson<GetHeadObjectResponse>("GET", "/api/s3/head-object",
+    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
+    requestToQueryParams({ ...request }),
+  );
 }
 
 
@@ -130,7 +149,11 @@ export async function uploadFile(file: File, request: InitUploadRequest, onProgr
     endpoint: request.endpoint,
   };
 
-  const initUploadResponse = await apiRequestJson<InitUploadResponse>("POST","/api/s3/upload/init", {data:initUploadRequest});
+  const initUploadResponse = await apiRequestJson<InitUploadResponse>("POST","/api/s3/upload/init",
+    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
+    null,
+    initUploadRequest,
+  );
 
   if (initUploadResponse.error) {
     throw new Error(initUploadResponse.error);
@@ -194,7 +217,9 @@ export async function uploadFile(file: File, request: InitUploadRequest, onProgr
   const completeUploadResponse = await apiRequestJson<CompleteUploadResponse>(
     "POST",
     "/api/s3/upload/complete",
-    { data: completeUploadRequest },
+    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
+    null,
+    completeUploadRequest,
   );
 
   if (completeUploadResponse.error) {

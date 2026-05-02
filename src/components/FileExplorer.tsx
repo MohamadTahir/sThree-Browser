@@ -21,7 +21,7 @@ import prettyBytes from "pretty-bytes";
 import { InitUploadRequest } from "@/models/dto/requests/InitUploadRequest";
 
 interface PageState {
-  continuationToken: string | null;
+  continuationToken: string | null | undefined;
   nextContinuationToken: string | null | undefined;
   isTruncated: boolean;
   pageHistory: string[];
@@ -59,7 +59,7 @@ export default function FileExplorer() {
       return;
     }
 
-    setPageState({ ...pageState, loading: true });
+    setPageState((prev) => ({ ...prev, loading: true }));
 
     const listObjectsRequest: ListObjectsRequest = {
       bucketName: activeBucket.bucketName,
@@ -76,8 +76,8 @@ export default function FileExplorer() {
     try {
       const response = await listObjects(listObjectsRequest);
 
-      setPageState({
-        ...pageState,
+      setPageState((prev) => ({
+        ...prev,
         selectedObject: null,
         objects: response.objects,
         nextContinuationToken: response.nextContinuationToken,
@@ -85,24 +85,28 @@ export default function FileExplorer() {
         continuationToken: pageState.continuationToken,
         loading: false,
         error: response.error ? response.error : null,
-      });
+      }));
     } catch (error: any) {
       console.error("Failed to load objects", error);
       toast.error("Failed to load objects");
-      setPageState({ ...pageState, error: error.message, loading: false });
+      setPageState((prev) => ({
+        ...prev,
+        error: error.message,
+        loading: false,
+      }));
     }
   };
 
   useEffect(() => {
     loadObjects();
   }, [
-    configs.active_bucket,
+    configs.activeBucket,
     pageState.currentPrefix,
     pageState.continuationToken,
     pageState.error,
   ]);
 
-  if (!configs.active_bucket) {
+  if (!configs.activeBucket) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center text-muted-foreground">
@@ -124,7 +128,7 @@ export default function FileExplorer() {
           <Button
             variant="outline"
             onClick={() => {
-              setPageState({ ...pageState, error: null });
+              setPageState((prev) => ({ ...prev, error: null }));
             }}
             className="gap-2"
           >
@@ -243,11 +247,11 @@ export default function FileExplorer() {
         newPageHistory.push(pageState.continuationToken);
       }
 
-      setPageState({
-        ...pageState,
+      setPageState((prev) => ({
+        ...prev,
         pageHistory: newPageHistory,
         continuationToken: pageState.nextContinuationToken,
-      });
+      }));
     }
   };
 
@@ -255,21 +259,25 @@ export default function FileExplorer() {
     if (pageState.pageHistory.length > 0) {
       const previousTokens = [...pageState.pageHistory];
       const previousToken = previousTokens.pop() || null;
-      setPageState({
+      setPageState((prev) => ({
         ...pageState,
         pageHistory: previousTokens,
         continuationToken: previousToken,
-      });
+      }));
     } else {
-      setPageState({ ...pageState, pageHistory: [], continuationToken: null });
+      setPageState((prev) => ({
+        ...prev,
+        pageHistory: [],
+        continuationToken: null,
+      }));
     }
   };
 
   const handleObjectClick = (object: S3Object) => {
     if (object.isFolder) {
-      setPageState({ ...pageState, currentPrefix: object.key });
+      setPageState((prev) => ({ ...prev, currentPrefix: object.key }));
     } else {
-      setPageState({ ...pageState, selectedObject: object });
+      setPageState((prev) => ({ ...prev, selectedObject: object }));
     }
   };
 
@@ -414,7 +422,7 @@ export default function FileExplorer() {
         <Breadcrumb
           prefix={pageState.currentPrefix}
           onNavigate={(prefix) => {
-            setPageState({ ...pageState, currentPrefix: prefix });
+            setPageState((prev) => ({ ...prev, currentPrefix: prefix }));
           }}
         />
 
@@ -429,7 +437,7 @@ export default function FileExplorer() {
           if (reload) {
             loadObjects();
           } else {
-            setPageState({ ...pageState, selectedObject: null });
+            setPageState((prev) => ({ ...prev, selectedObject: null }));
           }
         }}
       />
@@ -438,11 +446,11 @@ export default function FileExplorer() {
 }
 
 function GetActiveBucket(configs: Configs): Bucket | null {
-  if (!configs.active_bucket) {
+  if (!configs.activeBucket) {
     return null;
   }
 
-  const activeBucket = configs.buckets[configs.active_bucket];
+  const activeBucket = configs.buckets[configs.activeBucket];
   if (!activeBucket) {
     return null;
   }

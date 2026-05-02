@@ -14,11 +14,8 @@ export default function Home() {
       <StrictMode>
         <HelmetProvider>
           <Helmet>
-            <title>Backup Management System for different applications</title>
-            <meta
-              name="description"
-              content="Backup Management System for different applications"
-            />
+            <title>SThree Browser</title>
+            <meta name="description" content="SThree Browser" />
           </Helmet>
 
           <AuthGuard>

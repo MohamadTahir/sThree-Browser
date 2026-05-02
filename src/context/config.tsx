@@ -33,7 +33,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     buckets: {},
     credentials: {},
     groups: {},
-    active_bucket: null,
+    activeBucket: null,
   });
 
   const init = async () => {
@@ -112,13 +112,13 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const setActiveBucket = async (bucketId: string) => {
-    if (configs.active_bucket === bucketId) {
+    if (configs.activeBucket === bucketId) {
       return;
     }
 
     const next = {
       ...configs,
-      active_bucket: bucketId,
+      activeBucket: bucketId,
     };
     await persistConfigsToStorage(next);
     setConfigs(next);
@@ -131,8 +131,8 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     const next = {
       ...configs,
       buckets: nextBuckets,
-      active_bucket:
-        configs.active_bucket === bucketId ? null : configs.active_bucket,
+      activeBucket:
+        configs.activeBucket === bucketId ? null : configs.activeBucket,
     };
     await persistConfigsToStorage(next);
     setConfigs(next);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CompleteMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { getS3Client, handleS3Error } from '@/lib/s3Client';
 import { CompleteUploadRequest, validateCompleteUploadRequest } from '@/models/dto/requests/CompleteUploadRequest';
-import { CompleteUploadResponse } from '@/models/dto/responses/CompleteUplaodRequest';
+import { CompleteUploadResponse } from '@/models/dto/responses/CompleteUplaodResponse';
 
 export const dynamic = "force-dynamic";
 

@@ -4,7 +4,7 @@ export interface Configs {
   buckets: Record<string, Bucket>;
   credentials: Record<string, Credential>;
   groups: Record<string, Group>;
-  active_bucket: string | null;
+  activeBucket: string | null;
 }
 
 export interface Credential {

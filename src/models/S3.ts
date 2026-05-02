@@ -47,13 +47,13 @@ export function validateS3Request(request: S3Request): ErrorResponse | null {
     return null;
 }
 
-export function buildS3RequestQueryParams(request : NextRequest): S3Request {
+export function buildS3RequestQueryParams(request : NextRequest): S3Request {;
     return {
         bucketName: request.nextUrl.searchParams.get("bucketName") ?? "",
         region: request.nextUrl.searchParams.get("region") ?? "",
         endpoint: request.nextUrl.searchParams.get("endpoint") || null,
         forcePathStyle: request.nextUrl.searchParams.get("forcePathStyle") === 'true',
-        accessKey: request.nextUrl.searchParams.get("accessKey") ?? "",
-        secretKey: request.nextUrl.searchParams.get("secretKey") ?? "",
+        accessKey: request.headers.get("x-accessKey") ?? "",
+        secretKey: request.headers.get("x-secretKey") ?? "",
     } as S3Request;
 }

@@ -7,19 +7,19 @@ export async function loadConfigsFromStorage(): Promise<Configs> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
-      return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
+      return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
     }
 
     const masterPassword = getMasterPasswordFromMemory();
     if (!masterPassword) {
-      return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
+      return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
     }
 
     const decryptedConfigs = await decrypt(stored, masterPassword);
     return decryptedConfigs;
   } catch (error) {
     console.error("Error loading configs:", error);
-    return { buckets: {}, credentials: {}, groups: {}, active_bucket: null };
+    return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
   }
 }
 
