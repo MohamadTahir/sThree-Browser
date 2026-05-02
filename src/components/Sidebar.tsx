@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { Input } from "./ui/input";
-import { Bucket, Group } from "../models/types";
+import { Bucket, DeleteItem, Group } from "../models/types";
 import { twMerge } from "tailwind-merge";
 import { useConfig } from "@/context/config";
 import CredentialsModal from "./CredentialModal/CredentialsModal";
@@ -31,9 +31,10 @@ import {
 } from "./GroupModal/GroupSchema";
 import GroupManagementModal from "./GroupModal/GroupManagementModal";
 import BucketManagementModal from "./BucketModal/BucketManagementModal";
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 export default function Sidebar() {
-  const { configs } = useConfig();
+  const { configs, deleteGroup, deleteBucket } = useConfig();
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -46,6 +47,23 @@ export default function Sidebar() {
   );
 
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+
+  const [deleteGroupState, setDeleteGroupState] = useState<DeleteItem | null>(
+    null,
+  );
+  const [deleteBucketState, setDeleteBucketState] = useState<DeleteItem | null>(
+    null,
+  );
+
+  const onDeleteGroup = async (groupId: string) => {
+    await deleteGroup(groupId);
+    setDeleteGroupState(null);
+  };
+
+  const onDeleteBucket = async (bucketId: string) => {
+    await deleteBucket(bucketId);
+    setDeleteBucketState(null);
+  };
 
   const bucketsFiltered = useMemo(() => {
     const grouped: Bucket[] = [];
@@ -97,6 +115,8 @@ export default function Sidebar() {
           groups={Object.values(configs.groups)}
           setGroupModalState={setGroupModalState}
           setBucketModalState={setBucketModalState}
+          setDeleteGroupState={setDeleteGroupState}
+          setDeleteBucketState={setDeleteBucketState}
         />
       </div>
 
@@ -118,6 +138,22 @@ export default function Sidebar() {
       <CredentialsModal
         open={showCredentialsModal}
         onClose={() => setShowCredentialsModal(false)}
+      />
+
+      <DeleteConfirmationModal
+        open={deleteGroupState !== null || deleteBucketState !== null}
+        name={deleteGroupState?.name ?? deleteBucketState?.name ?? ""}
+        onClose={() => {
+          setDeleteGroupState(null);
+          setDeleteBucketState(null);
+        }}
+        onDelete={async () => {
+          if (deleteGroupState) {
+            await onDeleteGroup(deleteGroupState.id);
+          } else if (deleteBucketState) {
+            await onDeleteBucket(deleteBucketState.id);
+          }
+        }}
       />
     </div>
   );
@@ -217,11 +253,15 @@ function GroupsList({
   groups,
   setBucketModalState,
   setGroupModalState,
+  setDeleteGroupState,
+  setDeleteBucketState,
 }: {
   buckets: Bucket[];
   groups: Group[];
   setBucketModalState: (bucketModalState: BucketModalState) => void;
   setGroupModalState: (groupModalState: GroupModalState) => void;
+  setDeleteGroupState: (deleteGroupState: DeleteItem) => void;
+  setDeleteBucketState: (deleteBucketState: DeleteItem) => void;
 }) {
   if (buckets.length === 0 && groups.length === 0) {
     return (
@@ -253,6 +293,8 @@ function GroupsList({
             buckets={buckets.filter((bucket) => bucket.groupId === group.id)}
             setBucketModalState={setBucketModalState}
             setGroupModalState={setGroupModalState}
+            setDeleteGroupState={setDeleteGroupState}
+            setDeleteBucketState={setDeleteBucketState}
           />
         ))}
 
@@ -263,6 +305,7 @@ function GroupsList({
             key="ungrouped"
             buckets={ungroupedBuckets}
             setBucketModalState={setBucketModalState}
+            setDeleteBucketState={setDeleteBucketState}
           />
         )}
       </div>
@@ -275,14 +318,19 @@ function GroupItem({
   buckets,
   setBucketModalState,
   setGroupModalState,
+  setDeleteGroupState,
+  setDeleteBucketState,
 }: {
   group: Group;
   buckets: Bucket[];
   setBucketModalState: (bucketModalState: BucketModalState) => void;
   setGroupModalState: (groupModalState: GroupModalState) => void;
+  setDeleteGroupState: (deleteGroupState: DeleteItem) => void;
+  setDeleteBucketState: (deleteBucketState: DeleteItem) => void;
 }) {
-  const { setActiveGroup, deleteGroup } = useConfig();
+  const { setActiveGroup } = useConfig();
   const isExpanded = group?.active ?? false;
+
   return (
     <div>
       <div
@@ -319,9 +367,9 @@ function GroupItem({
             size="icon"
             variant="ghost"
             className="h-6 w-6"
-            onClick={async (e) => {
+            onClick={(e) => {
               e.stopPropagation();
-              await deleteGroup(group.id);
+              setDeleteGroupState({ name: group.name, id: group.id });
             }}
           >
             <Trash2 className="h-3 w-3" />
@@ -333,6 +381,7 @@ function GroupItem({
         child={true}
         buckets={buckets}
         setBucketModalState={setBucketModalState}
+        setDeleteBucketState={setDeleteBucketState}
       />
     </div>
   );
@@ -343,13 +392,15 @@ function BucketsList({
   child,
   buckets,
   setBucketModalState,
+  setDeleteBucketState,
 }: {
   isExpanded: boolean;
   child: boolean;
   buckets: Bucket[];
   setBucketModalState: (bucketModalState: BucketModalState) => void;
+  setDeleteBucketState: (deleteBucketState: DeleteItem) => void;
 }) {
-  const { deleteBucket, setActiveBucket } = useConfig();
+  const { setActiveBucket } = useConfig();
   if (buckets.length === 0) {
     return (
       <Collapse isOpened={isExpanded}>
@@ -399,9 +450,12 @@ function BucketsList({
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6"
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.stopPropagation();
-                  await deleteBucket(bucket.id);
+                  setDeleteBucketState({
+                    name: bucket.nickname,
+                    id: bucket.id,
+                  });
                 }}
               >
                 <Trash2 className="h-3 w-3" />

@@ -5,9 +5,9 @@ export const BucketFormSchema = z.object({
   nickname: z.string().min(1, "Nickname is required"),
   bucketName: z.string().min(1, "Bucket name is required"),
   region: z.string().min(1, "Region is required"),
-  endpoint: z.url().optional(),
+  endpoint: z.url().or(z.literal("")),
   credentialId: z.string().min(1, "Credential is required"),
-  groupId: z.string().optional(),
+  groupId: z.string().optional().nullable(),
   forcePathStyle: z.boolean(),
 });
 

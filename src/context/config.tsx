@@ -67,14 +67,6 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const deleteGroup = async (groupId: string) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this folder? Buckets in this folder will be moved out.",
-      )
-    ) {
-      return;
-    }
-
     const nextBuckets = { ...configs.buckets };
 
     for (const id in nextBuckets) {
@@ -133,14 +125,6 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const deleteBucket = async (bucketId: string) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete this bucket? All data will be lost.",
-      )
-    ) {
-      return;
-    }
-
     const nextBuckets = { ...configs.buckets };
     delete nextBuckets[bucketId];
 

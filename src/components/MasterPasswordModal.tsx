@@ -16,6 +16,7 @@ import {
   hasMasterPassword,
   clearAllData,
 } from "../services/encryptionService";
+import { toast } from "react-toastify";
 
 interface MasterPasswordModalProps {
   open: boolean;
@@ -111,31 +112,16 @@ export default function MasterPasswordModal({
   };
 
   const handleForgetPassword = async () => {
-    // Use a custom confirmation dialog via toast or keep window.confirm for critical actions
-    // For critical destructive actions, window.confirm is acceptable, but we can improve it later
-    if (
-      window.confirm(
-        "Are you sure you want to forget your password? This will delete ALL your stored bucket configurations and reset the app to its initial state. This action cannot be undone.",
-      )
-    ) {
-      try {
-        await clearAllData();
-        // toast({
-        //   variant: "warning",
-        //   title: "Data Cleared",
-        //   description: "All data has been cleared. The app will reload.",
-        // });
-        // Reload the page to reset everything
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } catch (error) {
-        // toast({
-        //   variant: "destructive",
-        //   title: "Failed to Clear Data",
-        //   description: error instanceof Error ? error.message : String(error),
-        // });
-      }
+    try {
+      await clearAllData();
+      // Reload the page to reset everything
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to clear data",
+      );
     }
   };
 

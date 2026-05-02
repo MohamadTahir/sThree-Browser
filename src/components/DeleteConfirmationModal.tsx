@@ -9,62 +9,30 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { useConfig } from "@/context/config";
-import { toast } from "react-toastify";
-import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
-import { deleteObject } from "@/services/s3Service";
 
 interface DeleteConfirmationModalProps {
   open: boolean;
-  objectKey: string;
-  bucketId: string;
+  name: string;
   onClose: (deleted?: boolean) => void;
+  onDelete: () => Promise<void>;
 }
 
 export default function DeleteConfirmationModal({
   open,
-  objectKey,
-  bucketId,
+  name,
   onClose,
+  onDelete,
 }: DeleteConfirmationModalProps) {
   const [loading, setLoading] = useState(false);
-  const { configs } = useConfig();
-  const bucket = configs.buckets[bucketId];
-
-  const handleDelete = async () => {
-    const credentials = configs.credentials[bucket.credentialId];
-
-    if (!credentials) {
-      toast.error("Failed to delete object");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const deleteObjectRequest: DeleteObjectRequest = {
-        bucketName: bucket.bucketName,
-        region: bucket.region,
-        endpoint: bucket.endpoint,
-        forcePathStyle: bucket.forcePathStyle,
-        accessKey: credentials.accessKey,
-        secretKey: credentials.secretKey,
-        key: objectKey,
-      };
-      await deleteObject(deleteObjectRequest);
-      toast.success("Object deleted successfully");
-      onClose(true);
-    } catch (err) {
-      console.error("Failed to delete object", err);
-      toast.error("Failed to delete object");
-      setLoading(false);
-    }
-  };
 
   const handleCancel = () => {
-    if (!loading) {
-      onClose(false);
-    }
+    onClose(false);
+  };
+
+  const handleDelete = async () => {
+    setLoading(true);
+    await onDelete();
+    setLoading(false);
   };
 
   return (
@@ -73,14 +41,12 @@ export default function DeleteConfirmationModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trash2 className="h-5 w-5 text-destructive" />
-            Delete Object
+            Delete!
           </DialogTitle>
           <DialogDescription>
             Are you sure you want to delete{" "}
-            <span className="font-bold text-foreground break-all">
-              {objectKey}
-            </span>
-            ? This action cannot be undone.
+            <span className="font-bold text-foreground break-all">{name}</span>?
+            This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
 

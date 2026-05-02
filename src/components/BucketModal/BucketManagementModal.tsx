@@ -144,6 +144,11 @@ export default function BucketManagementModal({
             ))}
           </SelectContent>
         </Select>
+        {methods.formState.errors.credentialId?.message && (
+          <p className="text-xs text-destructive">
+            {methods.formState.errors.credentialId?.message}
+          </p>
+        )}
 
         <p className="text-xs text-muted-foreground">
           Choose reusable credentials to use for this bucket. (selecting None

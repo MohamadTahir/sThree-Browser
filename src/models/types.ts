@@ -38,3 +38,9 @@ export interface S3Object {
   lastModified: string | null;
   isFolder: boolean;
 }
+
+
+export interface DeleteItem {
+  name: string;
+  id: string;
+}

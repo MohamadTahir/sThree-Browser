@@ -22,11 +22,16 @@ import ShareModal from "./ShareModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { useConfig } from "@/context/config";
 import { twMerge } from "tailwind-merge";
-import { getHeadObject, getPresignedUrl } from "@/services/s3Service";
+import {
+  deleteObject,
+  getHeadObject,
+  getPresignedUrl,
+} from "@/services/s3Service";
 import { toast } from "react-toastify";
 import dynamic from "next/dynamic";
 import { GetHeadObjectResponse } from "@/models/dto/responses/GetHeadObjectResponse";
 import axios from "axios";
+import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
 
 const FilePreview = dynamic(() => import("reactjs-file-preview"), {
   ssr: false,
@@ -162,6 +167,38 @@ export default function ObjectDetailsSidebar({
   if (!bucket || !object) {
     return;
   }
+
+  const onDelete = async () => {
+    if (!object) {
+      return;
+    }
+
+    const credentials = configs.credentials[bucket.credentialId];
+
+    if (!credentials) {
+      toast.error("Failed to delete object");
+      return;
+    }
+
+    try {
+      const deleteObjectRequest: DeleteObjectRequest = {
+        bucketName: bucket.bucketName,
+        region: bucket.region,
+        endpoint: bucket.endpoint,
+        forcePathStyle: bucket.forcePathStyle,
+        accessKey: credentials.accessKey,
+        secretKey: credentials.secretKey,
+        key: object.key,
+      };
+      await deleteObject(deleteObjectRequest);
+      toast.success("Deleted successfully");
+      setShowDeleteModal(false);
+      onClose(true);
+    } catch (err) {
+      console.error("Failed to delete", err);
+      toast.error("Failed to delete");
+    }
+  };
 
   const handleDownload = async () => {
     // toast(({}) => <DownloadCompletedToast filePath="file" />, {
@@ -499,8 +536,8 @@ export default function ObjectDetailsSidebar({
       {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal
         open={showDeleteModal}
-        objectKey={object?.key}
-        bucketId={bucketId}
+        name={object?.key}
+        onDelete={onDelete}
         onClose={(deleted) => {
           if (deleted) {
             setShowDeleteModal(false);
