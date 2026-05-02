@@ -12,9 +12,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
   setMasterPassword,
-  verifyMasterPassword,
   hasMasterPassword,
   clearAllData,
+  unlockMasterSession,
 } from "../services/encryptionService";
 import { toast } from "react-toastify";
 
@@ -92,15 +92,13 @@ export default function MasterPasswordModal({
         onUnlocked();
         onOpenChange(false);
       } else {
-        // Unlock mode: verify existing password
-        const isValid = await verifyMasterPassword(password);
-        if (!isValid) {
+        const ok = await unlockMasterSession(password);
+        if (!ok) {
           setError("Incorrect password");
           setLoading(false);
           return;
         }
 
-        await setMasterPassword(password); // Store in memory
         onUnlocked();
         onOpenChange(false);
       }

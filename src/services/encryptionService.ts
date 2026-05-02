@@ -3,20 +3,140 @@
  * Uses Web Crypto API for AES-GCM encryption
  */
 
+import { scryptAsync } from "@noble/hashes/scrypt.js";
 import { Configs } from "@/models/types";
 
-const MASTER_PASSWORD_KEY = "s3browser_master_password_hash";
+const MASTER_PASSWORD_VERIFIER_KEY = "s3browser_master_password_hash";
+const BUCKET_CONFIGS_STORAGE_KEY = "bucket-configs";
+
+const SCRYPT_PARAMS = {
+  N: 2 ** 17,
+  r: 8,
+  p: 1,
+  dkLen: 32,
+} as const;
+
 const ENCRYPTION_ALGORITHM = "AES-GCM";
 const KEY_LENGTH = 256;
-const IV_LENGTH = 12; // 96 bits for GCM
+const IV_LENGTH = 12;
 const SALT_LENGTH = 16;
 
-/**
- * Derive a key from a password using PBKDF2
- */
-async function deriveKeyFromPassword(
+/** Wrapped session-key blob: magic + iv + ciphertext (AES-GCM tag included in ciphertext). */
+const CONFIG_WRAP_MAGIC = new Uint8Array([0x53, 0x54, 0x48, 0x31]); // "STH1"
+
+let sessionDataEncryptionKey: CryptoKey | null = null;
+
+/** Max code units per `fromCharCode` spread — avoids stack / arg limits on huge buffers. */
+const BASE64_ENCODE_CHUNK = 8192;
+
+function bytesToBase64(bytes: Uint8Array): string {
+  if (bytes.length === 0) {
+    return "";
+  }
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += BASE64_ENCODE_CHUNK) {
+    const end = Math.min(i + BASE64_ENCODE_CHUNK, bytes.length);
+    const slice = bytes.subarray(i, end);
+    binary += String.fromCharCode(...slice);
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    out[i] = bin.charCodeAt(i);
+  }
+  return out;
+}
+
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i]! ^ b[i]!;
+  }
+  return diff === 0;
+}
+
+function isWrappedConfigFormat(combined: Uint8Array): boolean {
+  if (combined.length < CONFIG_WRAP_MAGIC.length + IV_LENGTH + 16) {
+    return false;
+  }
+  for (let i = 0; i < CONFIG_WRAP_MAGIC.length; i++) {
+    if (combined[i] !== CONFIG_WRAP_MAGIC[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+type ScryptVerifierStored = {
+  v: 2;
+  N: number;
+  r: number;
+  p: number;
+  saltB64: string;
+  hashB64: string;
+  /** PBKDF2 salt for the non-extractable AES data key (public, not secret). */
+  dataKeySaltB64: string;
+};
+
+function parseScryptVerifier(raw: string): ScryptVerifierStored | null {
+  try {
+    const o = JSON.parse(raw) as ScryptVerifierStored;
+    if (
+      o?.v === 2 &&
+      typeof o.N === "number" &&
+      typeof o.r === "number" &&
+      typeof o.p === "number" &&
+      typeof o.saltB64 === "string" &&
+      typeof o.hashB64 === "string" &&
+      typeof o.dataKeySaltB64 === "string"
+    ) {
+      return o;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+async function deriveScryptVerifierBytes(
   password: string,
-  salt: Uint8Array
+  salt: Uint8Array,
+): Promise<Uint8Array> {
+  const derived = await scryptAsync(password, salt, {
+    N: SCRYPT_PARAMS.N,
+    r: SCRYPT_PARAMS.r,
+    p: SCRYPT_PARAMS.p,
+    dkLen: SCRYPT_PARAMS.dkLen,
+  });
+  return derived instanceof Uint8Array ? derived : new Uint8Array(derived);
+}
+
+async function writeScryptVerifier(password: string): Promise<void> {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const derived = await deriveScryptVerifierBytes(password, salt);
+  const dataKeySalt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const payload: ScryptVerifierStored = {
+    v: 2,
+    N: SCRYPT_PARAMS.N,
+    r: SCRYPT_PARAMS.r,
+    p: SCRYPT_PARAMS.p,
+    saltB64: bytesToBase64(salt),
+    hashB64: bytesToBase64(derived),
+    dataKeySaltB64: bytesToBase64(dataKeySalt),
+  };
+  localStorage.setItem(MASTER_PASSWORD_VERIFIER_KEY, JSON.stringify(payload));
+}
+
+async function deriveSessionDataEncryptionKey(
+  password: string,
+  dataKeySalt: Uint8Array,
 ): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const passwordKey = await crypto.subtle.importKey(
@@ -24,202 +144,183 @@ async function deriveKeyFromPassword(
     encoder.encode(password),
     "PBKDF2",
     false,
-    ["deriveBits", "deriveKey"]
+    ["deriveBits", "deriveKey"],
   );
-
-  // Create a new Uint8Array to avoid type issues
-  const saltArray = new Uint8Array(salt);
 
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: saltArray,
+      salt: new Uint8Array(dataKeySalt),
       iterations: 100000,
       hash: "SHA-256",
     },
     passwordKey,
     { name: ENCRYPTION_ALGORITHM, length: KEY_LENGTH },
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
-/**
- * Generate a random salt
- */
-function generateSalt(): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-}
-
-/**
- * Generate a random IV
- */
 function generateIV(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(IV_LENGTH));
 }
 
-/**
- * Encrypt data using AES-GCM
- */
-export async function encrypt(
-  data: Configs,
-  password: string
-): Promise<string> {
-  // Serialize data if not a string
-  let serialized: string;
-  serialized = JSON.stringify(data);
+function clearSessionDataEncryptionKey(): void {
+  sessionDataEncryptionKey = null;
+}
 
-  const salt = generateSalt();
-  const iv = generateIV();
-  const key = await deriveKeyFromPassword(password, salt);
-
-  const encoder = new TextEncoder();
-  const dataBuffer = encoder.encode(serialized);
-
-  // Create new Uint8Array to avoid type issues
-  const ivArray = new Uint8Array(iv);
-
-  const encryptedData = await crypto.subtle.encrypt(
-    {
-      name: ENCRYPTION_ALGORITHM,
-      iv: ivArray,
-    },
-    key,
-    dataBuffer
+async function establishSessionDataEncryptionKey(
+  password: string,
+): Promise<void> {
+  const raw = localStorage.getItem(MASTER_PASSWORD_VERIFIER_KEY);
+  if (!raw) {
+    throw new Error("Master password verifier missing");
+  }
+  const parsed = parseScryptVerifier(raw);
+  if (!parsed) {
+    throw new Error("Master password verifier invalid or missing data key salt");
+  }
+  const dataKeySalt = base64ToBytes(parsed.dataKeySaltB64);
+  sessionDataEncryptionKey = await deriveSessionDataEncryptionKey(
+    password,
+    dataKeySalt,
   );
-
-  // Combine salt + iv + encrypted data
-  const combined = new Uint8Array(
-    salt.length + iv.length + encryptedData.byteLength
-  );
-  combined.set(salt, 0);
-  combined.set(iv, salt.length);
-  combined.set(new Uint8Array(encryptedData), salt.length + iv.length);
-
-  // Convert to base64 for storage
-  return btoa(String.fromCharCode(...combined));
 }
 
 /**
- * Decrypt data using AES-GCM
+ * Encrypt configs with the in-memory session key (non-extractable).
  */
-export async function decrypt(
-  encryptedData: string,
-  password: string
-): Promise<Configs> {
-  // Decode from base64
-  const base64Data = atob(encryptedData);
-  const combined = new Uint8Array(base64Data.length);
-  for (let i = 0; i < base64Data.length; i++) {
-    combined[i] = base64Data.charCodeAt(i);
+export async function encryptConfigs(data: Configs): Promise<string> {
+  if (!sessionDataEncryptionKey) {
+    throw new Error("Master password not unlocked. Please unlock first.");
   }
 
-  // Extract salt, IV, and encrypted data
-  const salt = new Uint8Array(combined.slice(0, SALT_LENGTH));
-  const iv = new Uint8Array(combined.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH));
-  const encrypted = new Uint8Array(combined.slice(SALT_LENGTH + IV_LENGTH));
-
-  const key = await deriveKeyFromPassword(password, salt);
-
-  // Create new Uint8Array to avoid type issues
-  const ivArray = new Uint8Array(iv);
-
-  const decryptedData = await crypto.subtle.decrypt(
-    {
-      name: ENCRYPTION_ALGORITHM,
-      iv: ivArray,
-    },
-    key,
-    encrypted
+  const iv = generateIV();
+  const plaintext = new TextEncoder().encode(JSON.stringify(data));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: ENCRYPTION_ALGORITHM, iv: new Uint8Array(iv) },
+    sessionDataEncryptionKey,
+    plaintext,
   );
 
-  const decoder = new TextDecoder();
-  const decodedString = decoder.decode(decryptedData);
+  const combined = new Uint8Array(
+    CONFIG_WRAP_MAGIC.length + iv.length + ciphertext.byteLength,
+  );
+  combined.set(CONFIG_WRAP_MAGIC, 0);
+  combined.set(iv, CONFIG_WRAP_MAGIC.length);
+  combined.set(
+    new Uint8Array(ciphertext),
+    CONFIG_WRAP_MAGIC.length + iv.length,
+  );
 
-  // Parse JSON string into Configs object and return
-  return JSON.parse(decodedString) as Configs;
+  return bytesToBase64(combined);
 }
 
 /**
- * Hash a password for verification (using SHA-256)
+ * Decrypt configs using the in-memory session key.
  */
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+export async function decryptConfigs(encryptedData: string): Promise<Configs> {
+  if (!sessionDataEncryptionKey) {
+    throw new Error("Master password not unlocked. Please unlock first.");
+  }
+
+  let combined: Uint8Array;
+  try {
+    combined = base64ToBytes(encryptedData.trim());
+  } catch {
+    throw new Error("Invalid or corrupted stored configs.");
+  }
+
+  if (!isWrappedConfigFormat(combined)) {
+    throw new Error("Invalid or corrupted stored configs.");
+  }
+
+  const iv = combined.subarray(
+    CONFIG_WRAP_MAGIC.length,
+    CONFIG_WRAP_MAGIC.length + IV_LENGTH,
+  );
+  const ciphertext = combined.subarray(
+    CONFIG_WRAP_MAGIC.length + IV_LENGTH,
+  );
+
+  try {
+    const decrypted = await crypto.subtle.decrypt(
+      { name: ENCRYPTION_ALGORITHM, iv: new Uint8Array(iv) },
+      sessionDataEncryptionKey,
+      new Uint8Array(ciphertext),
+    );
+    return JSON.parse(new TextDecoder().decode(decrypted)) as Configs;
+  } catch {
+    throw new Error("Invalid or corrupted stored configs.");
+  }
 }
 
-/**
- * Check if master password is set
- */
 export function hasMasterPassword(): boolean {
-  return localStorage.getItem(MASTER_PASSWORD_KEY) !== null;
+  return localStorage.getItem(MASTER_PASSWORD_VERIFIER_KEY) !== null;
 }
 
 /**
- * Set master password (stores hash for verification)
+ * First-time setup: scrypt verifier (with data-key salt) + non-extractable session AES key.
  */
 export async function setMasterPassword(password: string): Promise<void> {
-  const hash = await hashPassword(password);
-  // Store hash in localStorage so it persists across sessions
-  localStorage.setItem(MASTER_PASSWORD_KEY, hash);
-
-  // Also store in memory for the session (not persisted)
-  (window as any).__s3browser_master_password = password;
+  await writeScryptVerifier(password);
+  await establishSessionDataEncryptionKey(password);
 }
 
-/**
- * Verify master password
- */
 export async function verifyMasterPassword(
-  password: string
+  password: string,
 ): Promise<boolean> {
-  const storedHash = localStorage.getItem(MASTER_PASSWORD_KEY);
-  if (!storedHash) {
+  const raw = localStorage.getItem(MASTER_PASSWORD_VERIFIER_KEY);
+  if (!raw) {
     return false;
   }
 
-  const inputHash = await hashPassword(password);
-  return storedHash === inputHash;
+  const parsed = parseScryptVerifier(raw);
+  if (!parsed) {
+    return false;
+  }
+
+  const salt = base64ToBytes(parsed.saltB64);
+  const expected = base64ToBytes(parsed.hashB64);
+  if (expected.length !== SCRYPT_PARAMS.dkLen) {
+    return false;
+  }
+
+  const derived = await scryptAsync(password, salt, {
+    N: parsed.N,
+    r: parsed.r,
+    p: parsed.p,
+    dkLen: SCRYPT_PARAMS.dkLen,
+  });
+  const derivedBytes =
+    derived instanceof Uint8Array ? derived : new Uint8Array(derived);
+
+  return timingSafeEqual(expected, derivedBytes);
 }
 
 /**
- * Get master password from memory (if available)
+ * Verify password and derive session AES key (never persisted).
  */
-export function getMasterPasswordFromMemory(): string | null {
-  return (window as any).__s3browser_master_password || null;
+export async function unlockMasterSession(password: string): Promise<boolean> {
+  if (!(await verifyMasterPassword(password))) {
+    return false;
+  }
+
+  await establishSessionDataEncryptionKey(password);
+  return true;
 }
 
-/**
- * Clear master password from memory and storage
- */
-export function clearMasterPassword(): void {
-  localStorage.removeItem(MASTER_PASSWORD_KEY);
-  delete (window as any).__s3browser_master_password;
-}
-
-/**
- * Clear all app data (master password, bucket configs, etc.)
- * This resets the app to its initial state
- */
-export async function clearAllData(): Promise<void> {
-  // Clear master password
-  clearMasterPassword();
-
-  localStorage.removeItem("bucket-configs");
-
-  // Clear any sessionStorage items (in case there are any)
-  sessionStorage.clear();
-
-  // Clear memory state
-  delete (window as any).__s3browser_master_password;
-}
-
-/**
- * Check if master password is unlocked (in memory)
- */
 export function isMasterPasswordUnlocked(): boolean {
-  return getMasterPasswordFromMemory() !== null;
+  return sessionDataEncryptionKey !== null;
+}
+
+export async function clearAllData(): Promise<void> {
+  try {
+    clearSessionDataEncryptionKey();
+    localStorage.removeItem(MASTER_PASSWORD_VERIFIER_KEY);
+    localStorage.removeItem(BUCKET_CONFIGS_STORAGE_KEY);
+    sessionStorage.clear();
+  } catch {
+    /* ignore */
+  }
 }

@@ -1,5 +1,9 @@
 import { Configs } from "@/models/types";
-import { decrypt, encrypt, getMasterPasswordFromMemory } from "./encryptionService";
+import {
+  decryptConfigs,
+  encryptConfigs,
+  isMasterPasswordUnlocked,
+} from "./encryptionService";
 
 const STORAGE_KEY = "bucket-configs";
 
@@ -10,12 +14,11 @@ export async function loadConfigsFromStorage(): Promise<Configs> {
       return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
     }
 
-    const masterPassword = getMasterPasswordFromMemory();
-    if (!masterPassword) {
+    if (!isMasterPasswordUnlocked()) {
       return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
     }
 
-    const decryptedConfigs = await decrypt(stored, masterPassword);
+    const decryptedConfigs = await decryptConfigs(stored);
     return decryptedConfigs;
   } catch (error) {
     console.error("Error loading configs:", error);
@@ -24,12 +27,10 @@ export async function loadConfigsFromStorage(): Promise<Configs> {
 }
 
 export async function persistConfigsToStorage(configs: Configs): Promise<void> {
-  const masterPassword = getMasterPasswordFromMemory();
-
-  if (!masterPassword) {
+  if (!isMasterPasswordUnlocked()) {
     throw new Error("Master password not unlocked. Please unlock first.");
   }
 
-  const encryptedConfigs = await encrypt(configs, masterPassword);
+  const encryptedConfigs = await encryptConfigs(configs);
   localStorage.setItem(STORAGE_KEY, encryptedConfigs);
 }
