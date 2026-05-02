@@ -1,5 +1,3 @@
-import { S3Client } from "@aws-sdk/client-s3";
-
 export interface Configs {
   buckets: Record<string, Bucket>;
   credentials: Record<string, Credential>;

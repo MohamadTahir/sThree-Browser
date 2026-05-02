@@ -1,8 +1,8 @@
 import { Configs } from "@/models/types";
 import {
-  decryptConfigs,
-  encryptConfigs,
+  deserializePersistedConfigs,
   isMasterPasswordUnlocked,
+  serializePersistedConfigs,
 } from "./encryptionService";
 
 const STORAGE_KEY = "bucket-configs";
@@ -18,8 +18,7 @@ export async function loadConfigsFromStorage(): Promise<Configs> {
       return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
     }
 
-    const decryptedConfigs = await decryptConfigs(stored);
-    return decryptedConfigs;
+    return await deserializePersistedConfigs(stored);
   } catch (error) {
     console.error("Error loading configs:", error);
     return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
@@ -31,6 +30,6 @@ export async function persistConfigsToStorage(configs: Configs): Promise<void> {
     throw new Error("Master password not unlocked. Please unlock first.");
   }
 
-  const encryptedConfigs = await encryptConfigs(configs);
-  localStorage.setItem(STORAGE_KEY, encryptedConfigs);
+  const payload = await serializePersistedConfigs(configs);
+  localStorage.setItem(STORAGE_KEY, payload);
 }

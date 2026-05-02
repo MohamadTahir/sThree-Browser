@@ -4,7 +4,7 @@
  */
 
 import { scryptAsync } from "@noble/hashes/scrypt.js";
-import { Configs } from "@/models/types";
+import { Configs, Credential } from "@/models/types";
 
 const MASTER_PASSWORD_VERIFIER_KEY = "s3browser_master_password_hash";
 const BUCKET_CONFIGS_STORAGE_KEY = "bucket-configs";
@@ -187,20 +187,18 @@ async function establishSessionDataEncryptionKey(
   );
 }
 
-/**
- * Encrypt configs with the in-memory session key (non-extractable).
- */
-export async function encryptConfigs(data: Configs): Promise<string> {
+/** AES-GCM encrypt UTF-8 string → base64 STH1 blob (session key). */
+async function encryptSecretUtf8(plaintext: string): Promise<string> {
   if (!sessionDataEncryptionKey) {
     throw new Error("Master password not unlocked. Please unlock first.");
   }
 
   const iv = generateIV();
-  const plaintext = new TextEncoder().encode(JSON.stringify(data));
+  const data = new TextEncoder().encode(plaintext);
   const ciphertext = await crypto.subtle.encrypt(
     { name: ENCRYPTION_ALGORITHM, iv: new Uint8Array(iv) },
     sessionDataEncryptionKey,
-    plaintext,
+    data,
   );
 
   const combined = new Uint8Array(
@@ -216,23 +214,21 @@ export async function encryptConfigs(data: Configs): Promise<string> {
   return bytesToBase64(combined);
 }
 
-/**
- * Decrypt configs using the in-memory session key.
- */
-export async function decryptConfigs(encryptedData: string): Promise<Configs> {
+/** Decrypt STH1 blob → UTF-8 string (session key). */
+async function decryptSecretUtf8(blob: string): Promise<string> {
   if (!sessionDataEncryptionKey) {
     throw new Error("Master password not unlocked. Please unlock first.");
   }
 
   let combined: Uint8Array;
   try {
-    combined = base64ToBytes(encryptedData.trim());
+    combined = base64ToBytes(blob.trim());
   } catch {
-    throw new Error("Invalid or corrupted stored configs.");
+    throw new Error("Invalid or corrupted secret field.");
   }
 
   if (!isWrappedConfigFormat(combined)) {
-    throw new Error("Invalid or corrupted stored configs.");
+    throw new Error("Invalid or corrupted secret field.");
   }
 
   const iv = combined.subarray(
@@ -243,16 +239,84 @@ export async function decryptConfigs(encryptedData: string): Promise<Configs> {
     CONFIG_WRAP_MAGIC.length + IV_LENGTH,
   );
 
-  try {
-    const decrypted = await crypto.subtle.decrypt(
-      { name: ENCRYPTION_ALGORITHM, iv: new Uint8Array(iv) },
-      sessionDataEncryptionKey,
-      new Uint8Array(ciphertext),
-    );
-    return JSON.parse(new TextDecoder().decode(decrypted)) as Configs;
-  } catch {
-    throw new Error("Invalid or corrupted stored configs.");
+  const decrypted = await crypto.subtle.decrypt(
+    { name: ENCRYPTION_ALGORITHM, iv: new Uint8Array(iv) },
+    sessionDataEncryptionKey,
+    new Uint8Array(ciphertext),
+  );
+
+  return new TextDecoder().decode(decrypted);
+}
+
+/**
+ * Serialize configs for localStorage: buckets, groups, and active bucket are
+ * plaintext JSON; only credential access/secret keys are encrypted.
+ */
+export async function serializePersistedConfigs(configs: Configs): Promise<string> {
+  if (!sessionDataEncryptionKey) {
+    throw new Error("Master password not unlocked. Please unlock first.");
   }
+
+  const credentials: Record<string, Credential> = {};
+  for (const id in configs.credentials) {
+    const credential = configs.credentials[id];
+    credentials[id] = {
+      id: credential.id,
+      name: credential.name,
+      accessKey: await encryptSecretUtf8(credential.accessKey),
+      secretKey: await encryptSecretUtf8(credential.secretKey),
+    };
+  }
+
+  const envelope: Configs = {
+    ...configs,
+    credentials,
+  };
+  return JSON.stringify(envelope);
+}
+
+/**
+ * Deserialize configs from localStorage (JSON envelope; keys decrypted with session key).
+ */
+export async function deserializePersistedConfigs(raw: string): Promise<Configs> {
+  const empty: Configs = {
+    buckets: {},
+    credentials: {},
+    groups: {},
+    activeBucket: null,
+  };
+
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return empty;
+  }
+
+  let parsed: Configs;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return empty;
+  }
+
+  if (!isMasterPasswordUnlocked()) {
+    return empty;
+  }
+
+  const credentials: Record<string, Credential> = {};
+  for (const id in parsed.credentials) {
+    const credential = parsed.credentials[id];
+    credentials[id] = {
+      id: credential.id,
+      name: credential.name,
+      accessKey: await decryptSecretUtf8(credential.accessKey),
+      secretKey: await decryptSecretUtf8(credential.secretKey),
+    };
+  }
+
+  return {
+    ...parsed,
+    credentials,
+  };
 }
 
 export function hasMasterPassword(): boolean {
