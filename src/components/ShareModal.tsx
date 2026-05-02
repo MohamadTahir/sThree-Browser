@@ -1,108 +1,129 @@
-import { useState } from "react";
-import { Copy, Check, Loader2 } from "lucide-react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { Copy, Check, Share2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { S3Object } from "../types";
+import { Bucket, S3Object } from "../models/types";
 import { getPresignedUrl } from "../services/s3Service";
-import { loadConfigs } from "../services/storageService";
-import { useToast } from "./ui/use-toast";
+import { PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
+import { toast } from "react-toastify";
+import { useConfig } from "@/context/config";
 
 interface ShareModalProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  object: S3Object | null;
-  bucketId: string | null;
-  bucketName: string | null;
+  onClose: () => void;
+  object: S3Object;
+  bucket: Bucket;
 }
 
-const DURATION_OPTIONS = [
-  { label: "1 hour", value: 3600 },
-  { label: "6 hours", value: 21600 },
-  { label: "24 hours", value: 86400 },
-  { label: "7 days", value: 604800 },
-  { label: "30 days", value: 2592000 },
-];
+const REGENERATE_DEBOUNCE_MS = 200;
+
+function formatLinkExpiry(d: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  }).format(d);
+}
 
 export default function ShareModal({
   open,
-  onOpenChange,
   object,
-  bucketId,
-  bucketName,
+  bucket,
+  onClose,
 }: ShareModalProps) {
-  const { toast } = useToast();
-  const [duration, setDuration] = useState(3600); // Default 1 hour
-  const [customDuration, setCustomDuration] = useState("");
-  const [useCustomDuration, setUseCustomDuration] = useState(false);
+  const { configs } = useConfig();
+  const [days, setDays] = useState(0);
+  const [hours, setHours] = useState(12);
+  const [minutes, setMinutes] = useState(0);
+
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const handleGenerateUrl = async () => {
-    if (!object || !bucketId || !bucketName) return;
+  const totalSeconds = useMemo(() => {
+    return days * 86400 + hours * 3600 + minutes * 60;
+  }, [days, hours, minutes]);
 
-    const expiresIn = useCustomDuration
-      ? parseInt(customDuration, 10)
-      : duration;
+  const expiryDate = useMemo(() => {
+    const now = new Date();
+    now.setSeconds(now.getSeconds() + totalSeconds);
+    return now;
+  }, [totalSeconds]);
 
-    if (isNaN(expiresIn) || expiresIn <= 0) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Duration",
-        description: "Please enter a valid duration in seconds (greater than 0).",
-      });
-      return;
-    }
+  const resetState = () => {
+    setPresignedUrl(null);
+    setDays(0);
+    setHours(12);
+    setMinutes(0);
+    setCopied(false);
+    setLoading(false);
+  };
 
-    // Maximum 7 days (604800 seconds) for security
-    const MAX_DURATION = 604800;
-    if (expiresIn > MAX_DURATION) {
-      toast({
-        variant: "destructive",
-        title: "Duration Too Long",
-        description: `Maximum duration is ${MAX_DURATION / 86400} days (${MAX_DURATION} seconds).`,
-      });
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) return;
+    resetState();
+    onClose();
+  };
+
+  const fetchPresigned = useCallback(async () => {
+    if (!object || !bucket) {
+      setPresignedUrl(null);
+      setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      setPresignedUrl(null);
 
-      const configs = await loadConfigs();
-      const config = configs.buckets[bucketId];
-
-      if (!config) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Bucket configuration not found.",
-        });
+      const credential = configs.credentials[bucket.credentialId];
+      if (!credential) {
+        toast.error("Missing credentials for this bucket");
+        setPresignedUrl(null);
         return;
       }
 
-      const url = await getPresignedUrl(config, bucketName, object.key, expiresIn);
-      setPresignedUrl(url);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Generate Link",
-        description: errorMsg,
-      });
+      const getPresignedUrlRequest: PreSignUrlRequest = {
+        bucketName: bucket.bucketName,
+        region: bucket.region,
+        endpoint: bucket.endpoint,
+        forcePathStyle: bucket.forcePathStyle,
+        accessKey: credential.accessKey,
+        secretKey: credential.secretKey,
+        key: object.key,
+        expiresIn: totalSeconds,
+      };
+
+      const response = await getPresignedUrl(getPresignedUrlRequest);
+      setPresignedUrl(response.url);
+    } catch {
+      toast.error("Failed to generate presigned URL");
+      setPresignedUrl(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [object, bucket, totalSeconds, configs.credentials]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const timer = window.setTimeout(() => {
+      void fetchPresigned();
+    }, REGENERATE_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [open, fetchPresigned, totalSeconds]);
 
   const handleCopy = async () => {
     if (!presignedUrl) return;
@@ -110,28 +131,10 @@ export default function ShareModal({
     try {
       await navigator.clipboard.writeText(presignedUrl);
       setCopied(true);
-      toast({
-        variant: "success",
-        title: "Copied",
-        description: "Link copied to clipboard.",
-      });
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Copy",
-        description: "Could not copy to clipboard.",
-      });
+    } catch {
+      toast.error("Failed to copy link");
     }
-  };
-
-  const handleClose = () => {
-    setPresignedUrl(null);
-    setDuration(3600);
-    setCustomDuration("");
-    setUseCustomDuration(false);
-    setCopied(false);
-    onOpenChange(false);
   };
 
   if (!object) return null;
@@ -139,117 +142,179 @@ export default function ShareModal({
   const fileName = object.key.split("/").pop() || object.key;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Share File</DialogTitle>
-          <DialogDescription>
-            Generate a temporary link to share "{fileName}". Configure how long the link should remain valid.
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="overflow-hidden sm:max-w-[620px]">
+        <Header />
 
-        <div className="space-y-4 py-4">
-          {/* Duration Selection */}
-          <div className="space-y-2">
-            <Label>Link Validity Duration</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {DURATION_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant={duration === option.value && !useCustomDuration ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setDuration(option.value);
-                    setUseCustomDuration(false);
-                  }}
-                  disabled={loading}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={useCustomDuration ? "default" : "outline"}
-                size="sm"
-                onClick={() => setUseCustomDuration(true)}
-                disabled={loading}
-              >
-                Custom
-              </Button>
-              {useCustomDuration && (
-                <div className="flex-1 flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Seconds"
-                    value={customDuration}
-                    onChange={(e) => setCustomDuration(e.target.value)}
-                    min="1"
-                    max="604800"
-                    disabled={loading}
-                    className="flex-1"
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">seconds</span>
-                </div>
-              )}
-            </div>
-          </div>
+        <Description fileName={fileName} />
 
-          {/* Generated URL */}
-          {presignedUrl && (
-            <div className="space-y-2">
-              <Label>Shareable Link</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={presignedUrl}
-                  readOnly
-                  className="flex-1 font-mono text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopy}
-                  title="Copy link"
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                This link will expire in {useCustomDuration ? customDuration : DURATION_OPTIONS.find(o => o.value === duration)?.label || `${duration} seconds`}.
-              </p>
-            </div>
-          )}
-        </div>
+        <LinkDurationPreview expiryPreview={expiryDate} />
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={handleClose}>
-            Close
-          </Button>
-          <Button
-            type="button"
-            onClick={handleGenerateUrl}
-            disabled={loading || (useCustomDuration && (!customDuration || parseInt(customDuration, 10) <= 0))}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : presignedUrl ? (
-              "Regenerate Link"
-            ) : (
-              "Generate Link"
-            )}
-          </Button>
-        </DialogFooter>
+        <Duration
+          days={days}
+          hours={hours}
+          minutes={minutes}
+          setDays={setDays}
+          setHours={setHours}
+          setMinutes={setMinutes}
+        />
+
+        <ShareLink
+          loading={loading}
+          presignedUrl={presignedUrl}
+          copied={copied}
+          handleCopy={handleCopy}
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Header() {
+  return (
+    <DialogHeader>
+      <div className="flex flex-col items-start">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <Share2 className="h-[1.125rem] w-[1.125rem]" strokeWidth={2} />
+          </div>
+          <DialogTitle className="text-left text-lg font-semibold leading-tight tracking-tight">
+            Share File
+          </DialogTitle>
+        </div>
+      </div>
+    </DialogHeader>
+  );
+}
+
+function Description({ fileName }: { fileName: string }) {
+  return (
+    <DialogDescription className="flex flex-col gap-1 text-left text-sm">
+      <span className="block">
+        The following URL lets you share{" "}
+        <span className="font-medium text-foreground">{fileName}</span> without
+        requiring a login.
+      </span>
+      <span className="block">
+        The URL expires automatically at the earlier of your configured time or
+        the maximum allowed duration (7 days).
+      </span>
+    </DialogDescription>
+  );
+}
+
+function LinkDurationPreview({ expiryPreview }: { expiryPreview: Date }) {
+  return (
+    <p className="leading-snug text-muted-foreground text-sm">
+      Link will be available until:{" "}
+      <span className="font-medium text-foreground">
+        {formatLinkExpiry(expiryPreview)}
+      </span>
+    </p>
+  );
+}
+
+function Duration({
+  days,
+  hours,
+  minutes,
+  setDays,
+  setHours,
+  setMinutes,
+}: {
+  days: number;
+  hours: number;
+  minutes: number;
+  setDays: (days: number) => void;
+  setHours: (hours: number) => void;
+  setMinutes: (minutes: number) => void;
+}) {
+  const durationInput = (
+    value: number,
+    description: string,
+    max: number,
+    onChange: (value: number) => void,
+  ) => (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={max}
+        value={value}
+        onChange={(e) => {
+          let value = Number.parseInt(e.target.value, 10) || 0;
+          value = Math.max(0, value);
+          value = Math.min(value, max);
+          onChange(value);
+        }}
+        className="h-9 w-20 tabular-nums"
+      />
+      <span className="text-sm text-muted-foreground">{description}</span>
+    </div>
+  );
+
+  const isValid =
+    days * 86400 + hours * 3600 + minutes * 60 <= 60 * 60 * 24 * 7;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-muted-foreground">Active for</p>
+
+      <div className="flex flex-row items-center justify-between gap-x-5">
+        {durationInput(days, "Days", 7, setDays)}
+        {durationInput(hours, "Hours", 23, setHours)}
+        {durationInput(minutes, "Minutes", 59, setMinutes)}
+      </div>
+
+      {!isValid && (
+        <p className="text-sm text-destructive">
+          The total duration cannot exceed 7 days.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ShareLink({
+  loading,
+  presignedUrl,
+  copied,
+  handleCopy,
+}: {
+  loading: boolean;
+  presignedUrl: string | null;
+  copied: boolean;
+  handleCopy: () => void;
+}) {
+  const placeholder = loading
+    ? "Generating link…"
+    : "Your share link will appear here";
+
+  return (
+    <div className="flex flex-row items-center gap-1">
+      <Input
+        readOnly
+        value={presignedUrl ?? ""}
+        placeholder={placeholder}
+        className="font-mono text-xs"
+      />
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9 text-muted-foreground hover:text-foreground"
+        onClick={handleCopy}
+        disabled={loading}
+        title="Copy link"
+      >
+        {copied ? (
+          <Check className="h-4 w-4 text-primary" />
+        ) : (
+          <Copy className="h-4 w-4" />
+        )}
+      </Button>
+    </div>
   );
 }

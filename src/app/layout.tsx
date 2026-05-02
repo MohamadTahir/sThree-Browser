@@ -1,15 +1,7 @@
-import type { Metadata } from "next";
-import "../index.css";
+"use client";
 
-export const metadata: Metadata = {
-  title: "sThree Browser",
-  description: "Modern S3 Bucket Browser Desktop Application",
-  icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/favicon.png",
-  },
-};
+import "react-toastify/dist/ReactToastify.css";
+import "../index.css";
 
 export default function RootLayout({
   children,

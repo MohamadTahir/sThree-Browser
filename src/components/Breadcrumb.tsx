@@ -16,7 +16,7 @@ export default function Breadcrumb({ prefix, onNavigate }: BreadcrumbProps) {
     }));
 
   return (
-    <div className="mt-4 flex items-center gap-1 px-2 sm:px-4">
+    <div className="flex my-2 items-center gap-1 px-2 sm:px-4">
       <Button
         variant="ghost"
         size="sm"

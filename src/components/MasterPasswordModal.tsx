@@ -12,11 +12,11 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
   setMasterPassword,
-  verifyMasterPassword,
   hasMasterPassword,
   clearAllData,
+  unlockMasterSession,
 } from "../services/encryptionService";
-import { useToast } from "./ui/use-toast";
+import { toast } from "react-toastify";
 
 interface MasterPasswordModalProps {
   open: boolean;
@@ -31,14 +31,11 @@ export default function MasterPasswordModal({
   onUnlocked,
   mode: initialMode,
 }: MasterPasswordModalProps) {
-  const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"setup" | "unlock">(
-    initialMode || "unlock"
-  );
+  const [mode, setMode] = useState<"setup" | "unlock">(initialMode || "unlock");
 
   useEffect(() => {
     if (open) {
@@ -95,15 +92,13 @@ export default function MasterPasswordModal({
         onUnlocked();
         onOpenChange(false);
       } else {
-        // Unlock mode: verify existing password
-        const isValid = await verifyMasterPassword(password);
-        if (!isValid) {
+        const ok = await unlockMasterSession(password);
+        if (!ok) {
           setError("Incorrect password");
           setLoading(false);
           return;
         }
 
-        await setMasterPassword(password); // Store in memory
         onUnlocked();
         onOpenChange(false);
       }
@@ -115,31 +110,16 @@ export default function MasterPasswordModal({
   };
 
   const handleForgetPassword = async () => {
-    // Use a custom confirmation dialog via toast or keep window.confirm for critical actions
-    // For critical destructive actions, window.confirm is acceptable, but we can improve it later
-    if (
-      window.confirm(
-        "Are you sure you want to forget your password? This will delete ALL your stored bucket configurations and reset the app to its initial state. This action cannot be undone."
-      )
-    ) {
-      try {
-        await clearAllData();
-        toast({
-          variant: "warning",
-          title: "Data Cleared",
-          description: "All data has been cleared. The app will reload.",
-        });
-        // Reload the page to reset everything
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Failed to Clear Data",
-          description: error instanceof Error ? error.message : String(error),
-        });
-      }
+    try {
+      await clearAllData();
+      // Reload the page to reset everything
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to clear data",
+      );
     }
   };
 
@@ -155,7 +135,7 @@ export default function MasterPasswordModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent 
+      <DialogContent
         className="sm:max-w-[425px] [&>button]:hidden"
         onInteractOutside={(e) => {
           // Prevent closing by clicking outside
@@ -191,7 +171,8 @@ export default function MasterPasswordModal({
               />
               {mode === "setup" && (
                 <p className="text-xs text-muted-foreground">
-                  Password must contain at least 8 characters, including uppercase, lowercase, number, and special character.
+                  Password must contain at least 8 characters, including
+                  uppercase, lowercase, number, and special character.
                 </p>
               )}
             </div>
@@ -208,9 +189,7 @@ export default function MasterPasswordModal({
                 />
               </div>
             )}
-            {error && (
-              <div className="text-sm text-destructive">{error}</div>
-            )}
+            {error && <div className="text-sm text-destructive">{error}</div>}
           </div>
           <DialogFooter className="gap-2">
             {mode === "unlock" && (

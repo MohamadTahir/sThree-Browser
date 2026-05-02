@@ -1,40 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { getS3Client, handleS3Error } from '@/lib/s3Client';
+import { NextRequest, NextResponse } from "next/server";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { getS3Client, handleS3Error } from "@/lib/s3Client";
+import { buildPreSignUrlRequest, validatePreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
+import { PreSignUrlResponse } from "@/models/dto/responses/PreSignUrl";
 
-export const dynamic = 'force-static';
+export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { config, bucketName, key, expiresIn } = body;
+    const preSignUrlRequest = buildPreSignUrlRequest(request);
 
-    if (!config || !bucketName || !key) {
-      return NextResponse.json(
-        { error: 'Missing required fields: config, bucketName, or key' },
-        { status: 400 }
-      );
+    const error = validatePreSignUrlRequest(preSignUrlRequest);
+    if (error) {
+      return NextResponse.json(error, { status: error.statusCode ?? 400 });
     }
 
-    const client = getS3Client(config);
+    const client = await getS3Client(preSignUrlRequest);
 
     const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: key,
+      Bucket: preSignUrlRequest.bucketName,
+      Key: preSignUrlRequest.key,
     });
 
     const url = await getSignedUrl(client, command, {
-      expiresIn: expiresIn || 3600,
+      expiresIn: preSignUrlRequest.expiresIn || 3600,
     });
 
-    return NextResponse.json({ url });
-  } catch (error: any) {
-    console.error('Presigned URL error:', error);
+    const preSignUrlResponse = { url } as PreSignUrlResponse;
+    return NextResponse.json(preSignUrlResponse);
+  } catch (error: unknown) {
+    console.error("Presigned URL error:", error);
     const { message, statusCode } = handleS3Error(error);
-    return NextResponse.json(
-      { error: message, name: error.name },
-      { status: statusCode }
-    );
+    const preSignUrlResponse = { error: message, statusCode } as PreSignUrlResponse;
+    return NextResponse.json(preSignUrlResponse, { status: statusCode });
   }
 }
