@@ -143,8 +143,8 @@ export async function uploadFile(file: File, request: InitUploadRequest, onProgr
     parts: totalParts,
     region: request.region,
     forcePathStyle: request.forcePathStyle,
-    accessKey: "",
-    secretKey: "",
+    accessKey: request.accessKey,
+    secretKey: request.secretKey,
     endpoint: request.endpoint,
   };
 
@@ -208,8 +208,8 @@ export async function uploadFile(file: File, request: InitUploadRequest, onProgr
     parts: uploadedParts,
     region: request.region,
     forcePathStyle: request.forcePathStyle,
-    accessKey: "",
-    secretKey: "",
+    accessKey: request.accessKey,
+    secretKey: request.secretKey,
     endpoint: request.endpoint,
   };
 
