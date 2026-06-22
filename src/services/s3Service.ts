@@ -182,7 +182,7 @@ export async function uploadFile(file: File, request: InitUploadRequest, onProgr
         },
       })
       .then((res) => {
-        const etag = res.headers.etag ?? res.headers.ETag ?? "";
+        const etag = res.headers["etag"] ?? "";
         const uploadedPart: CompleteUploadPart = {
           ETag: etag,
           PartNumber: partNumber,
