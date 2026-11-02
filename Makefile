@@ -7,7 +7,7 @@ MINIO_USER ?= sthreetest
 MINIO_PASS ?= sthree-test-secret-123
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev build start typecheck check tauri-dev tauri-build \
+.PHONY: help install dev build serve typecheck check tauri-dev tauri-build \
         docker-build docker-run minio minio-stop clean
 
 help: ## List available targets
@@ -20,17 +20,20 @@ install: ## Install dependencies
 dev: install ## Run the web app in dev mode on http://localhost:3000
 	pnpm dev
 
-build: install ## Production web build (standalone server)
+build: install ## Production build: static site in out/ (web and desktop)
 	pnpm build
 
-start: build ## Build, then serve the production web app (PORT=3000)
-	pnpm start -p $(PORT)
+serve: build ## Serve out/ with the production static-web-server config (PORT=3000)
+	docker run --rm -p $(PORT):3000 \
+		-v "$(CURDIR)/out:/public:ro" \
+		-v "$(CURDIR)/sws.toml:/etc/sws.toml:ro" \
+		-e SERVER_CONFIG_FILE=/etc/sws.toml \
+		joseluisq/static-web-server:2.44.1
 
 typecheck: install ## Type-check the project
 	pnpm typecheck
 
-check: typecheck build ## Type-check and build both web and desktop
-	pnpm build:tauri
+check: typecheck build ## Type-check, build, and compile-check the desktop app
 	cargo check --manifest-path src-tauri/Cargo.toml
 
 tauri-dev: install ## Run the desktop app with hot reload

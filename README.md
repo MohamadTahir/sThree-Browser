@@ -76,7 +76,13 @@ The installers end up in `src-tauri/target/release/bundle/`. The desktop app tal
 docker run -d -p 3000:3000 --name sthree-browser ghcr.io/mohamadtahir/sthree-browser:latest
 ```
 
-Open http://localhost:3000. The container serves only the app and a health check at `/api/health`; it never handles credentials. It runs as a non-root user.
+Open http://localhost:3000.
+
+The image is a static site served by [static-web-server](https://static-web-server.net), a single Rust binary on a scratch base (about 13 MB in all). There is no application server: the container only delivers the app's files, runs as a non-root user, and never sees a credential or an S3 request. `GET /health` returns 200 for orchestrator probes (the image itself defines no Docker health check).
+
+#### Hosting it elsewhere
+
+`make build` writes the whole app to `out/` as plain static files, so any static host works: static-web-server, nginx, Caddy, Cloudflare Pages, Netlify, or S3 with CloudFront. Serve it over HTTPS, and configure the security headers listed in [`sws.toml`](sws.toml) on that host, because a static host can't send them otherwise. Hosts that can't set custom headers (such as plain GitHub Pages) work, but without that protection.
 
 #### Bucket CORS (web only)
 
@@ -130,8 +136,9 @@ Run `make` to list all targets.
 | `make dev` | Web app in dev mode at http://localhost:3000 |
 | `make tauri-dev` | Desktop app with hot reload |
 | `make typecheck` | Type-check the project |
-| `make check` | Type-check, build web and desktop, and compile-check the Rust side |
-| `make build` / `make start` | Production web build, or build and serve it (`PORT=3000`) |
+| `make check` | Type-check, build, and compile-check the desktop app |
+| `make build` | Production build: the static site in `out/` (shared by web and desktop) |
+| `make serve` | Build, then serve `out/` with the production static-web-server config (`PORT=3000`) |
 | `make tauri-build` | Desktop installers |
 | `make docker-build` / `make docker-run` | Build or run the web image (`PORT=3000`) |
 | `make minio` / `make minio-stop` | Throwaway local MinIO for testing on http://localhost:19000 |
@@ -145,12 +152,13 @@ Run `make` to list all targets.
 
 ```
 src/
-  app/            Next.js entry (page, layout, /api/health)
+  app/            Next.js entry (page, layout)
   components/     UI: shell, sidebar, explorer, dialogs, ui/ primitives
   context/        Vault state, auto-lock, config updates
   services/       vault.ts (encryption), s3Service.ts (all S3 calls)
   lib/            Tauri bridge, theme, helpers
 src-tauri/        Desktop shell (Rust, Tauri 2)
+sws.toml          Production web server config (static-web-server) and security headers
 public/           Logo, favicon, pre-paint theme script
 DESIGN.md         Design system: tokens, components, rules
 PRODUCT.md        Product context: users, purpose, principles

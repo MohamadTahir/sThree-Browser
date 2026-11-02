@@ -74,18 +74,22 @@ function droppedFiles(transfer: DataTransfer): File[] {
   return Array.from(transfer.files ?? []);
 }
 
-/** True when the viewport is at least Tailwind's `sm` breakpoint. */
-function useWideScreen(): boolean {
-  const [wide, setWide] = useState(true);
+/** Live width of an element; 0 until it has rendered. */
+function useElementWidth(ref: React.RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0);
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 640px)");
-    const update = () => setWide(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return wide;
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  });
+  return width;
 }
+
+/** List widths at which columns and row actions start to crowd the name. */
+const SHOW_MODIFIED_FROM = 720;
+const SHOW_ACTIONS_FROM = 520;
 
 export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   const { configs, getConnection } = useConfig();
@@ -100,7 +104,12 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   );
 
   const listing = useObjectListing(connection);
-  const showModified = useWideScreen();
+  // Columns follow the list's own width, which shrinks when the sidebar and
+  // details panel are open, not the window's.
+  const listRef = useRef<HTMLDivElement>(null);
+  const listWidth = useElementWidth(listRef);
+  const showModified = listWidth === 0 || listWidth >= SHOW_MODIFIED_FROM;
+  const showActions = listWidth === 0 || listWidth >= SHOW_ACTIONS_FROM;
   const columns = showModified ? 3 : 2;
   const { prefix, setPrefix, objects, loading, error, reload } = listing;
 
@@ -431,7 +440,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-auto">
+        <div ref={listRef} className="relative min-h-0 flex-1 overflow-auto">
           {loading && objects.length > 0 && (
             <div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-primary/15">
               <div className="h-full w-1/3 animate-shimmer bg-primary" style={{ transform: "translateX(-100%)" }} />
@@ -473,6 +482,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
                         object={object}
                         selected={object.key === selected?.key}
                         showModified={showModified}
+                        showActions={showActions}
                         folder={object.isFolder ? folderStats[object.key] : undefined}
                         onOpen={() => openRow(object)}
                         onFocus={() => {
@@ -637,6 +647,7 @@ function ObjectRow({
   object,
   selected,
   showModified,
+  showActions,
   folder,
   onOpen,
   onFocus,
@@ -645,6 +656,7 @@ function ObjectRow({
   object: S3Object;
   selected: boolean;
   showModified: boolean;
+  showActions: boolean;
   folder?: FolderState;
   onOpen: () => void;
   onFocus: () => void;
@@ -665,7 +677,7 @@ function ObjectRow({
           aria-pressed={object.isFolder ? undefined : selected}
           className={cn(
             "flex h-[44px] w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left sm:h-10",
-            object.isFolder ? "pr-12 sm:pr-24" : "sm:pr-40",
+            object.isFolder ? (showActions ? "pr-24" : "pr-12") : showActions && "pr-40",
           )}
           title={name}
         >
@@ -684,7 +696,7 @@ function ObjectRow({
             {name}
           </span>
         </button>
-        <RowActions isFolder={object.isFolder} name={name} actions={actions} />
+        <RowActions isFolder={object.isFolder} name={name} actions={actions} full={showActions} />
       </td>
       <td
         className={cn(cell, tone, "px-3 text-right text-muted-foreground tabular")}
@@ -719,18 +731,20 @@ interface RowActionHandlers {
 }
 
 /**
- * Quick actions at the end of every row, always visible from 640px up. On
- * phones a tap opens the details sheet instead; only folder delete stays
- * visible there, since folders have no details sheet.
+ * Quick actions at the end of every row. When the list is too narrow for
+ * them (phones, or sidebar and details panel both open) a tap opens the
+ * details instead; only folder delete stays, since folders have no details.
  */
 function RowActions({
   isFolder,
   name,
   actions,
+  full,
 }: {
   isFolder: boolean;
   name: string;
   actions: RowActionHandlers;
+  full: boolean;
 }) {
   const action = (
     label: string,
@@ -754,16 +768,18 @@ function RowActions({
     <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
       {isFolder ? (
         <>
-          {action("Copy path", <Copy />, actions.copy, "hidden sm:inline-flex")}
+          {full && action("Copy path", <Copy />, actions.copy)}
           {action("Delete folder", <Trash2 />, actions.remove, "hover:text-danger")}
         </>
       ) : (
-        <div className="hidden items-center gap-0.5 sm:flex">
+        full && (
+        <div className="flex items-center gap-0.5">
           {action("Download", <Download />, actions.download)}
           {action("Share link", <Link2 />, actions.share)}
           {action("Copy key", <Copy />, actions.copy)}
           {action("Delete", <Trash2 />, actions.remove, "hover:text-danger")}
         </div>
+        )
       )}
     </div>
   );
