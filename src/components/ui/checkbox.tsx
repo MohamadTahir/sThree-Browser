@@ -1,26 +1,50 @@
 import * as React from "react";
-import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { Check } from "lucide-react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
-const Checkbox = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <CheckboxPrimitive.Root
-    ref={ref}
-    className={cn(
-      "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
-      className,
-    )}
-    {...props}
-  >
-    <CheckboxPrimitive.Indicator className="flex items-center justify-center text-current">
-      <Check className="h-4 w-4" />
-    </CheckboxPrimitive.Indicator>
-  </CheckboxPrimitive.Root>
-));
-Checkbox.displayName = CheckboxPrimitive.Root.displayName;
+interface CheckboxProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+}
 
-export { Checkbox };
+/** Custom checkbox: a real button with role="checkbox", label included. */
+export function Checkbox({ checked, onCheckedChange, label, description, disabled }: CheckboxProps) {
+  const id = React.useId();
+  return (
+    <div className="flex items-start gap-3">
+      <button
+        id={id}
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        aria-describedby={description ? `${id}-desc` : undefined}
+        disabled={disabled}
+        onClick={() => onCheckedChange(!checked)}
+        className={cn(
+          "mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border shadow-xs transition-[background-color,border-color] duration-150 disabled:opacity-50",
+          checked
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-border-strong bg-background hover:border-muted-foreground/50",
+        )}
+      >
+        <Check
+          className={cn("size-3.5 transition-transform duration-150", checked ? "scale-100" : "scale-0")}
+          strokeWidth={3}
+          aria-hidden
+        />
+      </button>
+      <label htmlFor={id} className="cursor-pointer select-none text-sm">
+        <span className="font-medium">{label}</span>
+        {description && (
+          <span id={`${id}-desc`} className="block text-xs text-muted-foreground">
+            {description}
+          </span>
+        )}
+      </label>
+    </div>
+  );
+}

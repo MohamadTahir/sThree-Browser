@@ -33,3 +33,12 @@ standalone
 # Tauri
 src-tauri/target
 src-tauri/Cargo.lock
+
+# TypeScript
+*.tsbuildinfo
+
+# Impeccable working files (design mocks and review captures)
+.impeccable/mocks/
+.impeccable/review/
+.impeccable/build/
+.impeccable/questions/

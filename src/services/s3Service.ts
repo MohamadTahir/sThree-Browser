@@ -1,227 +1,427 @@
-import axios, { isAxiosError } from "axios";
-import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
-import { PreSignUrlRequest } from "@/models/dto/requests/PreSignUrl";
-import { DeleteObjectRequest } from "@/models/dto/requests/DeleteObjectRequest";
-import { ListObjectsResponse } from "@/models/dto/responses/ListObjectResponse";
-import { PreSignUrlResponse } from "@/models/dto/responses/PreSignUrl";
-import { GetHeadObjectResponse } from "@/models/dto/responses/GetHeadObjectResponse";
-import { DeleteObjectResponse } from "@/models/dto/responses/DeleteObjectResponse";
-import { InitUploadRequest } from "@/models/dto/requests/InitUploadRequest";
-import { InitUploadResponse } from "@/models/dto/responses/initUploadResponse";
-import { CompleteUploadResponse } from "@/models/dto/responses/CompleteUplaodResponse";
-import { CompleteUploadRequest, CompleteUploadPart } from "@/models/dto/requests/CompleteUploadRequest";
-import { HeadObjectRequest } from "@/models/dto/requests/GetHeadObjectRequest";
+/**
+ * S3 access, run entirely on the user's device.
+ *
+ * Every request is signed and sent from the browser (web) or from the Tauri
+ * Rust layer (desktop). Access and secret keys never travel to the server
+ * that hosts this app.
+ */
 
-const CHUNK_SIZE = 5 * 1024 * 1024;
+import {
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { FetchHttpHandler } from "@smithy/fetch-http-handler";
+import { Bucket, Credential, S3Object } from "@/models/types";
+import { isTauri } from "@/lib/tauri";
+import { TauriHttpHandler } from "@/lib/tauriHttpHandler";
 
-function getApiBaseUrl(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
-  if (fromEnv) {
-    return fromEnv;
-  }
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-  return "";
+/** S3 rejects presigned URLs (SigV4) valid for more than 7 days. */
+export const MAX_PRESIGN_SECONDS = 7 * 24 * 60 * 60;
+
+/** S3 multipart limits. */
+const MIN_PART_SIZE = 5 * 1024 * 1024;
+const MAX_PARTS = 10_000;
+const UPLOAD_CONCURRENCY = 4;
+
+/** Bytes read for an in-app text preview. */
+export const TEXT_PREVIEW_BYTES = 256 * 1024;
+
+export interface Connection {
+  bucket: Bucket;
+  credential: Credential;
 }
 
-const apiClient = axios.create({
-  headers: { "Content-Type": "application/json" },
-  timeout: 120_000,
-});
-
-function isErrorPayload(value: unknown): value is { error?: string; statusCode?: number } {
-  return typeof value === "object" && value !== null && "error" in value;
+export interface ObjectPage {
+  objects: S3Object[];
+  nextContinuationToken: string | null;
 }
 
-function requestToQueryParams(input: Record<string, unknown>): Record<string, string | number | boolean> {
-  const out: Record<string, string | number | boolean> = {};
-  for (const [k, v] of Object.entries(input)) {
+export interface ObjectHead {
+  contentType: string;
+  contentLength: number;
+  lastModified: string | null;
+  etag: string | null;
+  storageClass: string | null;
+}
 
-    if (k === "accessKey" || k === "secretKey") {
+function createClient({ bucket, credential }: Connection): S3Client {
+  return new S3Client({
+    region: bucket.region,
+    endpoint: bucket.endpoint || undefined,
+    forcePathStyle: bucket.forcePathStyle,
+    credentials: {
+      accessKeyId: credential.accessKey,
+      secretAccessKey: credential.secretKey,
+    },
+    // Only send/verify checksums when the operation requires them; many
+    // S3-compatible stores reject the newer default CRC32 trailers.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+    // Desktop: send through Rust (no CORS). Web: bypass the HTTP cache, so
+    // object data never lands in the browser's disk cache and the cache can't
+    // rewrite signed Range requests into conditional ones (which S3 rejects).
+    requestHandler: isTauri()
+      ? new TauriHttpHandler()
+      : new FetchHttpHandler({ cache: "no-store" }),
+  });
+}
+
+export async function listObjects(
+  connection: Connection,
+  options: {
+    prefix: string;
+    continuationToken?: string | null;
+    maxKeys?: number;
+    signal?: AbortSignal;
+  },
+): Promise<ObjectPage> {
+  const client = createClient(connection);
+  const response = await client.send(
+    new ListObjectsV2Command({
+      Bucket: connection.bucket.bucketName,
+      Prefix: options.prefix || undefined,
+      Delimiter: "/",
+      MaxKeys: options.maxKeys ?? 200,
+      ContinuationToken: options.continuationToken || undefined,
+    }),
+    { abortSignal: options.signal },
+  );
+
+  const objects: S3Object[] = [];
+  for (const prefix of response.CommonPrefixes ?? []) {
+    if (prefix.Prefix) {
+      objects.push({
+        key: prefix.Prefix,
+        size: 0,
+        lastModified: null,
+        isFolder: true,
+      });
+    }
+  }
+  for (const object of response.Contents ?? []) {
+    // Skip the zero-byte marker S3 consoles create for the folder itself.
+    if (!object.Key || object.Key === options.prefix) {
       continue;
     }
-
-    if (v === undefined || v === null) continue;
-    if (typeof v === "boolean") out[k] = v;
-    else if (typeof v === "number") out[k] = v;
-    else out[k] = String(v);
-  }
-  return out;
-}
-
-
-function setAccessKeyAndSecretKeyHeaders(accessKey: string, secretKey: string): Record<string, any> {
-  return {
-    "x-accessKey": accessKey,
-    "x-secretKey": secretKey,
-  };
-}
-
-async function apiRequestJson<T>(
-  method: "GET" | "POST" | "DELETE",
-  path: string,
-  headers: any,
-  queryParams?: any,
-  body?: unknown,
-): Promise<T> {
-  try {
-    const { data, status, statusText } = await apiClient.request<T>({
-      method,
-      url: path,
-      baseURL: getApiBaseUrl(),
-      data: body,
-      params: queryParams,
-      headers: headers,
-      validateStatus: () => true,
+    objects.push({
+      key: object.Key,
+      size: object.Size ?? 0,
+      lastModified: object.LastModified?.toISOString() ?? null,
+      isFolder: false,
     });
-
-    if (status >= 400) {
-      if (isErrorPayload(data) && data.error !== undefined) {
-        return data as T;
-      }
-      return {
-        error: statusText || `HTTP ${status}`,
-        statusCode: status,
-      } as T;
-    }
-
-    return data;
-  } catch (err) {
-    if (isAxiosError(err)) {
-      const status = err.response?.status ?? 0;
-      const payload = err.response?.data;
-      if (isErrorPayload(payload) && payload.error !== undefined) {
-        return payload as T;
-      }
-      return {
-        error: err.message,
-        statusCode: status || 500,
-      } as T;
-    }
-    throw err;
   }
-}
 
-export async function listObjects(request: ListObjectsRequest): Promise<ListObjectsResponse> {
-  return apiRequestJson<ListObjectsResponse>("GET", "/api/s3/list-objects",
-    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
-    requestToQueryParams({ ...request }),
-);
-}
-
-export async function deleteObject(request: DeleteObjectRequest): Promise<DeleteObjectResponse> {
-  return apiRequestJson<DeleteObjectResponse>("DELETE", "/api/s3/delete-object",
-    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
-    requestToQueryParams({ ...request }),
-  );
-}
-
-export async function getPresignedUrl(request: PreSignUrlRequest): Promise<PreSignUrlResponse> {
-  return apiRequestJson<PreSignUrlResponse>("GET", "/api/s3/presigned-url",
-    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
-    requestToQueryParams({ ...request }),
-  );
-}
-
-export async function getHeadObject(request: HeadObjectRequest): Promise<GetHeadObjectResponse> {
-  return apiRequestJson<GetHeadObjectResponse>("GET", "/api/s3/head-object",
-    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
-    requestToQueryParams({ ...request }),
-  );
-}
-
-
-export async function uploadFile(file: File, request: InitUploadRequest, onProgress?: (progress: number) => void): Promise<void> {
-  const totalSize = file.size;
-  const totalParts = Math.max(1, Math.ceil(totalSize / CHUNK_SIZE));
-
-  const initUploadRequest: InitUploadRequest = {
-    bucketName: request.bucketName,
-    key: request.key,
-    contentType: file.type,
-    parts: totalParts,
-    region: request.region,
-    forcePathStyle: request.forcePathStyle,
-    accessKey: request.accessKey,
-    secretKey: request.secretKey,
-    endpoint: request.endpoint,
+  return {
+    objects,
+    nextContinuationToken: response.IsTruncated
+      ? (response.NextContinuationToken ?? null)
+      : null,
   };
+}
 
-  const initUploadResponse = await apiRequestJson<InitUploadResponse>("POST","/api/s3/upload/init",
-    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
-    null,
-    initUploadRequest,
+export async function headObject(
+  connection: Connection,
+  key: string,
+  signal?: AbortSignal,
+): Promise<ObjectHead> {
+  const client = createClient(connection);
+  const response = await client.send(
+    new HeadObjectCommand({ Bucket: connection.bucket.bucketName, Key: key }),
+    { abortSignal: signal },
   );
+  return {
+    contentType: response.ContentType ?? "application/octet-stream",
+    contentLength: response.ContentLength ?? 0,
+    lastModified: response.LastModified?.toISOString() ?? null,
+    etag: response.ETag ?? null,
+    storageClass: response.StorageClass ?? null,
+  };
+}
 
-  if (initUploadResponse.error) {
-    throw new Error(initUploadResponse.error);
+export async function deleteObject(
+  connection: Connection,
+  key: string,
+): Promise<void> {
+  const client = createClient(connection);
+  await client.send(
+    new DeleteObjectCommand({ Bucket: connection.bucket.bucketName, Key: key }),
+  );
+}
+
+export interface PrefixContents {
+  keys: string[];
+  totalBytes: number;
+}
+
+/** Every object under a prefix (recursively), including folder markers. */
+export async function listPrefixContents(
+  connection: Connection,
+  prefix: string,
+  signal?: AbortSignal,
+): Promise<PrefixContents> {
+  const client = createClient(connection);
+  const keys: string[] = [];
+  let totalBytes = 0;
+  let token: string | undefined;
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: connection.bucket.bucketName,
+        Prefix: prefix,
+        ContinuationToken: token,
+      }),
+      { abortSignal: signal },
+    );
+    for (const object of page.Contents ?? []) {
+      if (object.Key) {
+        keys.push(object.Key);
+        totalBytes += object.Size ?? 0;
+      }
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return { keys, totalBytes };
+}
+
+export interface FolderSummary {
+  bytes: number;
+  objects: number;
+  /** Newest LastModified inside the folder, or null when it's empty. */
+  lastModified: string | null;
+  /** True when the scan stopped at the object limit, so totals are a floor. */
+  partial: boolean;
+}
+
+/**
+ * Total size, object count, and newest change for everything under a prefix.
+ * S3 keeps no folder metadata, so this lists the contents; it stops after
+ * `maxObjects` to keep huge folders cheap.
+ */
+export async function summarizeFolder(
+  connection: Connection,
+  prefix: string,
+  options: { maxObjects?: number; signal?: AbortSignal } = {},
+): Promise<FolderSummary> {
+  const maxObjects = options.maxObjects ?? 10_000;
+  const client = createClient(connection);
+  let bytes = 0;
+  let objects = 0;
+  let newest = "";
+  let token: string | undefined;
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: connection.bucket.bucketName,
+        Prefix: prefix,
+        ContinuationToken: token,
+      }),
+      { abortSignal: options.signal },
+    );
+    for (const object of page.Contents ?? []) {
+      // The empty "folder/" marker itself isn't content.
+      if (object.Key === prefix && !object.Size) continue;
+      bytes += object.Size ?? 0;
+      objects += 1;
+      const modified = object.LastModified?.toISOString() ?? "";
+      if (modified > newest) newest = modified;
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token && objects < maxObjects);
+  return { bytes, objects, lastModified: newest || null, partial: token !== undefined };
+}
+
+/**
+ * Delete many objects, 1,000 per request (the S3 maximum). Stops at the
+ * first batch that reports failures so nothing is silently skipped.
+ */
+export async function deleteKeys(
+  connection: Connection,
+  keys: string[],
+  onProgress?: (deleted: number) => void,
+): Promise<void> {
+  const client = createClient(connection);
+  let deleted = 0;
+  for (let i = 0; i < keys.length; i += 1000) {
+    const batch = keys.slice(i, i + 1000);
+    const result = await client.send(
+      new DeleteObjectsCommand({
+        Bucket: connection.bucket.bucketName,
+        Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+      }),
+    );
+    const errors = result.Errors ?? [];
+    deleted += batch.length - errors.length;
+    onProgress?.(deleted);
+    if (errors.length > 0) {
+      const first = errors[0];
+      const error = new Error(
+        `${errors.length} object${errors.length === 1 ? "" : "s"} couldn't be deleted (${first.Code ?? "error"}: ${first.Key}).`,
+      );
+      error.name = first.Code ?? "DeleteError";
+      throw error;
+    }
   }
-  if (!initUploadResponse.uploadId || !initUploadResponse.parts?.length) {
-    throw new Error("Init upload failed: missing upload id or part URLs");
+}
+
+/** Create an empty "folder/" marker object so the prefix shows up in listings. */
+export async function createFolder(
+  connection: Connection,
+  prefix: string,
+): Promise<void> {
+  const client = createClient(connection);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: connection.bucket.bucketName,
+      Key: prefix.endsWith("/") ? prefix : `${prefix}/`,
+      Body: new Uint8Array(0),
+    }),
+  );
+}
+
+/**
+ * Presigned GET URL. With `downloadAs`, S3 serves the object with
+ * `Content-Disposition: attachment` so the browser saves it instead of
+ * rendering it.
+ */
+export async function getPresignedUrl(
+  connection: Connection,
+  key: string,
+  expiresInSeconds: number,
+  downloadAs?: string,
+): Promise<string> {
+  if (
+    !Number.isInteger(expiresInSeconds) ||
+    expiresInSeconds < 1 ||
+    expiresInSeconds > MAX_PRESIGN_SECONDS
+  ) {
+    throw new Error("Link duration must be between 1 second and 7 days.");
   }
 
-  const partProgress: Record<number, number> = {};
-  const progressDenominator = Math.max(totalSize, 1);
+  const client = createClient(connection);
+  const command = new GetObjectCommand({
+    Bucket: connection.bucket.bucketName,
+    Key: key,
+    ResponseContentDisposition: downloadAs
+      ? `attachment; filename*=UTF-8''${encodeURIComponent(downloadAs)}`
+      : undefined,
+  });
+  return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+}
 
-  const uploadPromises = initUploadResponse.parts.map((url: string, index: number) => {
-    const partNumber = index + 1;
-    const start = index * CHUNK_SIZE;
-    const end = Math.min(start + CHUNK_SIZE, totalSize);
-    const blob = file.slice(start, end);
+/** First bytes of an object as text, for previews. */
+export async function readTextPreview(
+  connection: Connection,
+  key: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const client = createClient(connection);
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: connection.bucket.bucketName,
+      Key: key,
+      Range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}`,
+    }),
+    { abortSignal: signal },
+  );
+  return (await response.Body?.transformToString("utf-8")) ?? "";
+}
 
-    return axios
-      .put(url, blob, {
-        maxRedirects: 0,
-        validateStatus: (s) => s === 200,
-        onUploadProgress: (event) => {
-          partProgress[partNumber] = event.loaded;
-          const totalLoaded = Object.values(partProgress).reduce((a, b) => a + b, 0);
-          const currentPercent = totalLoaded / progressDenominator;
-          onProgress?.(currentPercent > 1 ? 1 : currentPercent);
-        },
-      })
-      .then((res) => {
-        const etag = res.headers["etag"] ?? "";
-        const uploadedPart: CompleteUploadPart = {
-          ETag: etag,
-          PartNumber: partNumber,
-        };
-        return uploadedPart;
-      })
-      .catch((err) => {
-        if (isAxiosError(err)) {
-          throw new Error(
-            `Part ${partNumber} upload failed${err.response?.status != null ? ` (HTTP ${err.response.status})` : ""}`,
-          );
-        }
-        throw err;
-      });
+export interface UploadHandle {
+  done: Promise<void>;
+  abort: () => Promise<void>;
+}
+
+/**
+ * Upload a file with bounded concurrency. Multipart uploads are aborted on
+ * failure so no orphaned parts are left behind to accrue storage charges.
+ */
+export function uploadFile(
+  connection: Connection,
+  key: string,
+  file: File,
+  onProgress?: (fraction: number) => void,
+): UploadHandle {
+  const partSize = Math.max(MIN_PART_SIZE, Math.ceil(file.size / MAX_PARTS));
+
+  const upload = new Upload({
+    client: createClient(connection),
+    params: {
+      Bucket: connection.bucket.bucketName,
+      Key: key,
+      Body: file,
+      ContentType: file.type || "application/octet-stream",
+    },
+    partSize,
+    queueSize: UPLOAD_CONCURRENCY,
+    leavePartsOnError: false,
   });
 
-  const uploadedParts = (await Promise.all(uploadPromises)).sort((a, b) => a.PartNumber - b.PartNumber);
+  upload.on("httpUploadProgress", ({ loaded, total }) => {
+    const size = total ?? file.size;
+    if (size > 0 && loaded != null) {
+      onProgress?.(Math.min(loaded / size, 1));
+    }
+  });
 
-  const completeUploadRequest: CompleteUploadRequest = {
-    bucketName: request.bucketName,
-    key: request.key,
-    uploadId: initUploadResponse.uploadId,
-    parts: uploadedParts,
-    region: request.region,
-    forcePathStyle: request.forcePathStyle,
-    accessKey: request.accessKey,
-    secretKey: request.secretKey,
-    endpoint: request.endpoint,
+  return {
+    done: upload.done().then(() => undefined),
+    abort: () => upload.abort(),
   };
+}
 
-  const completeUploadResponse = await apiRequestJson<CompleteUploadResponse>(
-    "POST",
-    "/api/s3/upload/complete",
-    setAccessKeyAndSecretKeyHeaders(request.accessKey, request.secretKey),
-    null,
-    completeUploadRequest,
-  );
+/** Turn an SDK or network error into a message a person can act on. */
+export function describeS3Error(error: unknown): string {
+  const err = error as {
+    name?: string;
+    message?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+  const name = err?.name ?? "";
+  const status = err?.$metadata?.httpStatusCode;
 
-  if (completeUploadResponse.error) {
-    throw new Error(completeUploadResponse.error);
+  switch (name) {
+    case "AbortError":
+      return "The request was cancelled.";
+    case "InvalidAccessKeyId":
+      return "The access key isn't recognised. Check the credential.";
+    case "SignatureDoesNotMatch":
+      return "The secret key doesn't match the access key. Check the credential.";
+    case "AccessDenied":
+    case "Forbidden":
+      return "Access denied. The credential doesn't have permission for this action.";
+    case "NoSuchBucket":
+      return "The bucket doesn't exist. Check the bucket name and endpoint.";
+    case "NoSuchKey":
+    case "NotFound":
+      return "The object no longer exists.";
+    case "PermanentRedirect":
+    case "AuthorizationHeaderMalformed":
+    case "IllegalLocationConstraintException":
+      return "The bucket is in a different region. Check the region setting.";
+    case "RequestTimeTooSkewed":
+      return "Your device clock is out of sync. Correct the system time and try again.";
+    case "NetworkError":
+    case "TypeError":
+      return isTauri()
+        ? "Couldn't reach the storage endpoint. Check the endpoint URL and your connection."
+        : "Couldn't reach the storage endpoint. Check the endpoint URL, and that the bucket's CORS policy allows this site.";
   }
+
+  if (status === 403) {
+    return "Access denied. The credential doesn't have permission for this action.";
+  }
+  if (status === 404) {
+    return "Not found. Check the bucket name, region, and endpoint.";
+  }
+  if (err?.message && err.message !== "UnknownError") {
+    return err.message;
+  }
+  return "Something went wrong talking to the storage endpoint.";
 }

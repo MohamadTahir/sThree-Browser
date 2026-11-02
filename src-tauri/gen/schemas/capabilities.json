@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Main window: open links externally and reach user-configured S3 endpoints.","local":true,"windows":["main"],"permissions":["core:default","opener:default",{"identifier":"http:default","allow":[{"url":"https://*"},{"url":"https://*:*"},{"url":"http://*"},{"url":"http://*:*"}]}]}}

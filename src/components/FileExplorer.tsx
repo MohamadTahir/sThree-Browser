@@ -1,518 +1,841 @@
-import { useState, useEffect, useRef, JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Folder,
-  File,
-  AlertCircle,
-  RefreshCw,
-  Upload,
-  ChevronRight,
+  ArrowDown,
+  ArrowUp,
   ChevronLeft,
+  ChevronRight,
+  Database,
+  File as FileIcon,
+  FileArchive,
+  FileAudio,
+  FileCode,
+  FileImage,
+  FileText,
+  FileVideo,
+  Folder,
+  FolderPlus,
+  Menu,
+  RefreshCw,
+  Copy,
+  Download,
+  Link2,
+  Search,
+  Trash2,
+  Upload,
+  UploadCloud,
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { Bucket, Configs, S3Object } from "../models/types";
-import { useConfig } from "@/context/config";
-import Breadcrumb from "./Breadcrumb";
-import { toast } from "react-toastify";
-import { ListObjectsRequest } from "@/models/dto/requests/ListObjectsRequest";
-import { listObjects, uploadFile } from "@/services/s3Service";
-import { formatDate } from "@/lib/utils";
-import ObjectDetailsSidebar from "./ObjectDetailsSidebar";
 import prettyBytes from "pretty-bytes";
-import { InitUploadRequest } from "@/models/dto/requests/InitUploadRequest";
+import { useConfig } from "@/context/config";
+import { S3Object } from "@/models/types";
+import { deleteObject, describeS3Error, uploadFile } from "@/services/s3Service";
+import { baseName, cn, formatDate, parentPrefix } from "@/lib/utils";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import ConfirmDialog from "./ConfirmDialog";
+import ObjectPanel from "./explorer/ObjectPanel";
+import NewFolderDialog from "./explorer/NewFolderDialog";
+import ListingError from "./explorer/ListingError";
+import DeleteFolderDialog from "./explorer/DeleteFolderDialog";
+import ShareDialog from "./explorer/ShareDialog";
+import { copyToClipboard, downloadObject } from "./explorer/objectActions";
+import { toast } from "react-toastify";
+import UploadQueue, { UploadItem } from "./explorer/UploadQueue";
+import { useObjectListing } from "./explorer/useObjectListing";
+import { FolderState, useFolderSummaries } from "./explorer/useFolderSummaries";
 
-interface PageState {
-  continuationToken: string | null | undefined;
-  nextContinuationToken: string | null | undefined;
-  isTruncated: boolean;
-  pageHistory: string[];
-  currentPrefix: string;
-  objects: S3Object[];
-  loading: boolean;
-  error: string | null;
-  selectedObject: S3Object | null;
+type SortKey = "name" | "size" | "modified";
+type Sort = { key: SortKey; dir: 1 | -1 };
+
+function iconFor(key: string) {
+  const ext = key.slice(key.lastIndexOf(".") + 1).toLowerCase();
+  if (/^(png|jpe?g|gif|webp|avif|svg|bmp|ico|heic|tiff?)$/.test(ext)) return FileImage;
+  if (/^(mp4|mov|webm|mkv|avi|m4v)$/.test(ext)) return FileVideo;
+  if (/^(mp3|wav|flac|ogg|m4a|aac)$/.test(ext)) return FileAudio;
+  if (/^(zip|gz|tgz|tar|7z|rar|bz2|xz|zst)$/.test(ext)) return FileArchive;
+  if (/^(js|mjs|ts|tsx|jsx|json|ya?ml|xml|html?|css|py|go|rs|java|sh|sql|toml)$/.test(ext)) return FileCode;
+  if (/^(txt|md|pdf|csv|log|docx?|rtf)$/.test(ext)) return FileText;
+  return FileIcon;
 }
 
-const defaultPageState: PageState = {
-  continuationToken: null,
-  nextContinuationToken: null,
-  isTruncated: false,
-  pageHistory: [],
-  currentPrefix: "",
-  objects: [],
-  loading: false,
-  error: null,
-  selectedObject: null,
-};
-
-export default function FileExplorer() {
-  const { configs } = useConfig();
-
-  const activeBucket = GetActiveBucket(configs);
-
-  const [pageState, setPageState] = useState<PageState>(defaultPageState);
-
-  // --- File Upload Logic ---
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const loadObjects = async () => {
-    if (!activeBucket) {
-      return;
+/** Files from a drop, skipping directories (which browsers expose as empty "files"). */
+function droppedFiles(transfer: DataTransfer): File[] {
+  const files: File[] = [];
+  const items = Array.from(transfer.items ?? []);
+  if (items.length > 0) {
+    for (const item of items) {
+      if (item.kind !== "file") continue;
+      const entry = item.webkitGetAsEntry?.();
+      if (entry?.isDirectory) continue;
+      const file = item.getAsFile();
+      if (file) files.push(file);
     }
+    return files;
+  }
+  return Array.from(transfer.files ?? []);
+}
 
-    setPageState((prev) => ({ ...prev, loading: true, error: null }));
-
-    const listObjectsRequest: ListObjectsRequest = {
-      bucketName: activeBucket.bucketName,
-      region: activeBucket.region,
-      endpoint: activeBucket.endpoint,
-      forcePathStyle: activeBucket.forcePathStyle,
-      accessKey: configs.credentials[activeBucket.credentialId].accessKey,
-      secretKey: configs.credentials[activeBucket.credentialId].secretKey,
-      prefix: pageState.currentPrefix,
-      maxKeys: 100,
-      continuationToken: pageState.continuationToken,
-    };
-
-    try {
-      const response = await listObjects(listObjectsRequest);
-
-      setPageState((prev) => ({
-        ...prev,
-        selectedObject: null,
-        objects: response.objects,
-        nextContinuationToken: response.nextContinuationToken,
-        isTruncated: response.isTruncated,
-        continuationToken: prev.continuationToken,
-        loading: false,
-        error: response.error ? response.error : null,
-      }));
-    } catch (error: any) {
-      console.error("Failed to load objects", error);
-      toast.error("Failed to load objects");
-      setPageState((prev) => ({
-        ...prev,
-        error: error.message,
-        loading: false,
-      }));
-    }
-  };
-
+/** True when the viewport is at least Tailwind's `sm` breakpoint. */
+function useWideScreen(): boolean {
+  const [wide, setWide] = useState(true);
   useEffect(() => {
-    loadObjects();
-  }, [
-    configs.activeBucket,
-    pageState.currentPrefix,
-    pageState.continuationToken,
-  ]);
+    const query = window.matchMedia("(min-width: 640px)");
+    const update = () => setWide(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return wide;
+}
 
-  if (!configs.activeBucket) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-center text-muted-foreground">
-          <Folder className="mx-auto mb-4 h-16 w-16 opacity-50" />
-          <p className="text-lg">Select a bucket to get started</p>
-        </div>
-      </div>
-    );
-  }
+export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
+  const { configs, getConnection } = useConfig();
+  const activeId = configs.activeBucket;
+  const bucket = activeId ? configs.buckets[activeId] : undefined;
+  const credential = bucket ? configs.credentials[bucket.credentialId] : undefined;
+  // Stable identity unless the bucket or credential themselves change.
+  const connection = useMemo(
+    () => getConnection(activeId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bucket, credential],
+  );
 
-  if (pageState.error) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center justify-center text-center">
-          <AlertCircle className="h-24 w-24 text-destructive/60 mb-4" />
-          <p className="text-sm text-muted-foreground mb-4">
-            Unable to load content
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => {
-              loadObjects();
-            }}
-            className="gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Reload
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const listing = useObjectListing(connection);
+  const showModified = useWideScreen();
+  const columns = showModified ? 3 : 2;
+  const { prefix, setPrefix, objects, loading, error, reload } = listing;
 
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-    await processFiles(Array.from(files));
-    // Reset input
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  const folderPrefixes = useMemo(
+    () => objects.filter((o) => o.isFolder).map((o) => o.key),
+    [objects],
+  );
+  const { states: folderStats, invalidate: invalidateFolders } = useFolderSummaries(
+    connection,
+    folderPrefixes,
+  );
+  const refresh = useCallback(() => {
+    invalidateFolders();
+    reload();
+  }, [invalidateFolders, reload]);
 
-  const processFiles = async (files: File[]) => {
-    if (!activeBucket) {
-      toast.error("Select a bucket before uploading");
-      return;
-    }
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState<Sort>({ key: "name", dir: 1 });
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [replacePrompt, setReplacePrompt] = useState<File[] | null>(null);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [objectToShare, setObjectToShare] = useState<string | null>(null);
+  const [objectToDelete, setObjectToDelete] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const tableRef = useRef<HTMLTableSectionElement>(null);
 
-    const credential = configs.credentials[activeBucket.credentialId];
-    if (!credential) {
-      toast.error("Missing credentials for this bucket");
-      return;
-    }
+  // Clear selection and filter when the folder or connection changes.
+  useEffect(() => {
+    setSelectedKey(null);
+    setFilter("");
+  }, [prefix, connection]);
 
-    try {
+  const rows = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const visible = q
+      ? objects.filter((o) => baseName(o.key).toLowerCase().includes(q))
+      : objects;
+    const compare = (a: S3Object, b: S3Object) => {
+      if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+      // Folders sort by their computed summary once it has loaded.
+      const size = (o: S3Object) => {
+        const stat = folderStats[o.key];
+        return o.isFolder ? (typeof stat === "object" ? stat.bytes : -1) : o.size;
+      };
+      const modified = (o: S3Object) => {
+        const stat = folderStats[o.key];
+        return (o.isFolder ? (typeof stat === "object" ? stat.lastModified : null) : o.lastModified) ?? "";
+      };
+      let result = 0;
+      if (sort.key === "size") result = size(a) - size(b);
+      else if (sort.key === "modified") result = modified(a).localeCompare(modified(b));
+      if (result === 0)
+        result = baseName(a.key).localeCompare(baseName(b.key), undefined, { numeric: true });
+      return result * sort.dir;
+    };
+    return [...visible].sort(compare);
+  }, [objects, filter, sort, folderStats]);
+
+  const selected = rows.find((o) => o.key === selectedKey && !o.isFolder) ?? null;
+
+  // ---- uploads ----------------------------------------------------------
+
+  const patchUpload = useCallback((id: string, patch: Partial<UploadItem>) => {
+    setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...patch } : u)));
+  }, []);
+
+  const startUploads = useCallback(
+    (files: File[]) => {
+      if (!connection) return;
+      const target = prefix;
       for (const file of files) {
-        const toastId = toast.loading(`Uploading ${file.name}...`, {
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: false,
-          draggable: false,
-          autoClose: false,
-          isLoading: false,
-          progress: 0,
-        });
-
-        try {
-          const key = pageState.currentPrefix + file.name;
-
-          const initUploadRequest: InitUploadRequest = {
-            bucketName: activeBucket.bucketName,
-            region: activeBucket.region,
-            endpoint: activeBucket.endpoint,
-            forcePathStyle: activeBucket.forcePathStyle,
-            accessKey: credential.accessKey,
-            secretKey: credential.secretKey,
-            key,
-            parts: 1,
-            contentType: "",
-          };
-
-          await uploadFile(file, initUploadRequest, (progress) => {
-            toast.update(toastId, {
-              progress: progress,
+        const id = crypto.randomUUID();
+        const key = target + file.name;
+        const handle = uploadFile(connection, key, file, (progress) =>
+          patchUpload(id, { progress }),
+        );
+        setUploads((list) => [
+          ...list,
+          { id, name: file.name, key, progress: 0, status: "uploading", cancel: () => void handle.abort() },
+        ]);
+        handle.done
+          .then(() => {
+            patchUpload(id, { status: "done", progress: 1, cancel: undefined });
+            window.setTimeout(() => setUploads((l) => l.filter((u) => u.id !== id)), 4000);
+            reload();
+          })
+          .catch((err) => {
+            const cancelled = (err as Error)?.name === "AbortError";
+            patchUpload(id, {
+              status: cancelled ? "cancelled" : "failed",
+              error: cancelled ? undefined : describeS3Error(err),
+              cancel: undefined,
             });
+            if (cancelled) {
+              window.setTimeout(() => setUploads((l) => l.filter((u) => u.id !== id)), 3000);
+            }
           });
+      }
+    },
+    [connection, prefix, patchUpload, reload],
+  );
 
-          toast.update(toastId, {
-            render: `Uploaded ${file.name}`,
-            type: "success",
-            isLoading: false,
-            autoClose: 2000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            progress: 0,
-          });
-          await loadObjects();
-        } catch (error: any) {
-          console.error("Upload error:", error);
-          toast.update(toastId, {
-            render: `Failed to upload ${file.name}: ${error.message}`,
-            type: "error",
-            isLoading: false,
-            autoClose: 2000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            progress: 0,
-          });
+  const requestUpload = (files: File[]) => {
+    if (files.length === 0) return;
+    const existing = new Set(objects.map((o) => o.key));
+    if (files.some((f) => existing.has(prefix + f.name))) {
+      setReplacePrompt(files);
+    } else {
+      startUploads(files);
+    }
+  };
+
+  // Warn before closing the tab mid-upload.
+  const uploading = uploads.some((u) => u.status === "uploading");
+  useEffect(() => {
+    if (!uploading) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [uploading]);
+
+  // ---- keyboard ---------------------------------------------------------
+
+  const openRow = (object: S3Object) => {
+    if (object.isFolder) setPrefix(object.key);
+    else setSelectedKey(object.key);
+  };
+
+  const onTableKeyDown = (event: React.KeyboardEvent) => {
+    const buttons = Array.from(
+      tableRef.current?.querySelectorAll<HTMLButtonElement>("button[data-row]") ?? [],
+    );
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const next = buttons[Math.min(buttons.length - 1, Math.max(0, index + (event.key === "ArrowDown" ? 1 : -1)))];
+      next?.focus();
+      const row = rows[buttons.indexOf(next!)];
+      if (row && !row.isFolder && selectedKey) setSelectedKey(row.key);
+    } else if (event.key === "Backspace" && prefix) {
+      event.preventDefault();
+      setPrefix(parentPrefix(prefix));
+    }
+  };
+
+  // ---- render -----------------------------------------------------------
+
+  if (!bucket) {
+    return (
+      <main className="flex flex-1 flex-col">
+        <MobileBar onOpenNav={onOpenNav} title="sThree Browser" />
+        <EmptyState
+          icon={<Database />}
+          title={Object.keys(configs.buckets).length ? "Choose a connection" : "Add your first connection"}
+          body={
+            Object.keys(configs.buckets).length
+              ? "Pick a bucket from the sidebar to browse it."
+              : "Use the + next to Connections in the sidebar. Your keys are encrypted in the vault on this device."
+          }
+        />
+      </main>
+    );
+  }
+
+  if (!connection) {
+    return (
+      <main className="flex flex-1 flex-col">
+        <MobileBar onOpenNav={onOpenNav} title={bucket.nickname} />
+        <EmptyState
+          icon={<Database />}
+          title="This connection has no credential"
+          body="Edit the connection in the sidebar and choose a credential to use."
+        />
+      </main>
+    );
+  }
+
+  const endpointHost = bucket.endpoint
+    ? (() => {
+        try {
+          return new URL(bucket.endpoint).host;
+        } catch {
+          return bucket.endpoint;
         }
-      }
-    } catch (error: any) {
-      console.error("Failed to upload files", error);
-      toast.error("Failed to upload files");
-    }
-  };
+      })()
+    : "AWS S3";
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  const crumbs = prefix
+    .split("/")
+    .filter(Boolean)
+    .map((part, i, all) => ({ name: part, prefix: all.slice(0, i + 1).join("/") + "/" }));
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await processFiles(Array.from(e.dataTransfer.files));
-    }
-  };
-
-  const handleNextPage = () => {
-    if (pageState.nextContinuationToken) {
-      const newPageHistory = pageState.pageHistory
-        ? [...pageState.pageHistory]
-        : [];
-
-      if (pageState.continuationToken) {
-        newPageHistory.push(pageState.continuationToken);
-      }
-
-      setPageState((prev) => ({
-        ...prev,
-        pageHistory: newPageHistory,
-        continuationToken: pageState.nextContinuationToken,
-      }));
-    }
-  };
-
-  const handlePreviousPage = () => {
-    if (pageState.pageHistory.length > 0) {
-      const previousTokens = [...pageState.pageHistory];
-      const previousToken = previousTokens.pop() || null;
-      setPageState((prev) => ({
-        ...prev,
-        pageHistory: previousTokens,
-        continuationToken: previousToken,
-      }));
-    } else {
-      setPageState((prev) => ({
-        ...prev,
-        pageHistory: [],
-        continuationToken: null,
-      }));
-    }
-  };
-
-  const handleObjectClick = (object: S3Object) => {
-    if (object.isFolder) {
-      setPageState((prev) => ({ ...prev, currentPrefix: object.key }));
-    } else {
-      setPageState((prev) => ({ ...prev, selectedObject: object }));
-    }
-  };
-
-  const header = () => {
+  const sortHeader = (
+    key: SortKey,
+    label: string,
+    align: "left" | "right" = "left",
+    className?: string,
+  ) => {
+    const active = sort.key === key;
     return (
-      <div className="border-b border-border p-3.5">
-        <div className="flex sm:flex-row items-start items-center justify-between gap-2">
-          {/* title and bucket name */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1 overflow-hidden">
-            <h1 className="text-xl sm:text-2xl font-bold">
-              {activeBucket?.nickname || ""}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {activeBucket?.bucketName || ""}
-            </p>
-          </div>
-
-          {/* buttons */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              title="Upload Files"
-              className="h-8 w-8"
-            >
-              <Upload className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                loadObjects();
-              }}
-              title="Refresh"
-              className="h-8 w-8"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const loadingBar = () => {
-    if (pageState.loading) {
-      return (
-        <div className="h-1 w-full bg-muted overflow-hidden relative">
-          <div className="h-full bg-primary loading-bar" />
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const objectsList = () => {
-    if (!pageState.objects || pageState.objects.length === 0) {
-      return (
-        <div className="flex flex-col h-full items-center justify-center text-center text-muted-foreground">
-          <Folder className="mb-4 h-12 w-12 opacity-50" />
-          <p>This folder is empty</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="rounded-xl border border-border bg-card mx-3">
-        <div className="divide-y divide-border">
-          {pageState.objects.map((object) =>
-            objectItem(object, pageState.currentPrefix, handleObjectClick),
+      <th
+        scope="col"
+        aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : "none"}
+        className={cn(
+          "h-10 px-3 font-medium",
+          align === "right" && "text-right",
+          className,
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : 1 }))}
+          className={cn(
+            "-mx-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-muted hover:text-foreground",
+            active && "text-foreground",
           )}
-        </div>
-      </div>
-    );
-  };
-
-  const pagination = () => {
-    if (pageState.continuationToken === null && !pageState.isTruncated) {
-      return null;
-    }
-
-    return (
-      <div className="flex m-3">
-        <div className="flex flex-row w-full  items-center justify-between gap-3 rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePreviousPage}
-              disabled={
-                pageState.pageHistory.length === 0 &&
-                pageState.continuationToken === null
-              }
-              className="flex-1 sm:flex-initial"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNextPage}
-              disabled={
-                !pageState.isTruncated || !pageState.nextContinuationToken
-              }
-              className="flex-1 sm:flex-initial"
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-          <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
-            Showing {pageState.objects.length} item
-            {pageState.objects.length !== 1 ? "s" : ""}
-            {pageState.isTruncated && ` (more available)`}
-          </div>
-        </div>
-      </div>
+        >
+          {label}
+          {active &&
+            (sort.dir === 1 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+        </button>
+      </th>
     );
   };
 
   return (
-    <div
-      className="flex flex-1 flex-col md:flex-row overflow-hidden bg-background w-full md:w-auto"
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-    >
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        className="hidden"
-        multiple
-      />
-
-      <div className="flex flex-1 flex-col overflow-y-auto min-w-0">
-        {header()}
-        {loadingBar()}
-
-        <Breadcrumb
-          prefix={pageState.currentPrefix}
-          onNavigate={(prefix) => {
-            setPageState((prev) => ({ ...prev, currentPrefix: prefix }));
+    <div className="flex min-w-0 flex-1">
+      <main
+        className="relative flex min-w-0 flex-1 flex-col"
+        onDragEnter={(e) => {
+          if (!e.dataTransfer.types.includes("Files")) return;
+          dragDepth.current += 1;
+          setDragging(true);
+        }}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+        }}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          dragDepth.current = 0;
+          setDragging(false);
+          requestUpload(droppedFiles(e.dataTransfer));
+        }}
+      >
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            requestUpload(Array.from(e.target.files ?? []));
+            e.target.value = "";
           }}
         />
 
-        {objectsList()}
-        {pagination()}
-      </div>
+        <header className="flex h-16 shrink-0 items-center gap-2 px-4 sm:px-6">
+          <Button variant="quiet" size="icon" className="-ml-1 md:hidden" onClick={onOpenNav} aria-label="Open sidebar">
+            <Menu />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-xl font-semibold tracking-[-0.015em]">{bucket.nickname}</h1>
+            <p className="truncate text-xs text-muted-foreground">
+              {bucket.bucketName} · {bucket.region} · {endpointHost}
+            </p>
+          </div>
+          <Button variant="quiet" size="icon" onClick={refresh} aria-label="Refresh" title="Refresh">
+            <RefreshCw className={cn(loading && "animate-spin")} />
+          </Button>
+          <Button onClick={() => setNewFolderOpen(true)} aria-label="New folder" title="New folder">
+            <FolderPlus /> <span className="hidden sm:inline">New folder</span>
+          </Button>
+          <Button variant="primary" onClick={() => fileInput.current?.click()} aria-label="Upload" title="Upload files">
+            <Upload /> <span className="hidden sm:inline">Upload</span>
+          </Button>
+        </header>
 
-      <ObjectDetailsSidebar
-        object={pageState.selectedObject}
-        bucketId={activeBucket?.id || ""}
-        onClose={(reload) => {
-          if (reload) {
-            loadObjects();
-          } else {
-            setPageState((prev) => ({ ...prev, selectedObject: null }));
-          }
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 pb-3 sm:px-6">
+          <nav aria-label="Folder path" className="min-w-0 flex-1">
+            <ol className="-ml-1.5 flex min-w-0 items-center text-sm">
+              <li className="shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPrefix("")}
+                  className={cn(
+                    "rounded-md px-1.5 py-1 transition-colors hover:bg-muted",
+                    crumbs.length === 0 ? "font-medium" : "text-muted-foreground",
+                  )}
+                >
+                  {bucket.bucketName}
+                </button>
+              </li>
+              {crumbs.map((crumb, i) => (
+                <li key={crumb.prefix} className="flex min-w-0 items-center">
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" aria-hidden />
+                  <button
+                    type="button"
+                    onClick={() => setPrefix(crumb.prefix)}
+                    aria-current={i === crumbs.length - 1 ? "location" : undefined}
+                    className={cn(
+                      "truncate rounded-md px-1.5 py-1 transition-colors hover:bg-muted",
+                      i === crumbs.length - 1 ? "font-medium" : "text-muted-foreground",
+                    )}
+                  >
+                    {crumb.name}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Filter this page"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="h-8 pl-9 text-[13px]"
+              aria-label="Filter this page"
+            />
+          </div>
+        </div>
+
+        <div className="relative min-h-0 flex-1 overflow-auto">
+          {loading && objects.length > 0 && (
+            <div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-primary/15">
+              <div className="h-full w-1/3 animate-shimmer bg-primary" style={{ transform: "translateX(-100%)" }} />
+            </div>
+          )}
+
+          {error ? (
+            <ListingError message={error} errorName={listing.errorName} onRetry={refresh} />
+          ) : (
+            <div className="px-2 pb-3 sm:px-3">
+            <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
+              <thead className="sticky top-0 z-[5] bg-background/95 text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <tr>
+                  {sortHeader("name", "Name")}
+                  {sortHeader("size", "Size", "right", "w-24 sm:w-28")}
+                  {showModified && sortHeader("modified", "Modified", "left", "w-52")}
+                </tr>
+              </thead>
+              <tbody ref={tableRef} onKeyDown={onTableKeyDown}>
+                {prefix && !filter && (
+                  <tr className="group">
+                    <td colSpan={columns} className="rounded-lg p-0 transition-colors group-hover:bg-muted/70">
+                      <button
+                        type="button"
+                        data-row
+                        onClick={() => setPrefix(parentPrefix(prefix))}
+                        className="flex h-[44px] w-full items-center gap-3 rounded-lg px-3 text-left text-muted-foreground sm:h-10"
+                      >
+                        <Folder className="size-[18px] shrink-0" strokeWidth={1.75} /> ..
+                      </button>
+                    </td>
+                  </tr>
+                )}
+                {loading && objects.length === 0
+                  ? Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} showModified={showModified} />)
+                  : rows.map((object) => (
+                      <ObjectRow
+                        key={object.key}
+                        object={object}
+                        selected={object.key === selected?.key}
+                        showModified={showModified}
+                        folder={object.isFolder ? folderStats[object.key] : undefined}
+                        onOpen={() => openRow(object)}
+                        onFocus={() => {
+                          if (!object.isFolder && selectedKey) setSelectedKey(object.key);
+                        }}
+                        actions={{
+                          download: () => downloadObject(connection, object.key),
+                          share: () => setObjectToShare(object.key),
+                          copy: () =>
+                            copyToClipboard(object.key, object.isFolder ? "Folder path" : "Key"),
+                          remove: () =>
+                            object.isFolder
+                              ? setFolderToDelete(object.key)
+                              : setObjectToDelete(object.key),
+                        }}
+                      />
+                    ))}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {!error && !loading && rows.length === 0 && (
+            filter ? (
+              <EmptyState
+                icon={<Search />}
+                title="No matches"
+                body={`Nothing on this page matches “${filter.trim()}”.`}
+              />
+            ) : (
+              <EmptyState
+                icon={<UploadCloud />}
+                title="This folder is empty"
+                body="Drop files here or use Upload."
+                action={
+                  <Button variant="primary" onClick={() => fileInput.current?.click()}>
+                    <Upload /> Upload files
+                  </Button>
+                }
+              />
+            )
+          )}
+        </div>
+
+        {!error && (objects.length > 0 || listing.page > 0) && (
+          <footer className="flex h-11 shrink-0 items-center justify-between gap-2 border-t px-4 text-xs text-muted-foreground sm:px-6">
+            <span className="tabular">
+              {filter ? `${rows.length} of ${objects.length}` : objects.length}{" "}
+              {objects.length === 1 ? "item" : "items"}
+              {listing.page > 0 || listing.hasNextPage ? ` · page ${listing.page + 1}` : ""}
+            </span>
+            {(listing.page > 0 || listing.hasNextPage) && (
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={listing.previousPage} disabled={listing.page === 0 || loading}>
+                  <ChevronLeft /> Previous
+                </Button>
+                <Button size="sm" variant="ghost" onClick={listing.nextPage} disabled={!listing.hasNextPage || loading}>
+                  Next <ChevronRight />
+                </Button>
+              </div>
+            )}
+          </footer>
+        )}
+
+        {dragging && (
+          <div className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary-subtle/90">
+            <div className="text-center">
+              <UploadCloud className="mx-auto size-8 text-primary-text" />
+              <p className="mt-2 font-medium text-primary-text">Drop to upload</p>
+              <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                {bucket.bucketName}/{prefix}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <UploadQueue
+          items={uploads}
+          onDismiss={(id) => setUploads((l) => l.filter((u) => u.id !== id))}
+        />
+      </main>
+
+      {selected && (
+        <ObjectPanel
+          key={selected.key}
+          connection={connection}
+          object={selected}
+          onClose={() => setSelectedKey(null)}
+          onDeleted={() => {
+            setSelectedKey(null);
+            reload();
+          }}
+        />
+      )}
+
+      <ShareDialog
+        open={objectToShare !== null}
+        connection={connection}
+        objectKey={objectToShare ?? ""}
+        onClose={() => setObjectToShare(null)}
+      />
+      <ConfirmDialog
+        open={objectToDelete !== null}
+        title="Delete object?"
+        description={
+          <>
+            <span className="break-all font-medium text-foreground">{objectToDelete}</span> will
+            be permanently deleted from{" "}
+            <span className="font-medium text-foreground">{bucket.bucketName}</span>, unless the
+            bucket has versioning enabled.
+          </>
+        }
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          const key = objectToDelete!;
+          await deleteObject(connection, key).catch((err) => {
+            throw new Error(describeS3Error(err));
+          });
+          toast.success(`Deleted ${baseName(key)}`);
+          if (selectedKey === key) setSelectedKey(null);
+          reload();
         }}
+        onClose={() => setObjectToDelete(null)}
+      />
+      <DeleteFolderDialog
+        connection={connection}
+        prefix={folderToDelete}
+        onClose={() => setFolderToDelete(null)}
+        onDeleted={refresh}
+      />
+      <NewFolderDialog
+        open={newFolderOpen}
+        connection={connection}
+        prefix={prefix}
+        onClose={() => setNewFolderOpen(false)}
+        onCreated={(p) => setPrefix(p)}
+      />
+      <ConfirmDialog
+        open={replacePrompt !== null}
+        title="Replace existing files?"
+        description={
+          replacePrompt && (
+            <>
+              {replacePrompt.filter((f) => objects.some((o) => o.key === prefix + f.name)).length} of
+              the {replacePrompt.length} files already exist in this folder and will be overwritten.
+            </>
+          )
+        }
+        confirmLabel="Replace"
+        onConfirm={() => {
+          if (replacePrompt) startUploads(replacePrompt);
+        }}
+        onClose={() => setReplacePrompt(null)}
       />
     </div>
   );
 }
 
-function GetActiveBucket(configs: Configs): Bucket | null {
-  if (!configs.activeBucket) {
-    return null;
-  }
+const cell = "transition-colors duration-100 first:rounded-l-lg last:rounded-r-lg";
 
-  const activeBucket = configs.buckets[configs.activeBucket];
-  if (!activeBucket) {
-    return null;
-  }
-
-  return activeBucket;
+function ObjectRow({
+  object,
+  selected,
+  showModified,
+  folder,
+  onOpen,
+  onFocus,
+  actions,
+}: {
+  object: S3Object;
+  selected: boolean;
+  showModified: boolean;
+  folder?: FolderState;
+  onOpen: () => void;
+  onFocus: () => void;
+  actions: RowActionHandlers;
+}) {
+  const Icon = object.isFolder ? Folder : iconFor(object.key);
+  const tone = selected ? "bg-primary-subtle" : "group-hover:bg-muted/70";
+  const name = baseName(object.key);
+  const summary = typeof folder === "object" ? folder : null;
+  return (
+    <tr className="group">
+      <td className={cn(cell, tone, "relative p-0")}>
+        <button
+          type="button"
+          data-row
+          onClick={onOpen}
+          onFocus={onFocus}
+          aria-pressed={object.isFolder ? undefined : selected}
+          className={cn(
+            "flex h-[44px] w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left sm:h-10",
+            object.isFolder ? "pr-12 sm:pr-24" : "sm:pr-40",
+          )}
+          title={name}
+        >
+          <Icon
+            className={cn(
+              "size-[18px] shrink-0",
+              object.isFolder
+                ? "fill-muted-foreground/15 text-muted-foreground"
+                : selected
+                  ? "text-primary-text"
+                  : "text-muted-foreground",
+            )}
+            strokeWidth={1.75}
+          />
+          <span className={cn("truncate", object.isFolder && "font-medium", selected && "font-medium text-primary-text")}>
+            {name}
+          </span>
+        </button>
+        <RowActions isFolder={object.isFolder} name={name} actions={actions} />
+      </td>
+      <td
+        className={cn(cell, tone, "px-3 text-right text-muted-foreground tabular")}
+        title={summary ? folderTitle(summary) : undefined}
+      >
+        {object.isFolder
+          ? folder === "loading"
+            ? <Pending />
+            : summary
+              ? `${prettyBytes(summary.bytes)}${summary.partial ? "+" : ""}`
+              : "—"
+          : prettyBytes(object.size)}
+      </td>
+      {showModified && (
+        <td className={cn(cell, tone, "truncate px-3 text-muted-foreground tabular")}>
+          {object.isFolder
+            ? folder === "loading"
+              ? <Pending />
+              : formatDate(summary?.lastModified)
+            : formatDate(object.lastModified)}
+        </td>
+      )}
+    </tr>
+  );
 }
 
-function objectItem(
-  object: S3Object,
-  currentPrefix: string,
-  handleObjectClick: (object: S3Object) => void,
-) {
-  let fileName: string;
-  let fileSize: string | null = null;
+interface RowActionHandlers {
+  download: () => void;
+  share: () => void;
+  copy: () => void;
+  remove: () => void;
+}
 
-  let leadingIcon: JSX.Element;
-  let trailingIcon: JSX.Element | null = null;
-  let lastModified: JSX.Element | null = null;
-
-  if (object.isFolder) {
-    leadingIcon = <Folder className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />;
-    trailingIcon = (
-      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-    );
-    fileName = object.key.replace(currentPrefix, "").replace(/\/$/, "");
-  } else {
-    leadingIcon = (
-      <File className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-    );
-    fileName = object.key.replace(currentPrefix, "");
-    fileSize = prettyBytes(object.size);
-    lastModified = object.lastModified ? (
-      <span className="ml-2 sm:hidden">
-        • {formatDate(object.lastModified)}
-      </span>
-    ) : null;
-  }
+/**
+ * Quick actions at the end of every row, always visible from 640px up. On
+ * phones a tap opens the details sheet instead; only folder delete stays
+ * visible there, since folders have no details sheet.
+ */
+function RowActions({
+  isFolder,
+  name,
+  actions,
+}: {
+  isFolder: boolean;
+  name: string;
+  actions: RowActionHandlers;
+}) {
+  const action = (
+    label: string,
+    icon: React.ReactNode,
+    onClick: () => void,
+    className?: string,
+  ) => (
+    <Button
+      variant="quiet"
+      size="icon-sm"
+      onClick={onClick}
+      aria-label={`${label}: ${name}`}
+      title={label}
+      className={className}
+    >
+      {icon}
+    </Button>
+  );
 
   return (
-    <div
-      key={object.key}
-      onClick={() => handleObjectClick(object)}
-      className="group flex w-full cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 transition-colors hover:bg-accent/50"
-    >
-      <div className="flex flex-1 items-center gap-2 sm:gap-4 min-w-0">
-        {leadingIcon}
-
-        <div className="flex flex-1 items-center justify-between gap-2 sm:gap-4 min-w-0">
-          <div className="flex-1 text-left min-w-0">
-            <div className="font-medium text-sm sm:text-base truncate">
-              {fileName}
-            </div>
-
-            <div className="text-xs sm:text-sm text-muted-foreground">
-              {fileSize}
-              {lastModified}
-            </div>
-          </div>
-
-          {lastModified}
-          {trailingIcon}
+    <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+      {isFolder ? (
+        <>
+          {action("Copy path", <Copy />, actions.copy, "hidden sm:inline-flex")}
+          {action("Delete folder", <Trash2 />, actions.remove, "hover:text-danger")}
+        </>
+      ) : (
+        <div className="hidden items-center gap-0.5 sm:flex">
+          {action("Download", <Download />, actions.download)}
+          {action("Share link", <Link2 />, actions.share)}
+          {action("Copy key", <Copy />, actions.copy)}
+          {action("Delete", <Trash2 />, actions.remove, "hover:text-danger")}
         </div>
-      </div>
+      )}
     </div>
+  );
+}
+
+function folderTitle(summary: { objects: number; partial: boolean }): string {
+  const count = summary.objects.toLocaleString();
+  return summary.partial
+    ? `More than ${count} objects; totals cover the first ${count}`
+    : `${count} ${summary.objects === 1 ? "object" : "objects"}`;
+}
+
+function Pending() {
+  return (
+    <span
+      className="inline-block h-2.5 w-12 animate-pulse rounded-full bg-muted align-middle"
+      aria-label="Calculating"
+    />
+  );
+}
+
+function SkeletonRow({ showModified }: { showModified: boolean }) {
+  return (
+    <tr>
+      <td className="h-10 px-3">
+        <div className="flex items-center gap-3">
+          <div className="size-[18px] rounded-md bg-muted" />
+          <div className="h-3 w-2/5 rounded-full bg-muted" />
+        </div>
+      </td>
+      <td className="px-3">
+        <div className="ml-auto h-3 w-12 rounded-full bg-muted" />
+      </td>
+      {showModified && (
+        <td className="px-3">
+          <div className="h-3 w-28 rounded-full bg-muted" />
+        </td>
+      )}
+    </tr>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mx-auto mt-20 flex max-w-sm flex-col items-center px-4 text-center">
+      <div className="flex size-12 items-center justify-center rounded-xl border bg-subtle text-muted-foreground shadow-xs [&_svg]:size-6">
+        {icon}
+      </div>
+      <h2 className="mt-4 text-base font-semibold">{title}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+function MobileBar({ onOpenNav, title }: { onOpenNav: () => void; title: string }) {
+  return (
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 md:hidden">
+      <Button variant="quiet" size="icon" className="-ml-1" onClick={onOpenNav} aria-label="Open sidebar">
+        <Menu />
+      </Button>
+      <span className="truncate font-semibold">{title}</span>
+    </header>
   );
 }

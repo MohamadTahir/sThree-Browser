@@ -1,27 +1,53 @@
 "use client";
 
-import React from "react";
-import { createContext, useState, useContext, useEffect } from "react";
-import { Bucket, Configs, Group, Credential } from "../models/types";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "react-toastify";
+import { Bucket, Configs, Credential, Group, emptyConfigs } from "@/models/types";
 import {
-  loadConfigsFromStorage,
-  persistConfigsToStorage,
-} from "@/services/storage";
+  changeVaultPassword,
+  createVault,
+  destroyVault,
+  getVaultState,
+  lockVault,
+  saveVault,
+  unlockVault,
+} from "@/services/vault";
+import { Connection } from "@/services/s3Service";
+
+/** Lock automatically after this long without keyboard or pointer input. */
+const AUTO_LOCK_MS = 15 * 60 * 1000;
+
+export type VaultStatus = "loading" | "setup" | "locked" | "unlocked";
 
 type ConfigContextType = {
+  status: VaultStatus;
   configs: Configs;
-  setActiveGroup: (groupId: string) => Promise<void>;
+  setup: (password: string) => Promise<void>;
+  unlock: (password: string) => Promise<boolean>;
+  lock: () => void;
+  reset: () => void;
+  /** Epoch ms at which the vault auto-locks, or null while locked. */
+  getLockDeadline: () => number | null;
+  /** Returns false when the current password is wrong. */
+  changePassword: (current: string, next: string) => Promise<boolean>;
+  toggleGroup: (groupId: string) => Promise<void>;
+  saveGroup: (group: Group) => Promise<void>;
   deleteGroup: (groupId: string) => Promise<void>;
-  addGroup: (group: Group) => Promise<void>;
-  updateGroup: (group: Group) => Promise<void>;
-  setActiveBucket: (bucketId: string) => Promise<void>;
+  setActiveBucket: (bucketId: string | null) => Promise<void>;
+  saveBucket: (bucket: Bucket) => Promise<void>;
   deleteBucket: (bucketId: string) => Promise<void>;
-  addBucket: (bucket: Bucket) => Promise<void>;
-  updateBucket: (bucket: Bucket) => Promise<void>;
-  addCredential: (credential: Credential) => Promise<void>;
+  saveCredential: (credential: Credential) => Promise<void>;
+  /** Throws if any bucket still uses the credential. */
   deleteCredential: (credentialId: string) => Promise<void>;
-  updateCredential: (credential: Credential) => Promise<void>;
+  getConnection: (bucketId: string | null) => Connection | null;
 };
 
 const ConfigContext = createContext<ConfigContextType | null>(null);
@@ -29,188 +55,197 @@ const ConfigContext = createContext<ConfigContextType | null>(null);
 export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [configs, setConfigs] = useState<Configs>({
-    buckets: {},
-    credentials: {},
-    groups: {},
-    activeBucket: null,
-  });
+  const [status, setStatus] = useState<VaultStatus>("loading");
+  const [configs, setConfigs] = useState<Configs>(emptyConfigs);
 
-  const init = async () => {
-    try {
-      const result = await loadConfigsFromStorage();
-      setConfigs(result);
-    } catch (error) {
-      console.error("Failed to load configs:", error);
-      toast.error("Failed to load configs");
-    }
-  };
+  // Latest configs and a write queue, so quick successive edits build on each
+  // other instead of on a stale render, and saves land in order.
+  const configsRef = useRef<Configs>(configs);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const lockDeadline = useRef<number | null>(null);
 
   useEffect(() => {
-    init();
+    setStatus(getVaultState());
   }, []);
 
-  const setActiveGroup = async (groupId: string) => {
-    const group = configs.groups[groupId];
-    const next = {
-      ...configs,
-      groups: {
-        ...configs.groups,
-        [groupId]: {
-          ...configs.groups[groupId],
-          active: !group?.active,
-        },
-      },
-    };
-    await persistConfigsToStorage(next);
+  const applyUnlocked = (next: Configs) => {
+    configsRef.current = next;
     setConfigs(next);
+    setStatus("unlocked");
   };
 
-  const deleteGroup = async (groupId: string) => {
-    const nextBuckets = { ...configs.buckets };
+  const setup = async (password: string) => {
+    applyUnlocked(await createVault(password));
+  };
 
-    for (const id in nextBuckets) {
-      if (nextBuckets[id].groupId === groupId) {
-        nextBuckets[id] = { ...nextBuckets[id], groupId: null };
-      }
+  const unlock = async (password: string) => {
+    const result = await unlockVault(password);
+    if (!result) {
+      return false;
     }
-
-    const nextGroups = { ...configs.groups };
-    delete nextGroups[groupId];
-
-    const next = {
-      ...configs,
-      buckets: nextBuckets,
-      groups: nextGroups,
-    };
-
-    await persistConfigsToStorage(next);
-    setConfigs(next);
+    applyUnlocked(result);
+    return true;
   };
 
-  const addGroup = async (group: Group) => {
-    const nextGroups = { ...configs.groups };
-    nextGroups[group.id] = group;
+  const lock = useCallback(() => {
+    lockVault();
+    // A reload drops every decrypted secret held in React state and caches.
+    window.location.reload();
+  }, []);
 
-    const next = {
-      ...configs,
-      groups: nextGroups,
-    };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
+  const reset = () => {
+    destroyVault();
+    window.location.reload();
   };
 
-  const updateGroup = async (group: Group) => {
-    const nextGroups = { ...configs.groups };
-    nextGroups[group.id] = group;
-    const next = {
-      ...configs,
-      groups: nextGroups,
-    };
-    await persistConfigsToStorage(next);
+  const update = (mutate: (current: Configs) => Configs): Promise<void> => {
+    const next = mutate(configsRef.current);
+    configsRef.current = next;
     setConfigs(next);
+    const write = saveQueue.current.then(() => saveVault(next));
+    saveQueue.current = write.catch(() => undefined);
+    return write.catch((error) => {
+      console.error("Failed to save vault", error);
+      toast.error("Couldn't save your changes. They'll be lost when the app locks.");
+      throw error;
+    });
   };
 
-  const setActiveBucket = async (bucketId: string) => {
-    if (configs.activeBucket === bucketId) {
+  // Auto-lock after inactivity.
+  useEffect(() => {
+    if (status !== "unlocked") {
       return;
     }
-
-    const next = {
-      ...configs,
-      activeBucket: bucketId,
+    let timer = 0;
+    const arm = () => {
+      window.clearTimeout(timer);
+      lockDeadline.current = Date.now() + AUTO_LOCK_MS;
+      timer = window.setTimeout(lock, AUTO_LOCK_MS);
     };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
+    const onActivity = arm;
+    arm();
+    const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    events.forEach((event) =>
+      window.addEventListener(event, onActivity, { passive: true }),
+    );
+    return () => {
+      window.clearTimeout(timer);
+      lockDeadline.current = null;
+      events.forEach((event) => window.removeEventListener(event, onActivity));
+    };
+  }, [status, lock]);
+
+  const getLockDeadline = useCallback(() => lockDeadline.current, []);
+
+  const changePassword = (current: string, next: string) =>
+    changeVaultPassword(current, next, configsRef.current);
+
+  const toggleGroup = (groupId: string) =>
+    update((c) => {
+      const group = c.groups[groupId];
+      if (!group) return c;
+      return {
+        ...c,
+        groups: { ...c.groups, [groupId]: { ...group, active: !group.active } },
+      };
+    });
+
+  const saveGroup = (group: Group) =>
+    update((c) => ({ ...c, groups: { ...c.groups, [group.id]: group } }));
+
+  const deleteGroup = (groupId: string) =>
+    update((c) => {
+      const buckets = { ...c.buckets };
+      for (const id in buckets) {
+        if (buckets[id].groupId === groupId) {
+          buckets[id] = { ...buckets[id], groupId: null };
+        }
+      }
+      const groups = { ...c.groups };
+      delete groups[groupId];
+      return { ...c, buckets, groups };
+    });
+
+  const setActiveBucket = (bucketId: string | null) => {
+    if (configsRef.current.activeBucket === bucketId) {
+      return Promise.resolve();
+    }
+    return update((c) => ({ ...c, activeBucket: bucketId }));
   };
 
-  const deleteBucket = async (bucketId: string) => {
-    const nextBuckets = { ...configs.buckets };
-    delete nextBuckets[bucketId];
+  const saveBucket = (bucket: Bucket) =>
+    update((c) => ({ ...c, buckets: { ...c.buckets, [bucket.id]: bucket } }));
 
-    const next = {
-      ...configs,
-      buckets: nextBuckets,
-      activeBucket:
-        configs.activeBucket === bucketId ? null : configs.activeBucket,
-    };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
+  const deleteBucket = (bucketId: string) =>
+    update((c) => {
+      const buckets = { ...c.buckets };
+      delete buckets[bucketId];
+      return {
+        ...c,
+        buckets,
+        activeBucket: c.activeBucket === bucketId ? null : c.activeBucket,
+      };
+    });
+
+  const saveCredential = (credential: Credential) =>
+    update((c) => ({
+      ...c,
+      credentials: { ...c.credentials, [credential.id]: credential },
+    }));
+
+  const deleteCredential = (credentialId: string) => {
+    const users = Object.values(configsRef.current.buckets).filter(
+      (bucket) => bucket.credentialId === credentialId,
+    );
+    if (users.length > 0) {
+      const names = users.map((b) => `"${b.nickname}"`).join(", ");
+      return Promise.reject(
+        new Error(`Still used by ${names}. Move those connections to another credential first.`),
+      );
+    }
+    return update((c) => {
+      const credentials = { ...c.credentials };
+      delete credentials[credentialId];
+      return { ...c, credentials };
+    });
   };
 
-  const addBucket = async (bucket: Bucket) => {
-    const nextBuckets = { ...configs.buckets, [bucket.id]: bucket };
-    const next = {
-      ...configs,
-      buckets: nextBuckets,
-    };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
-  };
+  const getConnection = useCallback(
+    (bucketId: string | null): Connection | null => {
+      const bucket = bucketId ? configs.buckets[bucketId] : undefined;
+      const credential = bucket && configs.credentials[bucket.credentialId];
+      return bucket && credential ? { bucket, credential } : null;
+    },
+    [configs.buckets, configs.credentials],
+  );
 
-  const updateBucket = async (bucket: Bucket) => {
-    const nextBuckets = { ...configs.buckets };
-    nextBuckets[bucket.id] = bucket;
-    const next = {
-      ...configs,
-      buckets: nextBuckets,
-    };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
-  };
-
-  const addCredential = async (credential: Credential) => {
-    const nextCredentials = { ...configs.credentials };
-    nextCredentials[credential.id] = credential;
-    const next = {
-      ...configs,
-      credentials: nextCredentials,
-    };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
-  };
-
-  const deleteCredential = async (credentialId: string) => {
-    const nextCredentials = { ...configs.credentials };
-    delete nextCredentials[credentialId];
-    const next = {
-      ...configs,
-      credentials: nextCredentials,
-    };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
-  };
-
-  const updateCredential = async (credential: Credential) => {
-    const nextCredentials = { ...configs.credentials };
-    nextCredentials[credential.id] = credential;
-    const next = {
-      ...configs,
-      credentials: nextCredentials,
-    };
-    await persistConfigsToStorage(next);
-    setConfigs(next);
-  };
+  const value = useMemo(
+    () => ({
+      status,
+      configs,
+      setup,
+      unlock,
+      lock,
+      reset,
+      getLockDeadline,
+      changePassword,
+      toggleGroup,
+      saveGroup,
+      deleteGroup,
+      setActiveBucket,
+      saveBucket,
+      deleteBucket,
+      saveCredential,
+      deleteCredential,
+      getConnection,
+    }),
+    // The action functions only touch refs and stable setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [status, configs, lock, getConnection, getLockDeadline],
+  );
 
   return (
-    <ConfigContext.Provider
-      value={{
-        configs,
-        setActiveGroup,
-        deleteGroup,
-        addGroup,
-        updateGroup,
-        setActiveBucket,
-        deleteBucket,
-        addBucket,
-        updateBucket,
-        addCredential,
-        deleteCredential,
-        updateCredential,
-      }}
-    >
-      {children}
-    </ConfigContext.Provider>
+    <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
   );
 };
 

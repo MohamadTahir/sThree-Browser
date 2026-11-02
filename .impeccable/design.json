@@ -1,0 +1,616 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-02T00:00:00+00:00",
+  "title": "Design System: sThree Browser",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Action Blue",
+        "canonical": "hsl(221 83% 53%)",
+        "cssVar": "--accent",
+        "tonalRamp": [
+          "hsl(221 83% 15%)",
+          "hsl(221 83% 25%)",
+          "hsl(221 83% 35%)",
+          "hsl(221 83% 45%)",
+          "hsl(221 83% 55%)",
+          "hsl(221 83% 65%)",
+          "hsl(221 83% 80%)",
+          "hsl(221 83% 95%)"
+        ],
+        "dark": "hsl(221 83% 53%)"
+      },
+      "accent-fg": {
+        "role": "primary",
+        "displayName": "On Action",
+        "canonical": "hsl(0 0% 100%)",
+        "cssVar": "--accent-fg",
+        "tonalRamp": [
+          "hsl(0 0% 15%)",
+          "hsl(0 0% 25%)",
+          "hsl(0 0% 35%)",
+          "hsl(0 0% 45%)",
+          "hsl(0 0% 55%)",
+          "hsl(0 0% 65%)",
+          "hsl(0 0% 80%)",
+          "hsl(0 0% 95%)"
+        ],
+        "dark": "hsl(0 0% 100%)"
+      },
+      "accent-subtle": {
+        "role": "primary",
+        "displayName": "Selection Wash",
+        "canonical": "hsl(221 92% 94.5%)",
+        "cssVar": "--accent-subtle",
+        "tonalRamp": [
+          "hsl(221 92% 15%)",
+          "hsl(221 92% 25%)",
+          "hsl(221 92% 35%)",
+          "hsl(221 92% 45%)",
+          "hsl(221 92% 55%)",
+          "hsl(221 92% 65%)",
+          "hsl(221 92% 80%)",
+          "hsl(221 92% 95%)"
+        ],
+        "dark": "hsl(221 50% 19%)"
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "Selection Ink",
+        "canonical": "hsl(224 76% 46%)",
+        "cssVar": "--accent-text",
+        "tonalRamp": [
+          "hsl(224 76% 15%)",
+          "hsl(224 76% 25%)",
+          "hsl(224 76% 35%)",
+          "hsl(224 76% 45%)",
+          "hsl(224 76% 55%)",
+          "hsl(224 76% 65%)",
+          "hsl(224 76% 80%)",
+          "hsl(224 76% 95%)"
+        ],
+        "dark": "hsl(213 94% 72%)"
+      },
+      "ring": {
+        "role": "primary",
+        "displayName": "Focus Ring",
+        "canonical": "hsl(221 83% 53%)",
+        "cssVar": "--ring",
+        "tonalRamp": [
+          "hsl(221 83% 15%)",
+          "hsl(221 83% 25%)",
+          "hsl(221 83% 35%)",
+          "hsl(221 83% 45%)",
+          "hsl(221 83% 55%)",
+          "hsl(221 83% 65%)",
+          "hsl(221 83% 80%)",
+          "hsl(221 83% 95%)"
+        ],
+        "dark": "hsl(217 91% 60%)"
+      },
+      "success": {
+        "role": "state",
+        "displayName": "Success Green",
+        "canonical": "hsl(142 72% 29%)",
+        "cssVar": "--success",
+        "tonalRamp": [
+          "hsl(142 72% 15%)",
+          "hsl(142 72% 25%)",
+          "hsl(142 72% 35%)",
+          "hsl(142 72% 45%)",
+          "hsl(142 72% 55%)",
+          "hsl(142 72% 65%)",
+          "hsl(142 72% 80%)",
+          "hsl(142 72% 95%)"
+        ],
+        "dark": "hsl(142 55% 52%)"
+      },
+      "warning": {
+        "role": "state",
+        "displayName": "Warning Amber",
+        "canonical": "hsl(30 92% 36%)",
+        "cssVar": "--warning",
+        "tonalRamp": [
+          "hsl(30 92% 15%)",
+          "hsl(30 92% 25%)",
+          "hsl(30 92% 35%)",
+          "hsl(30 92% 45%)",
+          "hsl(30 92% 55%)",
+          "hsl(30 92% 65%)",
+          "hsl(30 92% 80%)",
+          "hsl(30 92% 95%)"
+        ],
+        "dark": "hsl(38 92% 58%)"
+      },
+      "danger": {
+        "role": "state",
+        "displayName": "Danger Red",
+        "canonical": "hsl(0 72% 42%)",
+        "cssVar": "--danger",
+        "tonalRamp": [
+          "hsl(0 72% 15%)",
+          "hsl(0 72% 25%)",
+          "hsl(0 72% 35%)",
+          "hsl(0 72% 45%)",
+          "hsl(0 72% 55%)",
+          "hsl(0 72% 65%)",
+          "hsl(0 72% 80%)",
+          "hsl(0 72% 95%)"
+        ],
+        "dark": "hsl(0 84% 70%)"
+      },
+      "danger-solid": {
+        "role": "state",
+        "displayName": "Danger Solid",
+        "canonical": "hsl(0 72% 45%)",
+        "cssVar": "--danger-solid",
+        "tonalRamp": [
+          "hsl(0 72% 15%)",
+          "hsl(0 72% 25%)",
+          "hsl(0 72% 35%)",
+          "hsl(0 72% 45%)",
+          "hsl(0 72% 55%)",
+          "hsl(0 72% 65%)",
+          "hsl(0 72% 80%)",
+          "hsl(0 72% 95%)"
+        ],
+        "dark": "hsl(0 72% 45%)"
+      },
+      "danger-subtle": {
+        "role": "state",
+        "displayName": "Danger Wash",
+        "canonical": "hsl(0 86% 97%)",
+        "cssVar": "--danger-subtle",
+        "tonalRamp": [
+          "hsl(0 86% 15%)",
+          "hsl(0 86% 25%)",
+          "hsl(0 86% 35%)",
+          "hsl(0 86% 45%)",
+          "hsl(0 86% 55%)",
+          "hsl(0 86% 65%)",
+          "hsl(0 86% 80%)",
+          "hsl(0 86% 95%)"
+        ],
+        "dark": "hsl(0 55% 14%)"
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "hsl(0 0% 100%)",
+        "cssVar": "--bg",
+        "tonalRamp": [
+          "hsl(0 0% 15%)",
+          "hsl(0 0% 25%)",
+          "hsl(0 0% 35%)",
+          "hsl(0 0% 45%)",
+          "hsl(0 0% 55%)",
+          "hsl(0 0% 65%)",
+          "hsl(0 0% 80%)",
+          "hsl(0 0% 95%)"
+        ],
+        "dark": "hsl(225 12% 9.5%)"
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Sidebar Grey",
+        "canonical": "hsl(220 20% 97.5%)",
+        "cssVar": "--sidebar",
+        "tonalRamp": [
+          "hsl(220 20% 15%)",
+          "hsl(220 20% 25%)",
+          "hsl(220 20% 35%)",
+          "hsl(220 20% 45%)",
+          "hsl(220 20% 55%)",
+          "hsl(220 20% 65%)",
+          "hsl(220 20% 80%)",
+          "hsl(220 20% 95%)"
+        ],
+        "dark": "hsl(225 12% 11.5%)"
+      },
+      "subtle": {
+        "role": "neutral",
+        "displayName": "Subtle Band",
+        "canonical": "hsl(220 20% 98.5%)",
+        "cssVar": "--subtle",
+        "tonalRamp": [
+          "hsl(220 20% 15%)",
+          "hsl(220 20% 25%)",
+          "hsl(220 20% 35%)",
+          "hsl(220 20% 45%)",
+          "hsl(220 20% 55%)",
+          "hsl(220 20% 65%)",
+          "hsl(220 20% 80%)",
+          "hsl(220 20% 95%)"
+        ],
+        "dark": "hsl(225 11% 11.5%)"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Fill",
+        "canonical": "hsl(220 16% 95%)",
+        "cssVar": "--muted",
+        "tonalRamp": [
+          "hsl(220 16% 15%)",
+          "hsl(220 16% 25%)",
+          "hsl(220 16% 35%)",
+          "hsl(220 16% 45%)",
+          "hsl(220 16% 55%)",
+          "hsl(220 16% 65%)",
+          "hsl(220 16% 80%)",
+          "hsl(220 16% 95%)"
+        ],
+        "dark": "hsl(225 10% 16%)"
+      },
+      "fg": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "hsl(222 16% 12%)",
+        "cssVar": "--fg",
+        "tonalRamp": [
+          "hsl(222 16% 15%)",
+          "hsl(222 16% 25%)",
+          "hsl(222 16% 35%)",
+          "hsl(222 16% 45%)",
+          "hsl(222 16% 55%)",
+          "hsl(222 16% 65%)",
+          "hsl(222 16% 80%)",
+          "hsl(222 16% 95%)"
+        ],
+        "dark": "hsl(220 16% 93%)"
+      },
+      "fg-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "hsl(220 8% 42%)",
+        "cssVar": "--fg-muted",
+        "tonalRamp": [
+          "hsl(220 8% 15%)",
+          "hsl(220 8% 25%)",
+          "hsl(220 8% 35%)",
+          "hsl(220 8% 45%)",
+          "hsl(220 8% 55%)",
+          "hsl(220 8% 65%)",
+          "hsl(220 8% 80%)",
+          "hsl(220 8% 95%)"
+        ],
+        "dark": "hsl(220 9% 66%)"
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "hsl(220 14% 92%)",
+        "cssVar": "--border",
+        "tonalRamp": [
+          "hsl(220 14% 15%)",
+          "hsl(220 14% 25%)",
+          "hsl(220 14% 35%)",
+          "hsl(220 14% 45%)",
+          "hsl(220 14% 55%)",
+          "hsl(220 14% 65%)",
+          "hsl(220 14% 80%)",
+          "hsl(220 14% 95%)"
+        ],
+        "dark": "hsl(225 9% 17%)"
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "hsl(220 12% 85%)",
+        "cssVar": "--border-strong",
+        "tonalRamp": [
+          "hsl(220 12% 15%)",
+          "hsl(220 12% 25%)",
+          "hsl(220 12% 35%)",
+          "hsl(220 12% 45%)",
+          "hsl(220 12% 55%)",
+          "hsl(220 12% 65%)",
+          "hsl(220 12% 80%)",
+          "hsl(220 12% 95%)"
+        ],
+        "dark": "hsl(225 8% 25%)"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Connection name in the explorer header (-0.015em); vault screen heading."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Dialog titles; product name on the vault screen."
+      },
+      "body-lg": {
+        "displayName": "Body large",
+        "purpose": "Object panel heading, empty-state headings, sidebar product name, large-button text."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Body default (14px on a 16px root): table and sidebar rows, buttons, inputs, field labels, breadcrumbs, descriptions."
+      },
+      "compact": {
+        "displayName": "Compact",
+        "purpose": "Small buttons and the compact search fields."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Column headers, section headings, hints, errors, counts; sentence case, tabular figures."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Literal strings only: object keys, typed confirmations, credentials, connection identity inputs, share URLs, code and file content."
+      }
+    },
+    "shadows": [
+      {
+        "name": "xs",
+        "value": "0 1px 2px 0 rgb(16 24 40 / 0.05)",
+        "purpose": "Resting buttons, inputs, product icon, empty-state icon tiles."
+      },
+      {
+        "name": "card",
+        "value": "0 1px 2px 0 rgb(16 24 40 / 0.04), 0 1px 3px 0 rgb(16 24 40 / 0.06)",
+        "purpose": "Vault status card and the active connection pill."
+      },
+      {
+        "name": "popover",
+        "value": "0 12px 32px -8px rgb(16 24 40 / 0.18), 0 4px 8px -4px rgb(16 24 40 / 0.06)",
+        "purpose": "Upload tray."
+      },
+      {
+        "name": "dialog",
+        "value": "0 24px 56px -12px rgb(16 24 40 / 0.28), 0 8px 16px -8px rgb(16 24 40 / 0.1)",
+        "purpose": "Dialogs and the mobile sidebar drawer."
+      },
+      {
+        "name": "toast",
+        "value": "0 8px 24px -6px rgb(0 0 0 / 0.18), 0 2px 6px -2px rgb(0 0 0 / 0.08)",
+        "purpose": "react-toastify toasts (14px radius, 52px min height) with the tinted popover shadow."
+      },
+      {
+        "name": "focus-outline",
+        "value": "outline: 2px solid hsl(var(--ring) / 0.7); outline-offset: 2px",
+        "purpose": "Global :focus-visible treatment."
+      },
+      {
+        "name": "input-focus-ring",
+        "value": "0 0 0 4px hsl(var(--accent) / 0.15)",
+        "purpose": "Input focus, with border in accent; danger at 15% when invalid."
+      },
+      {
+        "name": "active-connection-ring",
+        "value": "card shadow + 0 0 0 1px hsl(var(--border))",
+        "purpose": "Raised active connection pill in the sidebar."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "150ms ease-out (background, border, color, box-shadow, transform)",
+        "purpose": "Hover fills on buttons, sidebar rows, inputs; chevron rotation."
+      },
+      {
+        "name": "press",
+        "value": "scale(0.98) on :active",
+        "purpose": "All buttons except link."
+      },
+      {
+        "name": "row-fill",
+        "value": "100ms (colors)",
+        "purpose": "Table row hover and selection fills."
+      },
+      {
+        "name": "dialog",
+        "value": "200ms fade + zoom from 0.98",
+        "purpose": "Dialog open and close; scrim fades."
+      },
+      {
+        "name": "drawer",
+        "value": "200ms ease-out (transform)",
+        "purpose": "Mobile sidebar drawer slide."
+      },
+      {
+        "name": "progress",
+        "value": "200ms (width)",
+        "purpose": "Upload and folder-deletion progress bars."
+      },
+      {
+        "name": "shimmer",
+        "value": "1.4s infinite translateX",
+        "purpose": "2px loading bar across the top of the listing."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "All animation and transition durations under prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "40px rows and 24px/12px gutters, Modified column (JS media hook), toolbar labels, 256px filter, hover-revealed folder delete."
+      },
+      {
+        "name": "md",
+        "value": "768px",
+        "purpose": "Sidebar becomes static at 272px (280px drawer below)."
+      },
+      {
+        "name": "lg",
+        "value": "1024px",
+        "purpose": "360px object panel inline (full-screen layer below)."
+      }
+    ],
+    "notes": {
+      "rootFontSize": "16px; rem utilities resolve at standard values. The body defaults to 14px. Type scale in explicit px: 2xs 11/16 and 2xl 24/32 are configured but unused.",
+      "themes": "Light on :root; dark under prefers-color-scheme: dark. colorMeta.<token>.dark is the dark value. Tokens are HSL channel variables consumed as hsl(var(--token)).",
+      "translucency": "Sticky table header: canvas at 80% with backdrop blur (95% fallback). Dialog scrim: black 30% (60% dark) with a 2px blur. No other translucent surfaces."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action per view: Upload, Unlock, Save.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><polyline points=\"17 8 12 3 7 8\"/><line x1=\"12\" x2=\"12\" y1=\"3\" y2=\"15\"/></svg> Upload</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font:500 14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;cursor:pointer;white-space:nowrap;transition:background-color 150ms ease-out,border-color 150ms ease-out,color 150ms ease-out,box-shadow 150ms ease-out,transform 150ms ease-out;border:none;background:hsl(var(--accent));color:hsl(var(--accent-fg));box-shadow:0 1px 2px 0 rgb(16 24 40 / .05);}.ds-btn-primary:hover{background:hsl(var(--accent) / .9);}.ds-btn-primary:active{transform:scale(.98);}.ds-btn-primary:focus-visible{outline:2px solid hsl(var(--ring) / .7);outline-offset:2px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Default button: New folder, Lock, Cancel.",
+      "html": "<button class=\"ds-btn-secondary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg> Lock</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font:500 14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;cursor:pointer;white-space:nowrap;transition:background-color 150ms ease-out,border-color 150ms ease-out,color 150ms ease-out,box-shadow 150ms ease-out,transform 150ms ease-out;border:1px solid hsl(var(--border-strong));background:hsl(var(--bg));color:hsl(var(--fg));box-shadow:0 1px 2px 0 rgb(16 24 40 / .05);}.ds-btn-secondary:hover{background:hsl(var(--subtle));border-color:hsl(var(--fg-muted) / .3);}.ds-btn-secondary:active{transform:scale(.98);}.ds-btn-secondary:focus-visible{outline:2px solid hsl(var(--ring) / .7);outline-offset:2px;}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "36px icon buttons, row actions.",
+      "html": "<button class=\"ds-btn-quiet\" aria-label=\"Refresh\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/></svg></button>",
+      "css": ".ds-btn-quiet{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;border-radius:8px;background:transparent;color:hsl(var(--fg-muted));cursor:pointer;transition:background-color 150ms ease-out,color 150ms ease-out,transform 150ms ease-out;}.ds-btn-quiet:hover{background:hsl(var(--muted));color:hsl(var(--fg));}.ds-btn-quiet:active{transform:scale(.98);}.ds-btn-quiet:focus-visible{outline:2px solid hsl(var(--ring) / .7);outline-offset:2px;}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Final destructive confirm in a dialog.",
+      "html": "<button class=\"ds-btn-danger\">Delete folder</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font:500 14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;cursor:pointer;white-space:nowrap;transition:background-color 150ms ease-out,border-color 150ms ease-out,color 150ms ease-out,box-shadow 150ms ease-out,transform 150ms ease-out;border:none;background:hsl(var(--danger-solid));color:#fff;box-shadow:0 1px 2px 0 rgb(16 24 40 / .05);}.ds-btn-danger:hover{background:hsl(var(--danger-solid) / .9);}.ds-btn-danger:active{transform:scale(.98);}.ds-btn-danger:disabled{opacity:.5;pointer-events:none;}.ds-btn-danger:focus-visible{outline:2px solid hsl(var(--ring) / .7);outline-offset:2px;}"
+    },
+    {
+      "name": "Danger Outline Button",
+      "kind": "button",
+      "refersTo": "button-danger-outline",
+      "description": "Entry point to a destructive action, e.g. Delete in the object panel.",
+      "html": "<button class=\"ds-btn-danger-outline\">Delete object</button>",
+      "css": ".ds-btn-danger-outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;font:500 14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;cursor:pointer;white-space:nowrap;transition:background-color 150ms ease-out,border-color 150ms ease-out,color 150ms ease-out,box-shadow 150ms ease-out,transform 150ms ease-out;border:1px solid hsl(var(--border-strong));background:hsl(var(--bg));color:hsl(var(--danger));box-shadow:0 1px 2px 0 rgb(16 24 40 / .05);}.ds-btn-danger-outline:hover{background:hsl(var(--danger-subtle));border-color:hsl(var(--danger) / .4);}.ds-btn-danger-outline:active{transform:scale(.98);}.ds-btn-danger-outline:focus-visible{outline:2px solid hsl(var(--ring) / .7);outline-offset:2px;}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled field with hint; mono variant for literal strings.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Bucket</span><input class=\"ds-input ds-input-mono\" placeholder=\"my-bucket\"><span class=\"ds-field-hint\">Exactly as it appears in your provider.</span></label>",
+      "css": ".ds-field{display:grid;gap:6px;width:320px;font:14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:hsl(var(--fg));}.ds-field-label{font-weight:500;}.ds-field-hint{font-size:12.5px;line-height:18px;color:hsl(var(--fg-muted));}.ds-input{height:36px;padding:0 12px;border:1px solid hsl(var(--border-strong));border-radius:8px;background:hsl(var(--bg));color:hsl(var(--fg));font:inherit;box-shadow:0 1px 2px 0 rgb(16 24 40 / .05);transition:border-color 150ms,box-shadow 150ms;}.ds-input::placeholder{color:hsl(var(--fg-muted) / .8);}.ds-input:hover{border-color:hsl(var(--fg-muted) / .4);}.ds-input:focus-visible{outline:none;border-color:hsl(var(--accent));box-shadow:0 0 0 4px hsl(var(--accent) / .15);}.ds-input-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}"
+    },
+    {
+      "name": "Connection List",
+      "kind": "nav",
+      "refersTo": "connection-row",
+      "description": "Sidebar connection rows; the active row is a raised canvas pill with a blue icon; amber dot for a missing credential.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-row ds-nav-row-active\" aria-current=\"page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><ellipse cx=\"12\" cy=\"5\" rx=\"9\" ry=\"3\"/><path d=\"M3 5v14a9 3 0 0 0 18 0V5\"/><path d=\"M3 12a9 3 0 0 0 18 0\"/></svg><span>production-assets</span></button><button class=\"ds-nav-row\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><ellipse cx=\"12\" cy=\"5\" rx=\"9\" ry=\"3\"/><path d=\"M3 5v14a9 3 0 0 0 18 0V5\"/><path d=\"M3 12a9 3 0 0 0 18 0\"/></svg><span>backups</span><i class=\"ds-dot-warn\" title=\"No credential assigned\"></i></button><button class=\"ds-nav-row\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><ellipse cx=\"12\" cy=\"5\" rx=\"9\" ry=\"3\"/><path d=\"M3 5v14a9 3 0 0 0 18 0V5\"/><path d=\"M3 12a9 3 0 0 0 18 0\"/></svg><span>media-archive</span></button></nav>",
+      "css": ".ds-nav{display:grid;gap:2px;width:248px;padding:12px;background:hsl(var(--sidebar));}.ds-nav-row{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:none;border-radius:10px;background:transparent;color:hsl(var(--fg) / .9);font:14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:left;cursor:pointer;transition:background-color 150ms ease-out;}.ds-nav-row svg{flex-shrink:0;color:hsl(var(--fg-muted));}.ds-nav-row span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.ds-nav-row:hover{background:hsl(var(--muted));}.ds-nav-row-active,.ds-nav-row-active:hover{background:hsl(var(--bg));color:hsl(var(--fg));font-weight:500;box-shadow:0 1px 2px 0 rgb(16 24 40 / .04),0 1px 3px 0 rgb(16 24 40 / .06),0 0 0 1px hsl(var(--border));}.ds-nav-row-active svg{color:hsl(var(--accent-text));}.ds-dot-warn{width:6px;height:6px;border-radius:9999px;background:hsl(var(--warning));}.ds-nav-row:focus-visible{outline:2px solid hsl(var(--ring) / .7);outline-offset:2px;}"
+    },
+    {
+      "name": "Vault Status Card",
+      "kind": "card",
+      "refersTo": "vault-status",
+      "description": "Always-visible vault state with auto-lock countdown and Lock.",
+      "html": "<div class=\"ds-vault\"><span class=\"ds-vault-dot\"></span><div class=\"ds-vault-text\"><p class=\"ds-vault-title\">Vault unlocked</p><p class=\"ds-vault-meta\">Locks in 14 min</p></div><button class=\"ds-vault-lock\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg> Lock</button></div>",
+      "css": ".ds-vault{display:flex;align-items:center;gap:12px;width:248px;padding:10px 14px;border:1px solid hsl(var(--border));border-radius:14px;background:hsl(var(--bg));box-shadow:0 1px 2px 0 rgb(16 24 40 / .04),0 1px 3px 0 rgb(16 24 40 / .06);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:hsl(var(--fg));}.ds-vault-dot{width:8px;height:8px;border-radius:9999px;background:hsl(var(--success));box-shadow:0 0 0 4px hsl(var(--success) / .2);flex-shrink:0;}.ds-vault-text{flex:1;min-width:0;line-height:1.25;}.ds-vault-title{margin:0;font-size:14px;font-weight:500;}.ds-vault-meta{margin:0;font-size:12.5px;color:hsl(var(--fg-muted));font-variant-numeric:tabular-nums;}.ds-vault-lock{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border:1px solid hsl(var(--border-strong));border-radius:8px;background:hsl(var(--bg));color:hsl(var(--fg));font:500 13px/20px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 1px 2px 0 rgb(16 24 40 / .05);cursor:pointer;transition:background-color 150ms ease-out,transform 150ms ease-out;}.ds-vault-lock:hover{background:hsl(var(--subtle));}.ds-vault-lock:active{transform:scale(.98);}"
+    },
+    {
+      "name": "Object Table Row",
+      "kind": "custom",
+      "refersTo": "table-row",
+      "description": "Divider-free listing with inset 10px-rounded hover and selection fills, tabular metadata, neutral 18px icons, hover-revealed folder delete.",
+      "html": "<div class=\"ds-tablewrap\"><table class=\"ds-table\"><thead><tr><th>Name</th><th class=\"r\">Size</th><th>Modified</th></tr></thead><tbody><tr class=\"folder\"><td><span class=\"n\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/></svg><span>assets</span></span><button class=\"del\" aria-label=\"Delete folder assets\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6h18\"/><path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\"/><path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\"/></svg></button></td><td class=\"r m\">&mdash;</td><td class=\"m\">&mdash;</td></tr><tr><td><span class=\"n\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/></svg><span>report-2026-10.pdf</span></span></td><td class=\"r m\">1.4 MB</td><td class=\"m\">Oct 31, 2026</td></tr><tr class=\"sel\"><td><span class=\"n\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/></svg><span>logo.png</span></span></td><td class=\"r m\">48 kB</td><td class=\"m\">Oct 28, 2026</td></tr></tbody></table></div>",
+      "css": ".ds-tablewrap{width:560px;padding:0 12px 12px;background:hsl(var(--bg));}.ds-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font:14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:hsl(var(--fg));}.ds-table th{height:40px;padding:0 12px;text-align:left;font-size:12.5px;font-weight:500;color:hsl(var(--fg-muted));background:hsl(var(--bg) / .8);backdrop-filter:blur(8px);}.ds-table th.r{text-align:right;width:112px;}.ds-table th:last-child{width:200px;}.ds-table td{height:40px;padding:0 12px;transition:background-color 100ms;}.ds-table td:first-child{position:relative;border-radius:10px 0 0 10px;}.ds-table td:last-child{border-radius:0 10px 10px 0;}.ds-table .n{display:flex;align-items:center;gap:12px;min-width:0;}.ds-table .n svg{flex-shrink:0;color:hsl(var(--fg-muted));}.ds-table .n span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.ds-table tr.folder .n svg{fill:hsl(var(--fg-muted) / .15);}.ds-table tr.folder .n span{font-weight:500;}.ds-table .r{text-align:right;}.ds-table .m{color:hsl(var(--fg-muted));font-variant-numeric:tabular-nums;}.ds-table tbody tr:hover td{background:hsl(var(--muted) / .7);}.ds-table tr.sel td,.ds-table tr.sel:hover td{background:hsl(var(--accent-subtle));}.ds-table tr.sel .n svg,.ds-table tr.sel .n span{color:hsl(var(--accent-text));font-weight:500;}.ds-table .del{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:hsl(var(--fg-muted));cursor:pointer;opacity:0;transition:opacity 150ms,background-color 150ms,color 150ms;}.ds-table tr:hover .del,.ds-table .del:focus-visible{opacity:1;}.ds-table .del:hover{background:hsl(var(--muted));color:hsl(var(--danger));}"
+    },
+    {
+      "name": "Delete Folder Progress",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "Folder-deletion dialog body: typed mono confirmation and the red batch progress bar.",
+      "html": "<div class=\"ds-delfolder\"><p class=\"ds-delfolder-desc\"><b>photos/2024/</b> and all 3,412 objects in it (1.2 GB) will be permanently deleted, unless the bucket has versioning enabled.</p><label class=\"ds-delfolder-field\"><span>Type 2024 to confirm</span><input value=\"2024\" disabled></label><div class=\"ds-delfolder-meta\"><span>Deleting…</span><span>2,000 of 3,412</span></div><div class=\"ds-delfolder-track\"><div style=\"width:58%\"></div></div></div>",
+      "css": ".ds-delfolder{display:grid;gap:20px;width:400px;padding:24px;border:1px solid hsl(var(--border));border-radius:14px;background:hsl(var(--bg));box-shadow:0 24px 56px -12px rgb(16 24 40 / .28),0 8px 16px -8px rgb(16 24 40 / .1);font:14px/21px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:hsl(var(--fg));}.ds-delfolder-desc{margin:0;color:hsl(var(--fg-muted));}.ds-delfolder-desc b{font-weight:500;color:hsl(var(--fg));word-break:break-all;}.ds-delfolder-field{display:grid;gap:6px;font-weight:500;}.ds-delfolder-field input{height:36px;padding:0 12px;border:1px solid hsl(var(--border-strong));border-radius:8px;background:hsl(var(--bg));font:400 14px/21px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:hsl(var(--fg));opacity:.6;}.ds-delfolder-meta{display:flex;justify-content:space-between;margin-bottom:-14px;font-size:12.5px;line-height:18px;color:hsl(var(--fg-muted));font-variant-numeric:tabular-nums;}.ds-delfolder-track{height:6px;overflow:hidden;border-radius:9999px;background:hsl(var(--muted));}.ds-delfolder-track div{height:100%;border-radius:9999px;background:hsl(var(--danger-solid));transition:width 200ms;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Console",
+    "overview": "sThree Browser is the category-standard storage console, built to the polish bar of Linear, Vercel, GitHub and the R2/S3 consoles. Grey-white surfaces, near-black ink, soft hairlines and rounded, inset rows. One blue marks what you can do next and what you have selected. Nothing glows, nothing floats unless it actually sits above the page, and motion is limited to state feedback. It deliberately rejects the dark glassmorphic shadcn look and its habit of animating everything.\n\nThe interface is made for repeat work, comfortable rather than cramped. A 16px root with a 14px body and 36px controls reads at a normal desktop size while a long listing still fits on one screen. Figures use tabular alignment so sizes and dates line up in columns. Security state is part of the chrome: the vault status card with its auto-lock countdown sits at the top of the sidebar on every screen. The full light and dark themes follow the system setting (`prefers-color-scheme`), and there is no in-app theme toggle.",
+    "keyCharacteristics": [
+      "Neutral surfaces in three tones (white content, blue-grey sidebar, near-white subtle bands) separated by soft 1px hairlines.",
+      "One blue accent, used only for primary action, selection and focus.",
+      "System UI type stack, px ramp from 12.5px to 20px with a 14px body, tabular figures for every number.",
+      "Monospace only for literal strings the user types or copies verbatim.",
+      "Rows are inset rounded fills, not ruled lines.",
+      "Flat at rest, with hairline-scale shadows on controls and cards; real shadows reserved for floating layers.",
+      "Light and dark themes from the same HSL channel tokens."
+    ],
+    "rules": [
+      {
+        "name": "The One Blue Rule",
+        "body": "Blue appears only for primary actions, selection and focus. It is never decoration, never a link colour in running text, never an icon tint for folders or file types. A file icon turns Selection Ink only while its row is selected.",
+        "section": "colors"
+      },
+      {
+        "name": "The Meaningful State Rule",
+        "body": "Green, amber and red appear only where they carry a state the user must read. Folder and file icons are neutral (`fg-muted`, folders with a 15% fill of the same colour). User-chosen group colours appear only as the 8px dot beside the group name.",
+        "section": "colors"
+      },
+      {
+        "name": "The Raised Selection Exception",
+        "body": "The active sidebar connection is the one selection that is not a blue wash: it is a raised canvas pill (card shadow plus a 1px hairline ring) in ink at 500 weight, and its database icon in Selection Ink carries the selection. On the grey sidebar a white pill reads as \"this one is open\" without a second blue surface competing with the table selection.",
+        "section": "colors"
+      },
+      {
+        "name": "The px Ramp Rule",
+        "body": "The root font size is 16px, so rem utilities resolve at their standard values (a 0.25rem step is 4px; `h-9` is 36px). The body defaults to 14px. The type scale is declared in explicit px with paired line heights (12.5/18, 14/21, 15/22, 17/26, 20/28). Touch-critical sizes stay explicit px: mobile list rows are exactly 44px.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every number (sizes, dates, counts, percentages, countdowns, ETags) uses tabular figures in the sans face. Metadata is never set in monospace to make it align.",
+        "section": "typography"
+      },
+      {
+        "name": "The Literal String Rule",
+        "body": "Monospace marks strings that must be read or typed exactly: object keys and prefixes (the key block, the drop-target path, the new-folder prefix), the folder name typed to confirm a folder deletion, secret and credential fields (password inputs, access keys, masked key previews), the connection identity fields (bucket, region, endpoint inputs), share URLs, and code or file content (the CORS rule, text previews, raw error detail). Every other field, including displayed size, type, date, storage class and ETag, is sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The Phantom Column Rule",
+        "body": "The table is `table-fixed` and uses full-width `colSpan` rows (the parent-folder row). The Modified column therefore renders only at 640px and up through a JS media hook. Never hide a column in this table with CSS alone; it leaves a phantom column.",
+        "section": "layout"
+      },
+      {
+        "name": "The Search Threshold Rule",
+        "body": "The sidebar connection search appears only when there are more than 6 connections. Below that the list fits without scrolling and the field is noise.",
+        "section": "layout"
+      },
+      {
+        "name": "The Shadow-on-Float Rule",
+        "body": "Only layers that actually sit above the page (tray, toasts, dialogs, drawer) get a real shadow (popover or dialog). Resting elements carry at most the hairline-scale `xs` or `card` lift. Panels, tables and the sidebar are never lifted.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Persistent Failure Rule",
+        "body": "Completed uploads can be dismissed. Failed uploads stay, washed red with the reason in red text, until the user dismisses them. Toasts for other notices appear bottom-right.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** keep blue to primary action, selection and focus (the One Blue Rule); the only non-wash selection is the raised active connection pill.",
+      "**Do** set every number in tabular sans figures, and monospace only for literal strings (the Literal String Rule).",
+      "**Do** write touch-critical and column sizes in explicit px (44px mobile rows, 272px sidebar, 360px panel).",
+      "**Do** render conditional table columns in JS when the table is `table-fixed` with `colSpan` rows.",
+      "**Do** draw row hover and selection as inset 10px-rounded fills, not as divider lines.",
+      "**Do** make bulk destructive actions show their scope, require typing the target's name, and report progress and errors inside the dialog.",
+      "**Do** keep vault state visible on every unlocked screen.",
+      "**Do** keep motion to state feedback: 100–150ms fills, a 0.98 press, 200ms for dialogs, the drawer and progress, and nothing under `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "**Don't** colour folder or file-type icons; they stay in muted ink.",
+      "**Don't** use green, amber or red for anything that is not a state.",
+      "**Don't** lift resting surfaces beyond the `xs` or `card` shadow; only floating layers get the popover or dialog shadow.",
+      "**Don't** add uppercase, letter-spaced labels above headings; section labels are 12.5px sentence case.",
+      "**Don't** auto-dismiss failed uploads.",
+      "**Don't** bring back the dark glassmorphic look: no translucent blurred panels or cards and no glows. Translucency is limited to the sticky table header and the 2px dialog-scrim blur."
+    ]
+  }
+}

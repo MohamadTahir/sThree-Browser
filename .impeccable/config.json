@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [
+      ".impeccable/mocks/**"
+    ],
+    "ignoreValues": [
+      {
+        "rule": "design-system-color",
+        "value": "#15171b",
+        "createdAt": "2026-11-02T15:06:46.938Z"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "16px",
+        "createdAt": "2026-11-02T15:06:46.970Z"
+      }
+    ]
+  }
+}
