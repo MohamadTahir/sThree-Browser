@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
-import { useConfig } from "@/context/config";
+import { LOCK_NOTICE_KEY, useConfig } from "@/context/config";
 import { MIN_PASSWORD_LENGTH, validateNewPassword } from "@/services/vault";
 import { errorMessage } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -18,6 +18,16 @@ export default function VaultGate() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // Why the vault locked (idle timeout, change in another window), shown once.
+  const [notice] = useState<string | null>(() => {
+    try {
+      const value = sessionStorage.getItem(LOCK_NOTICE_KEY);
+      sessionStorage.removeItem(LOCK_NOTICE_KEY);
+      return value;
+    } catch {
+      return null;
+    }
+  });
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -81,6 +91,11 @@ export default function VaultGate() {
           </div>
 
           <div className="grid gap-4">
+            {notice && !isSetup && (
+              <p role="status" className="rounded-md border bg-subtle px-3 py-2 text-sm text-muted-foreground">
+                {notice}
+              </p>
+            )}
             <PasswordInput
               label="Master password"
               value={password}

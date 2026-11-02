@@ -92,7 +92,7 @@ const SHOW_MODIFIED_FROM = 720;
 const SHOW_ACTIONS_FROM = 520;
 
 export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
-  const { configs, getConnection } = useConfig();
+  const { configs, getConnection, keepAlive } = useConfig();
   const activeId = configs.activeBucket;
   const bucket = activeId ? configs.buckets[activeId] : undefined;
   const credential = bucket ? configs.credentials[bucket.credentialId] : undefined;
@@ -180,6 +180,14 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
     setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...patch } : u)));
   }, []);
 
+  // Uploads in flight. They hold signed credentials, so they stop as soon as
+  // the explorer unmounts (the vault locked or the app is going away).
+  const activeUploads = useRef(new Map<string, () => Promise<void>>());
+  useEffect(() => {
+    const uploadsAtUnmount = activeUploads.current;
+    return () => uploadsAtUnmount.forEach((abort) => void abort());
+  }, []);
+
   const startUploads = useCallback(
     (files: File[]) => {
       if (!connection) return;
@@ -187,14 +195,18 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
       for (const file of files) {
         const id = crypto.randomUUID();
         const key = target + file.name;
-        const handle = uploadFile(connection, key, file, (progress) =>
-          patchUpload(id, { progress }),
-        );
+        const handle = uploadFile(connection, key, file, (progress) => {
+          patchUpload(id, { progress });
+          // A running upload counts as activity, so auto-lock waits for it.
+          keepAlive();
+        });
+        activeUploads.current.set(id, handle.abort);
         setUploads((list) => [
           ...list,
           { id, name: file.name, key, progress: 0, status: "uploading", cancel: () => void handle.abort() },
         ]);
         handle.done
+          .finally(() => activeUploads.current.delete(id))
           .then(() => {
             patchUpload(id, { status: "done", progress: 1, cancel: undefined });
             window.setTimeout(() => setUploads((l) => l.filter((u) => u.id !== id)), 4000);
@@ -213,7 +225,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           });
       }
     },
-    [connection, prefix, patchUpload, reload],
+    [connection, prefix, patchUpload, reload, keepAlive],
   );
 
   const requestUpload = (files: File[]) => {
