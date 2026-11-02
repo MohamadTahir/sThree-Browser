@@ -1,30 +1,58 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import { Label } from "./label";
+
+export const controlClass =
+  "h-9 w-full rounded-md border border-border-strong bg-background px-3 text-sm text-foreground shadow-xs transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/80 hover:border-muted-foreground/40 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger aria-[invalid=true]:focus-visible:ring-danger/15";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  hint?: React.ReactNode;
   error?: string;
 }
 
+/** Text input with optional label, hint, and error, wired for screen readers. */
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, type, ...props }, ref) => {
+  ({ className, label, hint, error, id, ...props }, ref) => {
+    const autoId = React.useId();
+    const inputId = id ?? autoId;
+    const hintId = hint ? `${inputId}-hint` : undefined;
+    const errorId = error ? `${inputId}-error` : undefined;
+
+    const input = (
+      <input
+        id={inputId}
+        ref={ref}
+        className={cn(controlClass, className)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
+        {...props}
+      />
+    );
+
+    if (!label && !hint && !error) {
+      return input;
+    }
+
     return (
-      <div className="grid gap-2 w-full">
-        {label && <Label>{label}</Label>}
-        <input
-          max={2}
-          type={type}
-          className={cn(
-            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none",
-            "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-            className,
-          )}
-          ref={ref}
-          {...props}
-        />
-        {error && <p className="text-sm text-red-500">{error}</p>}
+      <div className="grid gap-1.5">
+        {label && (
+          <label htmlFor={inputId} className="text-sm font-medium">
+            {label}
+          </label>
+        )}
+        {input}
+        {error ? (
+          <p id={errorId} className="text-xs text-danger">
+            {error}
+          </p>
+        ) : (
+          hint && (
+            <p id={hintId} className="text-xs text-muted-foreground">
+              {hint}
+            </p>
+          )
+        )}
       </div>
     );
   },

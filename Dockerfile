@@ -1,58 +1,57 @@
-FROM node:24-alpine AS base
+# syntax=docker/dockerfile:1.7
+#
+# Web build of sThree Browser. The server only serves the static UI and
+# /api/health; all S3 traffic goes from the user's browser straight to the
+# bucket, so the container never handles credentials.
 
-# Match package.json "packageManager" major line (avoid un-pinned global)
-RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+FROM node:26-alpine AS base
+# Node 25+ no longer ships corepack; install the pnpm version pinned in
+# package.json "packageManager" directly.
+RUN npm install -g pnpm@10.33.2 && npm cache clean --force
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install dependencies only when needed
+# ---- dependencies ---------------------------------------------------------
 FROM base AS deps
 WORKDIR /app
-
-# Copy package files
 COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
-
-# Rebuild the source code only when needed
+# ---- build ----------------------------------------------------------------
 FROM base AS builder
 WORKDIR /app
-
-# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./package.json
-COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
-
-# Copy source code
 COPY . .
-
-ENV NEXT_TELEMETRY_DISABLED=1
+# Production build: strict CSP without 'unsafe-eval' (see next.config.js)
 ENV NODE_ENV=production
-
-# Build Next.js (standalone output — see next.config.js when TAURI_BUILD is unset)
 RUN pnpm build
 
-# Runtime only — no pnpm/corepack needed
-FROM node:24-alpine AS runner
+# ---- runtime --------------------------------------------------------------
+FROM node:26-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+LABEL org.opencontainers.image.title="sThree Browser" \
+      org.opencontainers.image.description="Browse S3 buckets with credentials that never leave your device" \
+      org.opencontainers.image.source="https://github.com/MohamadTahir/sThree-Browser" \
+      org.opencontainers.image.licenses="MIT"
 
-# Create a non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 
-# Standalone server + traced node_modules (see Next.js "standalone" output)
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser --system --uid 1001 --ingroup nodejs nextjs
+
+# Standalone server + traced node_modules (Next.js "standalone" output)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
-
 EXPOSE 3000
 
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/api/health" || exit 1
 
-# Start Next.js server
 CMD ["node", "server.js"]

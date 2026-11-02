@@ -42,3 +42,7 @@ export interface DeleteItem {
   name: string;
   id: string;
 }
+
+export function emptyConfigs(): Configs {
+  return { buckets: {}, credentials: {}, groups: {}, activeBucket: null };
+}

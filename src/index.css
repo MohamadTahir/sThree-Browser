@@ -4,134 +4,154 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --radius: 0.75rem;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-
-    /* Elevated surface for toasts (card === background, so toasts need their own step) */
-    --toast-surface: 222.2 36% 16%;
-    --toast-border: 215 25% 38%;
-
-    /* react-toastify — align with shadcn/tailwind tokens */
-    --toastify-color-dark: hsl(var(--toast-surface));
-    --toastify-color-light: hsl(var(--toast-surface));
-    --toastify-text-color-dark: hsl(var(--foreground));
-    --toastify-text-color-light: hsl(var(--foreground));
-    --toastify-toast-bd-radius: var(--radius);
-    --toastify-toast-shadow:
-      0 10px 15px -3px rgb(0 0 0 / 0.35),
-      0 4px 6px -4px rgb(0 0 0 / 0.25),
-      0 0 0 1px hsl(0 0% 100% / 0.06);
-    --toastify-font-family: inherit;
-    --toastify-color-info: hsl(var(--primary));
-    --toastify-icon-color-info: hsl(var(--primary));
-    --toastify-color-success: hsl(var(--chart-2));
-    --toastify-icon-color-success: hsl(var(--chart-2));
-    --toastify-color-warning: hsl(var(--chart-3));
-    --toastify-icon-color-warning: hsl(var(--chart-3));
-    --toastify-color-error: hsl(0 72% 51%);
-    --toastify-icon-color-error: hsl(0 72% 51%);
-    --toastify-spinner-color: hsl(var(--muted-foreground));
-    --toastify-spinner-color-empty-area: hsl(var(--border));
-    --toastify-color-progress-dark: hsl(var(--primary));
+    color-scheme: light;
+    --bg: 0 0% 100%;
+    --sidebar: 220 20% 97.5%;
+    --subtle: 220 20% 98.5%;
+    --muted: 220 16% 95%;
+    --fg: 222 16% 12%;
+    --fg-muted: 220 8% 42%;
+    --border: 220 14% 92%;
+    --border-strong: 220 12% 85%;
+    --accent: 221 83% 53%;
+    --accent-fg: 0 0% 100%;
+    --accent-subtle: 221 92% 94.5%;
+    --accent-text: 224 76% 46%;
+    --success: 142 72% 29%;
+    --warning: 30 92% 36%;
+    --danger: 0 72% 42%;
+    --danger-solid: 0 72% 45%;
+    --danger-subtle: 0 86% 97%;
+    --ring: 221 83% 53%;
+    --scrim: 222 30% 10% / 0.32;
   }
-}
 
-@layer base {
+  /* Dark: follows the system unless the user picked a theme (data-theme). */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: 225 12% 9.5%;
+      --sidebar: 225 12% 11.5%;
+      --subtle: 225 11% 11.5%;
+      --muted: 225 10% 16%;
+      --fg: 220 16% 93%;
+      --fg-muted: 220 9% 66%;
+      --border: 225 9% 17%;
+      --border-strong: 225 8% 25%;
+      --accent-subtle: 221 50% 19%;
+      --accent-text: 213 94% 72%;
+      --success: 142 55% 52%;
+      --warning: 38 92% 58%;
+      --danger: 0 84% 70%;
+      --danger-subtle: 0 55% 14%;
+      --ring: 217 91% 60%;
+      --scrim: 0 0% 0% / 0.6;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: 225 12% 9.5%;
+    --sidebar: 225 12% 11.5%;
+    --subtle: 225 11% 11.5%;
+    --muted: 225 10% 16%;
+    --fg: 220 16% 93%;
+    --fg-muted: 220 9% 66%;
+    --border: 225 9% 17%;
+    --border-strong: 225 8% 25%;
+    --accent-subtle: 221 50% 19%;
+    --accent-text: 213 94% 72%;
+    --success: 142 55% 52%;
+    --warning: 38 92% 58%;
+    --danger: 0 84% 70%;
+    --danger-subtle: 0 55% 14%;
+    --ring: 217 91% 60%;
+    --scrim: 0 0% 0% / 0.6;
+  }
+
+  html,
+  body {
+    @apply h-full bg-background text-foreground antialiased;
+    font-size: 16px;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+  }
+
+  body {
+    @apply font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+
   * {
     @apply border-border;
   }
-  html, body {
-    @apply bg-background text-foreground;
-    height: 100%;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
+
+  ::selection {
+    background: hsl(var(--accent) / 0.22);
   }
-  #root {
-    height: 100%;
-    width: 100%;
-    background: hsl(var(--background));
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.7);
+    outline-offset: 2px;
+  }
+
+  body {
+    @apply text-sm;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-strong)) transparent;
+  }
+
+  input,
+  textarea,
+  select {
+    caret-color: hsl(var(--accent));
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-@layer components {
-  .Toastify__toast-container {
-    color: hsl(var(--foreground));
-  }
-
-  .Toastify__toast-theme--dark,
-  .Toastify__toast-theme--light {
-    border: 1px solid hsl(var(--toast-border));
-  }
-
-  .Toastify__close-button {
-    color: hsl(var(--muted-foreground));
-    opacity: 0.85;
-  }
-
-  .Toastify__close-button:hover,
-  .Toastify__close-button:focus {
-    color: hsl(var(--foreground));
-    opacity: 1;
-  }
+/* react-toastify, aligned with the tokens */
+:root {
+  --toastify-color-light: hsl(var(--bg));
+  --toastify-color-dark: hsl(var(--bg));
+  --toastify-text-color-light: hsl(var(--fg));
+  --toastify-text-color-dark: hsl(var(--fg));
+  --toastify-font-family: inherit;
+  --toastify-toast-bd-radius: 14px;
+  --toastify-toast-min-height: 52px;
+  --toastify-toast-shadow: 0 12px 32px -8px rgb(16 24 40 / 0.18),
+    0 4px 8px -4px rgb(16 24 40 / 0.06);
+  --toastify-color-info: hsl(var(--accent));
+  --toastify-color-success: hsl(var(--success));
+  --toastify-color-warning: hsl(var(--warning));
+  --toastify-color-error: hsl(var(--danger));
+  --toastify-icon-color-info: hsl(var(--accent));
+  --toastify-icon-color-success: hsl(var(--success));
+  --toastify-icon-color-warning: hsl(var(--warning));
+  --toastify-icon-color-error: hsl(var(--danger));
 }
 
-/* Glassmorphism effect - only on desktop */
-@media (min-width: 768px) {
-  .glass {
-    background: rgba(17, 24, 39, 0.7);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
+.Toastify__toast {
+  border: 1px solid hsl(var(--border));
+  font-size: 14px;
+  line-height: 21px;
 }
 
-/* Loading bar animation */
-.loading-bar {
-  position: absolute;
-  width: 30%;
-  animation: loading 1.5s ease-in-out infinite;
-}
-
-@keyframes loading {
-  0% {
-    left: -30%;
-  }
-  50% {
-    left: 100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-* {
-  transition: all 0.3s ease-in-out;
+.Toastify__close-button {
+  color: hsl(var(--fg-muted));
+  opacity: 1;
 }

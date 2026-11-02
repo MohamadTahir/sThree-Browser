@@ -4,59 +4,66 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Check if building for Tauri (via environment variable)
+// Desktop builds are a static export loaded by Tauri; web builds run the
+// standalone Next.js server (Docker).
 const isTauriBuild = process.env.TAURI_BUILD === 'true';
+const isDev = process.env.NODE_ENV !== 'production';
+
+// S3 endpoints are user-configured, so object previews and API calls must be
+// allowed to any http(s) origin. Scripts, frames and plugins stay locked down.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https: http:",
+  "media-src 'self' blob: https: http:",
+  // ipc: is the Tauri bridge, used when `tauri dev` loads this dev server.
+  "connect-src 'self' https: http: ipc: http://ipc.localhost",
+  "font-src 'self' data:",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+const securityHeaders = [
+  { key: 'Content-Security-Policy', value: contentSecurityPolicy },
+  // Presigned URLs must never leak to other sites through the Referer header.
+  { key: 'Referrer-Policy', value: 'no-referrer' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  },
+];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Output standalone for Docker/production deployment, or export for Tauri
   output: isTauriBuild ? 'export' : 'standalone',
-
-  // Disable server-side rendering for pages (use client components)
   reactStrictMode: true,
+  poweredByHeader: false,
 
-  // Use webpack instead of Turbopack (for compatibility with existing config)
   webpack: (config) => {
-    const aliases = {
+    config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname, './src'),
     };
-    // Tauri build: use stubs so we don't bundle Node AWS SDK (desktop uses Rust backend)
-    if (isTauriBuild) {
-      aliases['@/lib/s3Client'] = path.resolve(__dirname, './src/lib/__tauri-stubs__/s3Client');
-      aliases['@aws-sdk/client-s3'] = path.resolve(__dirname, './src/lib/__tauri-stubs__/aws-sdk-client-s3');
-      aliases['@aws-sdk/s3-request-presigner'] = path.resolve(__dirname, './src/lib/__tauri-stubs__/aws-sdk-presigner');
-    }
-    config.resolve.alias = aliases;
     return config;
   },
 
   // Add empty turbopack config to use webpack instead
   turbopack: {},
 
-  // Disable image optimization for static export (Tauri)
-  ...(isTauriBuild && {
-    images: {
-      unoptimized: true,
-    },
-  }),
-
-  // For Tauri, we need to handle CORS (only for web build)
-  ...(!isTauriBuild && {
-    async headers() {
-      return [
-        {
-          source: '/api/:path*',
-          headers: [
-            { key: 'Access-Control-Allow-Credentials', value: 'true' },
-            { key: 'Access-Control-Allow-Origin', value: '*' },
-            { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
-            { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
-          ],
+  ...(isTauriBuild
+    ? { images: { unoptimized: true } }
+    : {
+        async headers() {
+          return [{ source: '/:path*', headers: securityHeaders }];
         },
-      ];
-    },
-  }),
+      }),
 };
 
 export default nextConfig;

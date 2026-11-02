@@ -3,10 +3,10 @@
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_store::Builder::default().build())
+        // S3 requests are signed in the webview and sent through this plugin,
+        // so they need no CORS policy and never pass through another server.
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![
-        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
