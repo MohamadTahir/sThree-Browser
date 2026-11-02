@@ -6,7 +6,11 @@
 # to the bucket, so the container never handles credentials.
 
 # ---- build ----------------------------------------------------------------
-FROM node:26-alpine AS builder
+# The output is plain HTML/CSS/JS, identical for every platform, so it is
+# built once on the build machine's own architecture. Only the runtime stage
+# below is per-platform, and it only copies files, so multi-arch builds need
+# no CPU emulation (running Node under QEMU crashed with illegal-instruction).
+FROM --platform=$BUILDPLATFORM node:26-alpine AS builder
 # Node 25+ no longer ships corepack; install the pnpm version pinned in
 # package.json "packageManager" directly.
 RUN npm install -g pnpm@10.33.2 && npm cache clean --force
