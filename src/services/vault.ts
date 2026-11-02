@@ -34,10 +34,36 @@ interface VaultFile {
   kdf: { name: "scrypt"; N: number; r: number; p: number; salt: string };
   iv: string;
   ct: string;
+  /** Incremented on every write; lets a tab detect writes by other tabs. */
+  rev?: number;
 }
 
 let sessionKey: CryptoKey | null = null;
 let sessionKdf: VaultFile["kdf"] | null = null;
+/** Revision of the vault this tab last read or wrote. */
+let sessionRev = 0;
+
+/**
+ * Another window changed the stored vault since this tab last read it.
+ * "rekeyed": the password changed or the vault was reset, so this tab's key
+ * is stale and must never write again. "changed": same key, newer settings.
+ */
+export class VaultConflictError extends Error {
+  constructor(readonly kind: "rekeyed" | "changed") {
+    super(
+      kind === "rekeyed"
+        ? "The vault was changed in another window."
+        : "Your settings were changed in another window.",
+    );
+    this.name = "VaultConflictError";
+  }
+}
+
+function adoptSession(key: CryptoKey, kdf: VaultFile["kdf"], rev: number): void {
+  sessionKey = key;
+  sessionKdf = kdf;
+  sessionRev = rev;
+}
 
 // ---------------------------------------------------------------------------
 // Encoding helpers
@@ -97,6 +123,7 @@ async function encryptConfigs(
   key: CryptoKey,
   kdf: VaultFile["kdf"],
   configs: Configs,
+  rev: number,
 ): Promise<VaultFile> {
   const iv = randomBytes(IV_BYTES);
   const plaintext = new TextEncoder().encode(JSON.stringify(configs));
@@ -110,6 +137,7 @@ async function encryptConfigs(
     kdf,
     iv: bytesToBase64(iv),
     ct: bytesToBase64(new Uint8Array(ciphertext)),
+    rev,
   };
 }
 
@@ -284,10 +312,9 @@ export async function createVault(password: string): Promise<Configs> {
   const kdf = newKdf();
   const key = await deriveKey(password, kdf);
   const configs = emptyConfigs();
-  const file = await encryptConfigs(key, kdf, configs);
+  const file = await encryptConfigs(key, kdf, configs, 1);
   localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(file));
-  sessionKey = key;
-  sessionKdf = kdf;
+  adoptSession(key, kdf, 1);
   return configs;
 }
 
@@ -300,8 +327,7 @@ export async function unlockVault(password: string): Promise<Configs | null> {
     if (!configs) {
       return null;
     }
-    sessionKey = key;
-    sessionKdf = file.kdf;
+    adoptSession(key, file.kdf, file.rev ?? 0);
     return configs;
   }
 
@@ -317,32 +343,88 @@ export async function unlockVault(password: string): Promise<Configs | null> {
   // Re-encrypt everything in the v3 format, then drop the v2 data.
   const kdf = newKdf();
   const key = await deriveKey(password, kdf);
-  const migrated = await encryptConfigs(key, kdf, configs);
+  const migrated = await encryptConfigs(key, kdf, configs, 1);
   localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(migrated));
   localStorage.removeItem(LEGACY_VERIFIER_KEY);
   localStorage.removeItem(LEGACY_CONFIGS_KEY);
-  sessionKey = key;
-  sessionKdf = kdf;
+  adoptSession(key, kdf, 1);
   return configs;
 }
 
+/** The stored vault, or null when it is missing or unreadable. */
+function readVaultFileOrNull(): VaultFile | null {
+  try {
+    return readVaultFile();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save only if the stored vault is still the one this tab knows: same key
+ * (salt) and same revision. Encryption happens first; the check and the
+ * write then run with no await in between, so no other tab can interleave.
+ */
 export async function saveVault(configs: Configs): Promise<void> {
   if (!sessionKey || !sessionKdf) {
     throw new Error("The vault is locked.");
   }
-  const file = await encryptConfigs(sessionKey, sessionKdf, configs);
-  localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(file));
+  const next = await encryptConfigs(sessionKey, sessionKdf, configs, sessionRev + 1);
+
+  const stored = readVaultFileOrNull();
+  if (!stored || stored.kdf.salt !== sessionKdf.salt) {
+    lockVault();
+    throw new VaultConflictError("rekeyed");
+  }
+  if ((stored.rev ?? 0) !== sessionRev) {
+    throw new VaultConflictError("changed");
+  }
+  localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(next));
+  sessionRev = next.rev!;
 }
 
-/** Re-encrypt the vault under a new password. */
+/**
+ * Re-read the vault after another window wrote it. Returns the current
+ * settings when this tab's key still opens it; otherwise locks this tab and
+ * returns null (password changed, vault reset, or data unreadable).
+ */
+export async function syncVault(): Promise<Configs | null> {
+  if (!sessionKey || !sessionKdf) {
+    return null;
+  }
+  const stored = readVaultFileOrNull();
+  if (!stored || stored.kdf.salt !== sessionKdf.salt) {
+    lockVault();
+    return null;
+  }
+  const configs = await decryptConfigs(sessionKey, stored);
+  if (!configs) {
+    lockVault();
+    return null;
+  }
+  sessionRev = stored.rev ?? 0;
+  return configs;
+}
+
+/**
+ * Re-encrypt the vault under a new password. Uses the stored settings (which
+ * may be newer than this tab's) and returns them, or null when the current
+ * password is wrong.
+ */
 export async function changeVaultPassword(
   currentPassword: string,
   newPassword: string,
-  configs: Configs,
-): Promise<boolean> {
+): Promise<Configs | null> {
   const file = readVaultFile();
-  if (!file || !(await decryptConfigs(await deriveKey(currentPassword, file.kdf), file))) {
-    return false;
+  const configs = file
+    ? await decryptConfigs(await deriveKey(currentPassword, file.kdf), file)
+    : null;
+  if (!file || !configs) {
+    return null;
+  }
+  if (!sessionKdf || file.kdf.salt !== sessionKdf.salt) {
+    lockVault();
+    throw new VaultConflictError("rekeyed");
   }
   const problem = validateNewPassword(newPassword);
   if (problem) {
@@ -350,17 +432,20 @@ export async function changeVaultPassword(
   }
   const kdf = newKdf();
   const key = await deriveKey(newPassword, kdf);
-  const next = await encryptConfigs(key, kdf, configs);
+  const rev = (file.rev ?? 0) + 1;
+  const next = await encryptConfigs(key, kdf, configs, rev);
   localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(next));
-  sessionKey = key;
-  sessionKdf = kdf;
-  return true;
+  adoptSession(key, kdf, rev);
+  return configs;
 }
 
 export function lockVault(): void {
   sessionKey = null;
   sessionKdf = null;
+  sessionRev = 0;
 }
+
+export { VAULT_STORAGE_KEY };
 
 /** Permanently delete the vault and everything in it. */
 export function destroyVault(): void {

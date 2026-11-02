@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { toast } from "react-toastify";
 import { Bucket, Configs, Credential, Group, emptyConfigs } from "@/models/types";
 import {
@@ -18,12 +19,21 @@ import {
   getVaultState,
   lockVault,
   saveVault,
+  syncVault,
   unlockVault,
+  VAULT_STORAGE_KEY,
+  VaultConflictError,
 } from "@/services/vault";
 import { Connection } from "@/services/s3Service";
 
 /** Lock automatically after this long without keyboard or pointer input. */
 const AUTO_LOCK_MS = 15 * 60 * 1000;
+
+/** Why the vault last locked, shown once on the unlock screen. */
+export const LOCK_NOTICE_KEY = "sthree-lock-notice";
+const NOTICE_IDLE = "Locked after 15 minutes of inactivity.";
+const NOTICE_EXTERNAL =
+  "The vault was changed in another window (password change or reset). Unlock it again to continue.";
 
 export type VaultStatus = "loading" | "setup" | "locked" | "unlocked";
 
@@ -32,8 +42,11 @@ type ConfigContextType = {
   configs: Configs;
   setup: (password: string) => Promise<void>;
   unlock: (password: string) => Promise<boolean>;
-  lock: () => void;
+  /** Lock now; `notice` is shown on the unlock screen. */
+  lock: (notice?: string) => void;
   reset: () => void;
+  /** Count as user activity for auto-lock (e.g. while an upload runs). */
+  keepAlive: () => void;
   /** Epoch ms at which the vault auto-locks, or null while locked. */
   getLockDeadline: () => number | null;
   /** Returns false when the current password is wrong. */
@@ -63,6 +76,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const configsRef = useRef<Configs>(configs);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const lockDeadline = useRef<number | null>(null);
+  const armAutoLock = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     setStatus(getVaultState());
@@ -87,11 +101,35 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     return true;
   };
 
-  const lock = useCallback(() => {
+  const lock = useCallback((notice?: string) => {
     lockVault();
-    // A reload drops every decrypted secret held in React state and caches.
-    window.location.reload();
+    // Drop decrypted state before anything else. If the reload below is
+    // cancelled (an upload's "leave page?" prompt), the app is already locked
+    // instead of staying usable with credentials in memory.
+    flushSync(() => {
+      configsRef.current = emptyConfigs();
+      setConfigs(configsRef.current);
+      setStatus("locked");
+    });
+    if (notice) {
+      try {
+        sessionStorage.setItem(LOCK_NOTICE_KEY, notice);
+      } catch {
+        /* storage unavailable: lock without the notice */
+      }
+    }
+    // A reload also clears SDK clients, caches and anything else in memory.
+    window.setTimeout(() => window.location.reload(), 0);
   }, []);
+
+  const applyExternal = (fresh: Configs | null) => {
+    if (!fresh) {
+      lock(NOTICE_EXTERNAL);
+      return;
+    }
+    configsRef.current = fresh;
+    setConfigs(fresh);
+  };
 
   const reset = () => {
     destroyVault();
@@ -104,9 +142,22 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     setConfigs(next);
     const write = saveQueue.current.then(() => saveVault(next));
     saveQueue.current = write.catch(() => undefined);
-    return write.catch((error) => {
-      console.error("Failed to save vault", error);
-      toast.error("Couldn't save your changes. They'll be lost when the app locks.");
+    return write.catch(async (error) => {
+      if (error instanceof VaultConflictError) {
+        // Never overwrite what another window wrote: re-read it instead, or
+        // lock if this tab's key is no longer valid.
+        if (error.kind === "rekeyed") {
+          lock(NOTICE_EXTERNAL);
+        } else {
+          applyExternal(await syncVault());
+          toast.warning(
+            "Another window changed your settings, so your last change wasn't saved. Please try again.",
+          );
+        }
+      } else {
+        console.error("Failed to save vault", error);
+        toast.error("Couldn't save your changes. They'll be lost when the app locks.");
+      }
       throw error;
     });
   };
@@ -120,9 +171,10 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     const arm = () => {
       window.clearTimeout(timer);
       lockDeadline.current = Date.now() + AUTO_LOCK_MS;
-      timer = window.setTimeout(lock, AUTO_LOCK_MS);
+      timer = window.setTimeout(() => lock(NOTICE_IDLE), AUTO_LOCK_MS);
     };
     const onActivity = arm;
+    armAutoLock.current = arm;
     arm();
     const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
     events.forEach((event) =>
@@ -131,14 +183,43 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       window.clearTimeout(timer);
       lockDeadline.current = null;
+      armAutoLock.current = () => undefined;
       events.forEach((event) => window.removeEventListener(event, onActivity));
     };
   }, [status, lock]);
 
+  // Another window wrote the vault (settings, password change, or reset):
+  // pick up its settings, or lock if this tab's key no longer opens it.
+  useEffect(() => {
+    if (status !== "unlocked") {
+      return;
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== VAULT_STORAGE_KEY && event.key !== null) return;
+      void syncVault().then(applyExternal);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+    // applyExternal only touches refs, setters and lock.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, lock]);
+
+  const keepAlive = useCallback(() => armAutoLock.current(), []);
+
   const getLockDeadline = useCallback(() => lockDeadline.current, []);
 
-  const changePassword = (current: string, next: string) =>
-    changeVaultPassword(current, next, configsRef.current);
+  const changePassword = async (current: string, next: string) => {
+    try {
+      const fresh = await changeVaultPassword(current, next);
+      if (!fresh) return false;
+      configsRef.current = fresh;
+      setConfigs(fresh);
+      return true;
+    } catch (error) {
+      if (error instanceof VaultConflictError) lock(NOTICE_EXTERNAL);
+      throw error;
+    }
+  };
 
   const toggleGroup = (groupId: string) =>
     update((c) => {
@@ -227,6 +308,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       unlock,
       lock,
       reset,
+      keepAlive,
       getLockDeadline,
       changePassword,
       toggleGroup,
@@ -241,7 +323,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     }),
     // The action functions only touch refs and stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, configs, lock, getConnection, getLockDeadline],
+    [status, configs, lock, keepAlive, getConnection, getLockDeadline],
   );
 
   return (

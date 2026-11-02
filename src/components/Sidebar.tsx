@@ -282,7 +282,7 @@ function VaultStatus() {
           {minutes ? `Locks in ${minutes} min` : "Encrypted on this device"}
         </p>
       </div>
-      <Button size="sm" variant="secondary" onClick={lock} title="Lock now and clear decrypted keys from memory">
+      <Button size="sm" variant="secondary" onClick={() => lock()} title="Lock now and clear decrypted keys from memory">
         <Lock /> Lock
       </Button>
     </div>

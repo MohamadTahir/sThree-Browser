@@ -49,7 +49,8 @@ Browse AWS S3, Cloudflare R2, MinIO, and any S3-compatible storage. Your keys st
 
 - **Encrypted vault.** Connections, credentials and groups are stored as one AES-256-GCM ciphertext. The key is derived from your master password with scrypt (N=2¹⁷, r=8, p=1) and held in memory only as a non-extractable key. Nothing about your buckets is stored in plain text.
 - **No middleman.** Every S3 request is signed on your device and sent straight to your storage endpoint: by the browser on the web, and by the Tauri HTTP plugin on desktop. The server that hosts the web version never sees your keys.
-- **Auto-lock.** The vault locks after 15 minutes without input, or when you press **Lock**. Locking reloads the app so no decrypted secret stays in memory.
+- **Auto-lock.** The vault locks after 15 minutes without input (a running upload counts as activity), or when you press **Lock**. Locking clears every decrypted secret from the page and aborts uploads first, then reloads, so it can't be left half-open.
+- **Multiple tabs.** A tab only saves if the stored vault is still the one it unlocked. After a password change or reset in another tab, every other open tab locks itself instead of restoring the old password or deleted data; ordinary setting changes sync across tabs.
 - **Hardened web build.** Strict Content-Security-Policy, `Referrer-Policy: no-referrer` (so share links never leak), `X-Frame-Options: DENY`, and no `X-Powered-By`. S3 responses bypass the browser cache.
 - **No tracking.** No analytics and no telemetry.
 - **Upgrading from 0.0.x:** existing data is migrated to the new vault format the first time you unlock.
