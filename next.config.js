@@ -4,9 +4,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Desktop builds are a static export loaded by Tauri; web builds run the
-// standalone Next.js server (Docker).
-const isTauriBuild = process.env.TAURI_BUILD === 'true';
+// Production builds are a static export (out/) for both targets: Tauri
+// loads it on desktop, and static-web-server serves it on the web (see
+// sws.toml). The app needs no server: every S3 request is made from the
+// user's browser. Only `next dev` runs a server, and it sends the same
+// headers that sws.toml sends in production.
 const isDev = process.env.NODE_ENV !== 'production';
 
 // S3 endpoints are user-configured, so object previews and API calls must be
@@ -42,9 +44,16 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: isTauriBuild ? 'export' : 'standalone',
+  ...(isDev
+    ? {
+        async headers() {
+          return [{ source: '/:path*', headers: securityHeaders }];
+        },
+      }
+    : { output: 'export' }),
   reactStrictMode: true,
   poweredByHeader: false,
+  images: { unoptimized: true },
 
   webpack: (config) => {
     config.resolve.alias = {
@@ -56,14 +65,6 @@ const nextConfig = {
 
   // Add empty turbopack config to use webpack instead
   turbopack: {},
-
-  ...(isTauriBuild
-    ? { images: { unoptimized: true } }
-    : {
-        async headers() {
-          return [{ source: '/:path*', headers: securityHeaders }];
-        },
-      }),
 };
 
 export default nextConfig;

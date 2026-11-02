@@ -1,0 +1,46 @@
+# static-web-server config for the web build (out/). There is no backend:
+# every S3 request is made by the user's browser straight to the bucket.
+# Keep the security headers in step with next.config.js (dev server) and
+# src-tauri/tauri.conf.json (desktop).
+
+[general]
+host = "::"
+port = 3000
+root = "/public"
+log-level = "warn"
+
+page404 = "/public/404.html"
+directory-listing = false
+ignore-hidden-files = true
+compression = true
+
+# GET /health returns 200, for orchestrator probes (Kubernetes, Fly, ...).
+health = true
+
+# Cache-Control is set explicitly below instead of by file extension.
+cache-control-headers = false
+# The built-in set only applies with HTTP/2; ours below covers it.
+security-headers = false
+
+[advanced]
+
+[[advanced.headers]]
+source = "**"
+[advanced.headers.headers]
+# S3 endpoints are user-configured, so previews and API calls may reach any
+# http(s) origin. Scripts, frames and plugins stay locked down.
+Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; media-src 'self' blob: https: http:; connect-src 'self' https: http:; font-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+# Share links (presigned URLs) must never leak through the Referer header.
+Referrer-Policy = "no-referrer"
+X-Content-Type-Options = "nosniff"
+X-Frame-Options = "DENY"
+Cross-Origin-Opener-Policy = "same-origin"
+Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+# HTML must revalidate so a new release is picked up straight away.
+Cache-Control = "no-cache"
+
+# Content-hashed build assets never change.
+[[advanced.headers]]
+source = "/_next/static/**"
+[advanced.headers.headers]
+Cache-Control = "public, max-age=31536000, immutable"

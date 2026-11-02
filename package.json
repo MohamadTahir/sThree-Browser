@@ -10,8 +10,6 @@
     "dev": "next dev -p 3000",
     "build": "next build --webpack",
     "typecheck": "tsc --noEmit",
-    "build:tauri": "TAURI_BUILD=true next build --webpack",
-    "start": "next start",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
