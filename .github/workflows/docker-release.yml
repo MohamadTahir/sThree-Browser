@@ -22,9 +22,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      # For the signed build-provenance attestation.
-      id-token: write
-      attestations: write
 
     # Actions are pinned to commit SHAs (tag in the comment) so a moved or
     # compromised tag can't change what runs with package-write access.
@@ -59,7 +56,6 @@ jobs:
             latest=true
 
       - name: Build and push Docker image
-        id: push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
@@ -72,10 +68,3 @@ jobs:
           sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
