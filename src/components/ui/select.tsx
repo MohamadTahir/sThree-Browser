@@ -240,7 +240,7 @@ export function Select({
             // Modal dialogs disable pointer events on the page; the list
             // lives outside the dialog, so opt back in.
             style={{ ...position, pointerEvents: "auto" }}
-            className="z-[70] overflow-y-auto rounded-lg border bg-background p-1 shadow-popover animate-in fade-in-0 zoom-in-[0.98] duration-100"
+            className="z-70 overflow-y-auto rounded-lg border bg-background p-1 shadow-popover animate-in fade-in-0 zoom-in-[0.98] duration-100"
             onMouseDown={(e) => e.preventDefault()}
           >
             {options.map((option, index) => {

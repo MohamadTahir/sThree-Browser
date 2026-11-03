@@ -52,7 +52,7 @@ export default function AppShell() {
       <div
         style={{ "--sidebar-width": `${width}px` } as React.CSSProperties}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-[280px] transition-transform duration-200 ease-out md:relative md:z-auto md:w-[var(--sidebar-width)] md:shrink-0 md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 w-[280px] transition-transform duration-200 ease-out md:relative md:z-auto md:w-(--sidebar-width) md:shrink-0 md:translate-x-0",
           navOpen ? "translate-x-0 shadow-dialog" : "-translate-x-full",
         )}
       >
@@ -121,7 +121,7 @@ function ResizeHandle({ width, onResize }: { width: number; onResize: (width: nu
       onMouseDown={(event) => event.preventDefault()}
       onDoubleClick={() => onResize(DEFAULT_WIDTH)}
       onKeyDown={onKeyDown}
-      className="group absolute inset-y-0 -right-1.5 z-10 hidden w-3 cursor-col-resize touch-none outline-none md:block"
+      className="group absolute inset-y-0 -right-1.5 z-10 hidden w-3 cursor-col-resize touch-none outline-hidden md:block"
     >
       <span
         className={cn(

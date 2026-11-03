@@ -268,7 +268,7 @@ function PreviewArea({
       );
     case "image":
       return (
-        <div className={`${frame} bg-[repeating-conic-gradient(hsl(var(--muted))_0_25%,transparent_0_50%)] bg-[length:16px_16px]`}>
+        <div className={`${frame} bg-[repeating-conic-gradient(hsl(var(--muted))_0_25%,transparent_0_50%)] bg-size-[16px_16px]`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview.url} alt={name} className="max-h-72 w-auto object-contain" referrerPolicy="no-referrer" />
         </div>

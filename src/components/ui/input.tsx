@@ -3,7 +3,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export const controlClass =
-  "h-9 w-full rounded-md border border-border-strong bg-background px-3 text-sm text-foreground shadow-xs transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/80 hover:border-muted-foreground/40 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger aria-[invalid=true]:focus-visible:ring-danger/15";
+  "h-9 w-full rounded-md border border-border-strong bg-background px-3 text-sm text-foreground shadow-xs transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/80 hover:border-muted-foreground/40 focus-visible:border-primary focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger aria-invalid:focus-visible:ring-danger/15";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
