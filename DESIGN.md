@@ -239,7 +239,7 @@ The palette is a cool neutral scale with one blue and three state colours. Every
 - **Danger Red** (`danger`, `danger-solid`, `danger-subtle`): error text and field borders; the solid fill of destructive confirm buttons and of the folder-deletion progress bar; the washed background of inline error notes and failed upload rows.
 
 ### Group colours
-- **Group colours** (`src/lib/groupColors.ts`): eight dots on one OKLCH ramp (lightness 0.64, chroma 0.12; grey at 0.025), each about 3:1 on the light sidebar and 5:1 on the dark one. Hex values saved by the earlier palette are mapped to their replacements when drawn.
+- **Group colours** (`src/lib/groupColors.ts`): the user's eight dot colours (blue #3b82f6, green #16a34a, violet #8b5cf6, amber #f59e0b, red #ef4444, pink #ec4899, teal #14b8a6, grey #6b7280). Keep these as they are; a muted replacement was tried and rejected. Groups saved with that muted palette are drawn in the matching colour here.
 
 ### Neutral
 - **Canvas** (`bg`): content column, dialogs, panels, cards, menus and inputs.
