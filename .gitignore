@@ -34,7 +34,6 @@ standalone
 
 # Tauri
 src-tauri/target
-src-tauri/Cargo.lock
 
 # Claude Code (local launch configs and personal settings; shared settings.json stays)
 .claude/*
