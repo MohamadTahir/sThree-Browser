@@ -77,10 +77,10 @@ The installers end up in `src-tauri/target/release/bundle/`. The desktop app tal
 ### Web version (Docker)
 
 ```bash
-docker run -d -p 3000:3000 --name sthree-browser ghcr.io/mohamadtahir/sthree-browser:latest
+docker run -d -p 8888:8888 --name sthree-browser ghcr.io/mohamadtahir/sthree-browser:latest
 ```
 
-Open http://localhost:3000.
+Open http://localhost:8888.
 
 The image is a static site served by [static-web-server](https://static-web-server.net), a single Rust binary on a scratch base (about 13 MB in all). There is no application server: the container only delivers the app's files, runs as a non-root user, and never sees a credential or an S3 request. `GET /health` returns 200 for orchestrator probes (the image itself defines no Docker health check).
 
