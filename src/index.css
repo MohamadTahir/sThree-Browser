@@ -6,6 +6,7 @@
   :root {
     color-scheme: light;
     --bg: 0 0% 100%;
+    --raised: 0 0% 100%;
     --sidebar: 220 20% 97.5%;
     --subtle: 220 20% 98.5%;
     --muted: 220 16% 95%;
@@ -31,6 +32,7 @@
     :root:not([data-theme="light"]) {
       color-scheme: dark;
       --bg: 225 12% 9.5%;
+      --raised: 225 11% 15%;
       --sidebar: 225 12% 11.5%;
       --subtle: 225 11% 11.5%;
       --muted: 225 10% 16%;
@@ -52,6 +54,7 @@
   :root[data-theme="dark"] {
     color-scheme: dark;
     --bg: 225 12% 9.5%;
+    --raised: 225 11% 15%;
     --sidebar: 225 12% 11.5%;
     --subtle: 225 11% 11.5%;
     --muted: 225 10% 16%;

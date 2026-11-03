@@ -13,6 +13,7 @@ colors:
   danger-solid: "hsl(0 72% 45%)"
   danger-subtle: "hsl(0 86% 97%)"
   bg: "hsl(0 0% 100%)"
+  raised: "hsl(0 0% 100%)"
   sidebar: "hsl(220 20% 97.5%)"
   subtle: "hsl(220 20% 98.5%)"
   muted: "hsl(220 16% 95%)"
@@ -80,10 +81,12 @@ spacing:
   control-lg: "44px"
   row: "40px"
   row-touch: "44px"
-  nav-row: "36px"
+  nav-row: "32px"
   bar: "64px"
   footer: "44px"
   sidebar: "272px"
+  sidebar-min: "220px"
+  sidebar-max: "420px"
   drawer: "280px"
   panel: "360px"
 components:
@@ -151,10 +154,10 @@ components:
     textColor: "{colors.fg}"
     typography: "{typography.body}"
     rounded: "{rounded.lg}"
-    padding: "0 64px 0 10px"
+    padding: "0 36px 0 10px"
     height: "{spacing.nav-row}"
   connection-row-active:
-    backgroundColor: "{colors.bg}"
+    backgroundColor: "{colors.raised}"
     textColor: "{colors.fg}"
   table-row:
     typography: "{typography.body}"
@@ -170,9 +173,18 @@ components:
     backgroundColor: "{colors.accent-subtle}"
     textColor: "{colors.accent-text}"
   vault-status:
+    backgroundColor: "{colors.sidebar}"
+    padding: "0 8px 0 16px"
+    height: "56px"
+  menu:
     backgroundColor: "{colors.bg}"
-    rounded: "{rounded.xl}"
-    padding: "10px 14px"
+    rounded: "{rounded.lg}"
+    padding: "4px"
+  menu-item:
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "0 8px"
+    height: "{spacing.control-sm}"
   dialog:
     backgroundColor: "{colors.bg}"
     rounded: "{rounded.xl}"
@@ -200,7 +212,7 @@ components:
 
 sThree Browser is the category-standard storage console, built to the polish bar of Linear, Vercel, GitHub and the R2/S3 consoles. Grey-white surfaces, near-black ink, soft hairlines and rounded, inset rows. One blue marks what you can do next and what you have selected. Nothing glows, nothing floats unless it actually sits above the page, and motion is limited to state feedback. It deliberately rejects the dark glassmorphic shadcn look and its habit of animating everything.
 
-The interface is made for repeat work, comfortable rather than cramped. A 16px root with a 14px body and 36px controls reads at a normal desktop size while a long listing still fits on one screen. Figures use tabular alignment so sizes and dates line up in columns. Security state is part of the chrome: the vault status card with its auto-lock countdown sits at the top of the sidebar on every screen. The full light and dark themes follow the system setting (`prefers-color-scheme`), and there is no in-app theme toggle.
+The interface is made for repeat work, comfortable rather than cramped. A 16px root with a 14px body and 36px controls reads at a normal desktop size while a long listing still fits on one screen. Figures use tabular alignment so sizes and dates line up in columns. Security state is part of the chrome: the vault status row with its auto-lock countdown and Lock button sits at the foot of the sidebar on every screen. Light and dark themes follow the system setting (`prefers-color-scheme`) unless the user picks one in the sidebar Settings menu.
 
 **Key Characteristics:**
 - Neutral surfaces in three tones (white content, blue-grey sidebar, near-white subtle bands) separated by soft 1px hairlines.
@@ -226,8 +238,12 @@ The palette is a cool neutral scale with one blue and three state colours. Every
 - **Warning Amber** (`warning`): connections missing a credential, insecure (http) endpoints, the share-link caution icon, medium-strength passwords.
 - **Danger Red** (`danger`, `danger-solid`, `danger-subtle`): error text and field borders; the solid fill of destructive confirm buttons and of the folder-deletion progress bar; the washed background of inline error notes and failed upload rows.
 
+### Group colours
+- **Group colours** (`src/lib/groupColors.ts`): eight dots on one OKLCH ramp (lightness 0.64, chroma 0.12; grey at 0.025), each about 3:1 on the light sidebar and 5:1 on the dark one. Hex values saved by the earlier palette are mapped to their replacements when drawn.
+
 ### Neutral
-- **Canvas** (`bg`): content column, dialogs, panels, cards, inputs, and the raised active connection pill.
+- **Canvas** (`bg`): content column, dialogs, panels, cards, menus and inputs.
+- **Raised** (`raised`): surfaces lifted off the sidebar, the active connection pill and the drag preview. White in light mode, 15% lightness in dark (where Canvas sits below the sidebar).
 - **Sidebar Grey** (`sidebar`): a faintly blue grey for the sidebar and the vault unlock screen.
 - **Subtle Band** (`subtle`): dialog footers, preview frames, key and code blocks, empty-state icon tiles, and the secondary button hover.
 - **Muted Fill** (`muted`): hover fill for rows (at 70% in the table) and quiet buttons, skeleton bars, and progress tracks.
@@ -239,7 +255,7 @@ The palette is a cool neutral scale with one blue and three state colours. Every
 
 **The Meaningful State Rule.** Green, amber and red appear only where they carry a state the user must read. Folder and file icons are neutral (`fg-muted`, folders with a 15% fill of the same colour). User-chosen group colours appear only as the 8px dot beside the group name.
 
-**The Raised Selection Exception.** The active sidebar connection is the one selection that is not a blue wash: it is a raised canvas pill (card shadow plus a 1px hairline ring) in ink at 500 weight, and its database icon in Selection Ink carries the selection. On the grey sidebar a white pill reads as "this one is open" without a second blue surface competing with the table selection.
+**The Raised Selection Exception.** The active sidebar connection is the one selection that is not a blue wash: it is a raised pill (Raised surface, card shadow plus a 1px hairline ring) in ink at 500 weight, and its database icon in Selection Ink carries the selection. On the grey sidebar a lifted pill reads as "this one is open" without a second blue surface competing with the table selection. In dark mode the canvas is darker than the sidebar, so the pill uses the Raised token (white in light, 15% lightness in dark) and never `bg`.
 
 ## Typography
 
@@ -250,7 +266,7 @@ The palette is a cool neutral scale with one blue and three state colours. Every
 
 ### Hierarchy
 - **Headline** (600, 20px, 28px, -0.015em): the connection name in the explorer header; the vault screen heading uses the size without the tracking.
-- **Title** (600, 17px, 26px): dialog titles and the product name on the vault screen.
+- **Title** (600, 17px, 26px): dialog titles.
 - **Body large** (600, 15px, 22px): object panel heading, empty-state headings, the sidebar product name (with -0.01em), and large-button text (500).
 - **Body** (400 or 500, 14px, 21px): the workhorse and the body default. Table rows, sidebar rows, buttons, inputs, field labels (500), breadcrumbs, dialog descriptions, inline notes.
 - **Compact** (500 or 400, 13px, 20px): small buttons and the compact search fields (sidebar search, page filter).
@@ -270,10 +286,11 @@ The scale also defines 11px/16px and 24px/32px steps; neither is in use, and new
 
 A fixed three-column app frame on a 4px rhythm. Column widths are explicit px.
 
-- **Sidebar** (272px, sidebar grey, right hairline): a 64px product row (28px icon, name), then the vault status card, a "Connections" heading with an add button, the connection list (36px rows with 2px gaps, 12px side inset), and a footer of 36px quiet rows (Add connection, Credentials with count, New group, Change master password) above a top hairline. Below 768px it becomes a 280px drawer over a 40% black scrim, with the dialog shadow.
+- **Sidebar** (272px by default, resizable from 220px to 420px; sidebar grey, right hairline): a 64px product row (24px icon, 15px name, and a quiet New menu with New connection, New group and Credentials with its count); the search field when the Search Threshold Rule allows; the connection tree (32px rows, 1px gaps, 8px side inset) taking all remaining height; and a 56px footer above a top hairline holding the vault status, a quiet Lock button and the Settings menu (Change master password, Import and Export settings, Theme). Below 768px it becomes a 280px drawer over a 40% black scrim, with the dialog shadow, and cannot be resized.
+- **Sidebar resize:** a 12px invisible handle straddles the right hairline; on hover it shows a 2px Strong Hairline line, and while dragging or focused a 2px Action Blue line. It is a `role="separator"`: arrow keys step 16px (48px with Shift), Home and End jump to the limits, double-click resets to 272px. The width is a per-device convenience kept in `localStorage`, never in the vault.
 - **Explorer column** (fluid): a 64px header with no bottom border (menu button on mobile, connection name and identity line, then Refresh, New folder, Upload at right; button labels hide below 640px); a toolbar carrying the breadcrumb and filter (256px from 640px, full width below) that owns the column's bottom hairline; the scrolling table; and a 44px footer with counts and pagination.
 - **Gutters:** 16px on mobile, 24px from 640px, shared by header, toolbar and footer. The table sits in its own narrower gutter (8px, 12px from 640px) so its rounded row fills float inside the column, and cells carry 12px of inner padding.
-- **Rows:** table rows 40px from 640px and an explicit 44px below; sidebar rows 36px.
+- **Rows:** table rows 40px from 640px and an explicit 44px below; sidebar rows 32px.
 - **Object panel** (360px, left hairline, 64px header) opens inline beside the table from 1024px. Below that it becomes a full-screen layer with a back button.
 
 **The Phantom Column Rule.** The table is `table-fixed` and uses full-width `colSpan` rows (the parent-folder row). The Modified column therefore renders only at 640px and up through a JS media hook. Never hide a column in this table with CSS alone; it leaves a phantom column.
@@ -294,7 +311,7 @@ Flat by default, separated by tone and soft hairlines. The sidebar, subtle bands
 
 ## Shapes
 
-Soft, consistent corners in four steps: 8px on controls (buttons, inputs, selects, share presets, sort-header buttons, breadcrumb buttons) and inline notes; 10px on rows (table rows, sidebar rows, footer rows), the key block and icon tiles; 14px on dialogs, cards (the vault status card, the unlock card, the upload tray), preview frames, the empty-sidebar placeholder and the drop overlay; full rounds for dots, progress tracks, strength bars and skeleton bars. The 5px step is configured but unused. Table rows have no dividers: the first and last cells round their outer corners so hover and selection read as one 10px pill. Borders are 1px hairlines everywhere; the only 2px border is the dashed drop-target outline in Action Blue.
+Soft, consistent corners in four steps: 8px on controls (buttons, inputs, selects, share presets, sort-header buttons, breadcrumb buttons) and inline notes; 10px on rows (table rows, sidebar rows, footer rows), the key block and icon tiles; 14px on dialogs, cards (the unlock card, the upload tray), preview frames, the empty-sidebar placeholder and the drop overlay; full rounds for dots, progress tracks, strength bars and skeleton bars. The 5px step is configured but unused. Table rows have no dividers: the first and last cells round their outer corners so hover and selection read as one 10px pill. Borders are 1px hairlines everywhere; the only 2px border is the dashed drop-target outline in Action Blue.
 
 ## Components
 
@@ -313,14 +330,22 @@ Quiet and tactile. The verb carries the meaning, not the chrome.
 - **Focus:** border turns Action Blue with a soft 4px ring of Action Blue at 15%.
 - **Error / Disabled:** red border and a 4px red ring at 15%, a 12.5px red message below linked by `aria-describedby`; disabled at 60% opacity.
 - **Field:** 14px 500 label, 6px gap, 12.5px muted hint.
-- **Variants:** native select with a chevron overlay, sharing the same control class; password input with a show/hide toggle and monospace text; 32px compact search fields (13px, leading search icon) in the sidebar and the explorer toolbar.
+- **Variants:** native select with a chevron overlay, sharing the same control class; password input in monospace with an attached 40px show/hide segment outside the text box (so password managers keep room for their own icon), a "Caps Lock is on." warning line, and its error, warning and hint all linked through `aria-describedby`; 32px compact search fields (13px, leading search icon) in the sidebar and the explorer toolbar.
 
-### Navigation (sidebar connection list)
-- **Group row:** 36px, muted ink, chevron (rotates 90° when open), 8px colour dot, name in 500 weight, tabular count that gives way to Edit and Delete on hover or focus.
-- **Connection row:** 36px, 10px radius, ink at 90% with a muted database icon, muted fill on hover. The active row is the raised pill described in the Raised Selection Exception: canvas fill, card shadow, 1px hairline ring, ink in 500 weight, Selection Ink icon, `aria-current="page"`. An amber 6px dot marks a missing credential. Nested rows indent to 40px and drop the icon.
+### Navigation (sidebar connection tree)
+- **Order:** groups first, in the user's order, then ungrouped connections in theirs. Each group and connection stores an `order`; anything without one (new items) sorts after the ordered ones, by name.
+- **Group row:** 32px, muted ink, chevron (rotates 90° when open), 8px colour dot, name in 500 weight, tabular count that gives way to a 24px "…" menu (Edit group, Move up, Move down, Delete group) on hover or focus, and always on touch.
+- **Connection row:** 32px, 10px radius, ink at 90% with a muted database icon, a 4% ink fill on hover. The active row is the raised pill described in the Raised Selection Exception: Raised fill, card shadow, 1px hairline ring, ink in 500 weight, Selection Ink icon, `aria-current="page"`. An amber 6px dot marks a missing credential. Nested rows indent to 36px and drop the icon. The "…" menu holds Edit connection, Move to group (a radio list of groups plus No group) and Remove connection.
+- **Drag and drop:** drag a connection to reorder it, into another group (drop on a row or on the group header; a collapsed group opens while it holds the dragged row), or out of a group (drop among the ungrouped rows, or on the dashed "Drop here to remove from its group" target that appears when none exist). Drag a group header to reorder groups; groups collapse while one is moving. The dragged item lifts as a Raised pill with the popover shadow, its place holds at 40% opacity, and a group header under a dragged connection takes the Selection Wash. Drags start after 4px with a mouse and after a 250ms press on touch, so clicks and scrolling are unaffected. Drag is off while searching. The "…" menus are the keyboard route for every move.
 
-### Vault Status Card
-The signature of the product's security posture. A canvas card (14px radius, hairline, card shadow, 10px by 14px padding) inset 12px in the sidebar: a green dot with a soft green halo, "Vault unlocked", a tabular countdown ("Locks in N min") updated every 10 seconds, and a small secondary Lock button.
+### Vault Gate (create / unlock)
+A centred 380px column on Sidebar Grey: a 40px logo over the 15px product name, then the card (Raised fill, hairline, card shadow, 14px radius, 24px padding, 20px gaps). Every element in the card shares the one 24px content edge. The card opens with a status line that mirrors the sidebar's vault row: a grey dot with "Vault locked" (or "New vault"), then the 20px heading and one sentence of reassurance before the field. The field and the full-width primary button are both 40px. A wrong password is reported under the field (`aria-invalid`, `role="alert"`), keeps what was typed, and selects it with focus returned so retyping replaces it. In setup, a subtle-band note with an amber warning icon says the password can't be recovered, directly above Create vault. Below the card, centred 12.5px muted text holds a "How your vault is protected" disclosure (cipher, KDF, keychain binding, direct requests, auto-lock) and the reset path, written as a sentence whose "reset the vault" link is ink, underlined, and turns red on hover. The reset itself still goes through the type-RESET confirm dialog.
+
+### Vault Status Row
+The signature of the product's security posture, at the foot of the sidebar: a green dot with a soft green halo, "Vault unlocked" (13px, 500) over a tabular countdown ("Locks in N min", 12.5px muted) updated every 10 seconds, a quiet Lock button, and the Settings menu button. It is a row, not a card: the sidebar is never lifted, and the footer hairline already separates it.
+
+### Menus
+Radix dropdown menus for row actions, New and Settings: canvas fill, hairline, 10px radius, popover shadow, 4px padding, at least 200px wide. Items are 32px, 8px radius, 14px text with a 16px muted icon and a muted fill when highlighted; destructive items are Danger Red with a red wash. Radio items show a check at the right. Opens with a fade and slight zoom.
 
 ### Object Table
 Sortable Name / Size / Modified in a separated table with no row dividers, inset in its 8–12px gutter. The sticky header is 40px, 12.5px muted ink on the translucent blurred canvas; active sort shows ink plus an arrow, and `aria-sort` is set. Rows are 40px (44px below 640px) with 12px cell padding; hover fills the row with muted at 70% and selection with the Selection Wash, both as a single 10px-rounded pill, with fills easing over 100ms. Icons are 18px at stroke 1.75 with a 12px gap; folder names are 500 weight. Size (right-aligned) and date (left-aligned) are tabular sans in muted ink; folders show their total size and newest modified date, computed in the background three at a time (a pulsing 48px muted bar while pending, a trailing "+" when the scan stopped at 10,000 objects, and an em dash only when it fails or the folder is empty). Every row ends in quiet 32px quick actions, always visible from 640px up: files get Download, Share link, Copy key and Delete; folders get Copy path and Delete folder. Delete icons turn red on hover. Below 640px, file actions are hidden because a tap opens the details sheet, and only the folder delete stays visible. Loading shows skeleton bars and a 2px shimmer bar in Action Blue across the top.
@@ -359,7 +384,7 @@ A 360px popover card (14px radius, hairline, popover shadow) above the explorer 
 
 ## Theme, Controls and Identity
 
-**Theme.** Light and dark follow the system by default. A three-way segmented control (System / Light / Dark) sits at the sidebar foot and in the top-right of the unlock screen; a forced choice sets `data-theme` on `<html>` and is remembered in local storage (not the vault, since it is needed before unlock). `public/theme.js` applies it before first paint so the page never flashes the wrong theme; it is a file rather than an inline script to satisfy the strict CSP. The dialog scrim is a token (`--scrim`) so it follows the theme too.
+**Theme.** Light and dark follow the system by default. A three-way segmented control (System / Light / Dark) sits in the top-right of the unlock screen, and the same three choices are radio items in the sidebar Settings menu; a forced choice sets `data-theme` on `<html>` and is remembered in local storage (not the vault, since it is needed before unlock). `public/theme.js` applies it before first paint so the page never flashes the wrong theme; it is a file rather than an inline script to satisfy the strict CSP. The dialog scrim is a token (`--scrim`) so it follows the theme too.
 
 **The No Native Widgets Rule.** Selects and checkboxes are built in-app, never the operating system's. The Select is an ARIA combobox: focus stays on the trigger, options are announced with `aria-activedescendant`, the list floats in a portal (`data-floating`) positioned against the trigger and flips above when space runs out, and it supports arrows, Home/End, Enter/Space, type-ahead and Escape. Dialogs ignore outside presses and Escape that belong to an open floating list. The Checkbox is a button with `role="checkbox"`, an 18px box with a 5px radius that fills Action Blue with a white check.
 

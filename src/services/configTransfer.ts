@@ -62,6 +62,7 @@ const payloadSchema = z.object({
       credentialId: z.string().max(200),
       askForCredentials: z.boolean().optional(),
       groupId: z.string().max(200).nullable().optional(),
+      order: z.number().int().optional(),
       forcePathStyle: z.boolean(),
     }),
   ),
@@ -76,6 +77,7 @@ const payloadSchema = z.object({
       name: required,
       color: z.string().max(50).optional(),
       active: z.boolean().optional(),
+      order: z.number().int().optional(),
     }),
   ),
 });
