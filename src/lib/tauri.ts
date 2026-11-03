@@ -38,3 +38,17 @@ export async function saveTextFile(fileName: string, contents: string): Promise<
   }
   return true;
 }
+
+/**
+ * The vault's device key from the OS keychain, or null on the web build and
+ * when none exists yet (`create` false). With `create`, a missing key is
+ * generated and stored first. Throws when the keychain can't be used.
+ */
+export async function vaultDeviceKey(create: boolean): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (!isTauri()) {
+    return null;
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
+  const bytes = await invoke<number[] | null>("vault_device_key", { create });
+  return bytes ? new Uint8Array(bytes) : null;
+}

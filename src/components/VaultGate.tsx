@@ -3,6 +3,7 @@ import { LockKeyhole, ShieldCheck } from "lucide-react";
 import { LOCK_NOTICE_KEY, useConfig } from "@/context/config";
 import { MIN_PASSWORD_LENGTH, validateNewPassword } from "@/services/vault";
 import { errorMessage } from "@/lib/utils";
+import { isTauri } from "@/lib/tauri";
 import { Button } from "./ui/button";
 import { PasswordInput } from "./ui/password-input";
 import ConfirmDialog from "./ConfirmDialog";
@@ -139,9 +140,10 @@ export default function VaultGate() {
         <div className="mt-4 flex items-start gap-2 px-1 text-xs text-muted-foreground">
           <ShieldCheck className="mt-px size-4 shrink-0" aria-hidden />
           <p>
-            Encrypted with AES-256-GCM and a scrypt-derived key. Your keys stay on this
-            device and requests go straight to your storage provider. The vault locks
-            after 15 minutes of inactivity.
+            Encrypted with AES-256-GCM and a scrypt-derived key
+            {isTauri() && ", bound to a device key in your system keychain"}. Your keys
+            stay on this device and requests go straight to your storage provider. The
+            vault locks after 15 minutes of inactivity.
           </p>
         </div>
 
