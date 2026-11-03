@@ -18,7 +18,10 @@ export interface Bucket {
   bucketName: string;
   region: string;
   endpoint?: string | undefined;
+  /** Empty when `askForCredentials` is set. */
   credentialId: string;
+  /** Prompt for keys on connect and keep them in memory only, never in the vault. */
+  askForCredentials?: boolean;
   groupId?: string | null;
   forcePathStyle: boolean;
 }

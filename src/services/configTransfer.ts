@@ -60,6 +60,7 @@ const payloadSchema = z.object({
       region: required,
       endpoint: text.refine((v) => v === "" || parseEndpoint(v) !== null).optional(),
       credentialId: z.string().max(200),
+      askForCredentials: z.boolean().optional(),
       groupId: z.string().max(200).nullable().optional(),
       forcePathStyle: z.boolean(),
     }),
@@ -193,6 +194,7 @@ export function summarizeImport(current: Configs, incoming: ExportPayload): Impo
   }
   const missingCredentials = Object.values(incoming.buckets).filter(
     (b) =>
+      !b.askForCredentials &&
       !Object.hasOwn(incoming.credentials, b.credentialId) &&
       !Object.hasOwn(current.credentials, b.credentialId),
   ).length;
