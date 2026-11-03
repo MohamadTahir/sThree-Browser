@@ -15,7 +15,7 @@
 
 Browse AWS S3, Cloudflare R2, MinIO, and any S3-compatible storage. Your keys stay encrypted on your device, and every request goes straight from your device to your bucket.
 
-[Report a bug](https://github.com/MohamadTahir/sThree-Browser/issues) · [Request a feature](https://github.com/MohamadTahir/sThree-Browser/issues)
+[Report a bug](https://github.com/MohamadTahir/sThree-Browser/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/MohamadTahir/sThree-Browser/issues/new?template=feature_request.yml)
 
 </div>
 
@@ -176,16 +176,11 @@ Pushing a tag like `v1.2.3` builds a multi-arch image (amd64 and arm64) and publ
 
 ## Contributing
 
-Contributions are welcome:
-
-1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/your-change`.
-3. Run `make check` before you push.
-4. Open a pull request.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and pull request guidelines, and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately, as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT.
+[MIT](LICENSE).
 
 ---
 

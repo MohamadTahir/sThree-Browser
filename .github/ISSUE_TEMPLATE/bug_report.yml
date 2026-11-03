@@ -1,0 +1,66 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Never paste access keys, secret keys, share links or vault exports here.**
+        For a security problem, use [private vulnerability reporting](https://github.com/MohamadTahir/sThree-Browser/security/advisories/new) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a connection to …
+        2. Click …
+        3. See the error
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      options:
+        - Desktop app
+        - Web (Docker image)
+        - Web (self-hosted static build)
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: Operating system, and the browser for the web version.
+      placeholder: macOS 26, Chrome 142
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Storage provider
+      options:
+        - AWS S3
+        - Cloudflare R2
+        - MinIO
+        - Other S3-compatible
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v1.0.0 or a commit hash
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error messages or logs
+      description: The error shown in the app or the browser console. Remove keys, bucket names and endpoints you don't want public.
+      render: text
