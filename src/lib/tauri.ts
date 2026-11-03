@@ -15,3 +15,26 @@ export async function openExternal(url: string): Promise<void> {
   }
   window.open(url, "_blank", "noopener,noreferrer");
 }
+
+/**
+ * Save a text file the user names. Desktop shows a native Save dialog; the
+ * web build downloads it. Returns false when the user cancels (desktop only).
+ */
+export async function saveTextFile(fileName: string, contents: string): Promise<boolean> {
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return invoke<boolean>("save_export", { fileName, contents });
+  }
+  const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  return true;
+}

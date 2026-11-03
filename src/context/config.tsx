@@ -25,6 +25,7 @@ import {
   VaultConflictError,
 } from "@/services/vault";
 import { Connection } from "@/services/s3Service";
+import { ExportPayload, mergeImport } from "@/services/configTransfer";
 
 /** Lock automatically after this long without keyboard or pointer input. */
 const AUTO_LOCK_MS = 15 * 60 * 1000;
@@ -61,6 +62,8 @@ type ConfigContextType = {
   /** Throws if any bucket still uses the credential. */
   deleteCredential: (credentialId: string) => Promise<void>;
   getConnection: (bucketId: string | null) => Connection | null;
+  /** Merge settings from an export file; items with the same id are replaced. */
+  importConfigs: (payload: ExportPayload) => Promise<void>;
 };
 
 const ConfigContext = createContext<ConfigContextType | null>(null);
@@ -291,6 +294,9 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
+  const importConfigs = (payload: ExportPayload) =>
+    update((c) => mergeImport(c, payload));
+
   const getConnection = useCallback(
     (bucketId: string | null): Connection | null => {
       const bucket = bucketId ? configs.buckets[bucketId] : undefined;
@@ -320,6 +326,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       saveCredential,
       deleteCredential,
       getConnection,
+      importConfigs,
     }),
     // The action functions only touch refs and stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
