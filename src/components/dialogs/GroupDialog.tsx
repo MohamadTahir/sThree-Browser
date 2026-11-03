@@ -14,17 +14,8 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { GROUP_COLORS, groupColor } from "@/lib/groupColors";
 
-const GROUP_COLORS = [
-  { name: "Blue", value: "#3b82f6" },
-  { name: "Green", value: "#16a34a" },
-  { name: "Violet", value: "#8b5cf6" },
-  { name: "Amber", value: "#f59e0b" },
-  { name: "Red", value: "#ef4444" },
-  { name: "Pink", value: "#ec4899" },
-  { name: "Teal", value: "#14b8a6" },
-  { name: "Grey", value: "#6b7280" },
-];
 
 export default function GroupDialog({
   open,
@@ -37,14 +28,14 @@ export default function GroupDialog({
 }) {
   const { saveGroup } = useConfig();
   const [name, setName] = useState("");
-  const [color, setColor] = useState(GROUP_COLORS[0].value);
+  const [color, setColor] = useState<string>(GROUP_COLORS[0].value);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName(group?.name ?? "");
-    setColor(group?.color ?? GROUP_COLORS[0].value);
+    setColor(group?.color ? groupColor(group.color) : GROUP_COLORS[0].value);
     setError(null);
   }, [open, group]);
 

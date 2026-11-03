@@ -36,6 +36,7 @@ export default {
       colors: {
         background: token("bg"),
         sidebar: token("sidebar"),
+        raised: token("raised"),
         subtle: token("subtle"),
         muted: token("muted"),
         foreground: token("fg"),

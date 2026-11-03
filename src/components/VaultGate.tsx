@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { LockKeyhole, ShieldCheck } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronRight, TriangleAlert } from "lucide-react";
 import { LOCK_NOTICE_KEY, useConfig } from "@/context/config";
 import { MIN_PASSWORD_LENGTH, validateNewPassword } from "@/services/vault";
 import { errorMessage } from "@/lib/utils";
@@ -9,6 +9,9 @@ import { PasswordInput } from "./ui/password-input";
 import ConfirmDialog from "./ConfirmDialog";
 import { ThemeToggle } from "./ui/theme-toggle";
 
+/** Where an error belongs: under a field, or as a note for the whole form. */
+type FormError = { field: "password" | "confirm" | "form"; message: string };
+
 /** Full-screen gate: create the vault on first run, unlock it afterwards. */
 export default function VaultGate() {
   const { status, setup, unlock, reset } = useConfig();
@@ -16,9 +19,10 @@ export default function VaultGate() {
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
   // Why the vault locked (idle timeout, change in another window), shown once.
   const [notice] = useState<string | null>(() => {
     try {
@@ -37,124 +41,161 @@ export default function VaultGate() {
     if (isSetup) {
       const problem = validateNewPassword(password);
       if (problem) {
-        setError(problem);
+        setError({ field: "password", message: problem });
         return;
       }
       if (password !== confirm) {
-        setError("The passwords don't match.");
+        setError({ field: "confirm", message: "The passwords don't match." });
         return;
       }
     }
 
     setBusy(true);
+    let failed = false;
     try {
       if (isSetup) {
         await setup(password);
       } else if (!(await unlock(password))) {
-        setError("That password didn't unlock the vault.");
-        setPassword("");
+        failed = true;
+        setError({ field: "password", message: "That password didn't unlock the vault." });
       }
     } catch (err) {
-      setError(errorMessage(err, "Couldn't open the vault."));
+      failed = true;
+      setError({ field: "form", message: errorMessage(err, "Couldn't open the vault.") });
     } finally {
       setBusy(false);
     }
+    if (failed) {
+      // Keep what was typed, so a one-character slip is quick to fix, and
+      // put focus back (the busy button had taken it).
+      requestAnimationFrame(() => passwordRef.current?.select());
+    }
   };
 
+  const fieldError = (field: FormError["field"]) =>
+    error?.field === field ? error.message : undefined;
+
   return (
-    <main className="relative flex h-full items-center justify-center overflow-y-auto bg-sidebar p-4">
+    <main className="relative flex h-full flex-col overflow-y-auto bg-sidebar px-4 py-16">
       <ThemeToggle className="absolute right-4 top-4" />
-      <div className="w-full max-w-[380px]">
-        <div className="mb-6 flex items-center gap-2.5">
+      <div className="m-auto w-full max-w-[380px]">
+        <div className="mb-8 flex flex-col items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="" className="size-8" />
-          <span className="text-lg font-semibold">sThree Browser</span>
+          <img src="/logo.svg" alt="" className="size-10" />
+          <span className="text-base font-semibold tracking-[-0.01em]">sThree Browser</span>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-xl border bg-background p-6 shadow-card"
+          noValidate
+          className="grid gap-5 rounded-xl border bg-raised p-6 shadow-card"
         >
-          <div className="mb-5 flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-subtle text-foreground">
-              <LockKeyhole className="size-[18px]" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold">
-                {isSetup ? "Create a master password" : "Unlock your vault"}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {isSetup
-                  ? "It encrypts your credentials and connections on this device. It can't be recovered, so keep it somewhere safe."
-                  : "Enter your master password to decrypt your connections."}
-              </p>
-            </div>
+          <div>
+            <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="size-2 rounded-full bg-muted-foreground/60" aria-hidden />
+              {isSetup ? "New vault" : "Vault locked"}
+            </p>
+            <h1 className="text-xl font-semibold">
+              {isSetup ? "Create a master password" : "Unlock your vault"}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isSetup
+                ? "It encrypts your connections and keys on this device. Requests go straight to your storage provider."
+                : "Your connections and keys are encrypted on this device and never leave it."}
+            </p>
           </div>
 
-          <div className="grid gap-4">
-            {notice && !isSetup && (
-              <p role="status" className="rounded-md border bg-subtle px-3 py-2 text-sm text-muted-foreground">
-                {notice}
-              </p>
-            )}
+          {notice && !isSetup && (
+            <p role="status" className="rounded-md border bg-subtle px-3 py-2 text-sm text-muted-foreground">
+              {notice}
+            </p>
+          )}
+
+          <div className="grid gap-2">
             <PasswordInput
+              ref={passwordRef}
               label="Master password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={isSetup ? "new-password" : "current-password"}
               autoFocus
               required
+              className="h-10"
+              error={fieldError("password")}
               hint={isSetup ? `At least ${MIN_PASSWORD_LENGTH} characters. A few unrelated words work well.` : undefined}
             />
-            {isSetup && (
-              <>
-                <StrengthMeter password={password} />
-                <PasswordInput
-                  label="Confirm password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
-              </>
-            )}
-
-            {error && (
-              <p role="alert" className="rounded-md bg-danger-subtle px-3 py-2 text-sm text-danger">
-                {error}
-              </p>
-            )}
-
-            <Button type="submit" variant="primary" size="lg" loading={busy} className="w-full">
-              {busy
-                ? isSetup
-                  ? "Creating vault…"
-                  : "Unlocking…"
-                : isSetup
-                  ? "Create vault"
-                  : "Unlock"}
-            </Button>
+            {isSetup && <StrengthMeter password={password} />}
           </div>
+
+          {isSetup && (
+            <>
+              <PasswordInput
+                label="Confirm password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+                required
+                className="h-10"
+                error={fieldError("confirm")}
+              />
+              <p className="flex gap-2.5 rounded-md border bg-subtle px-3 py-2.5 text-sm">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+                <span>
+                  <span className="font-medium">This password can't be recovered.</span>{" "}
+                  <span className="text-muted-foreground">
+                    Keep it in a password manager. Without it, the vault can only be reset.
+                  </span>
+                </span>
+              </p>
+            </>
+          )}
+
+          {error?.field === "form" && (
+            <p role="alert" className="rounded-md bg-danger-subtle px-3 py-2 text-sm text-danger">
+              {error.message}
+            </p>
+          )}
+
+          <Button type="submit" variant="primary" loading={busy} className="h-10 w-full">
+            {busy
+              ? isSetup
+                ? "Creating vault…"
+                : "Unlocking…"
+              : isSetup
+                ? "Create vault"
+                : "Unlock"}
+          </Button>
         </form>
 
-        <div className="mt-4 flex items-start gap-2 px-1 text-xs text-muted-foreground">
-          <ShieldCheck className="mt-px size-4 shrink-0" aria-hidden />
-          <p>
-            Encrypted with AES-256-GCM and a scrypt-derived key
-            {isTauri() && ", bound to a device key in your system keychain"}. Your keys
-            stay on this device and requests go straight to your storage provider. The
-            vault locks after 15 minutes of inactivity.
-          </p>
-        </div>
+        <div className="mt-6 grid justify-items-center gap-3 text-center text-xs text-muted-foreground">
+          <details className="group w-full">
+            <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="size-3.5 transition-transform duration-150 group-open:rotate-90" aria-hidden />
+              How your vault is protected
+            </summary>
+            <p className="mt-2 text-balance">
+              Connections and keys are encrypted with AES-256-GCM under a key derived from
+              your password with scrypt
+              {isTauri() && ", and bound to a device key in your system keychain"}. Every
+              request is signed here and sent straight to your storage provider. The vault
+              locks after 15 minutes of inactivity.
+            </p>
+          </details>
 
-        {!isSetup && (
-          <div className="mt-6 px-1 text-xs text-muted-foreground">
-            Forgot the password?{" "}
-            <Button variant="link" className="text-xs" onClick={() => setConfirmReset(true)}>
-              Reset the vault
-            </Button>
-          </div>
-        )}
+          {!isSetup && (
+            <p className="text-balance">
+              Forgot your password? It can't be recovered, but you can{" "}
+              <button
+                type="button"
+                onClick={() => setConfirmReset(true)}
+                className="rounded-sm text-foreground underline underline-offset-2 transition-colors hover:text-danger"
+              >
+                reset the vault
+              </button>{" "}
+              and add your connections again.
+            </p>
+          )}
+        </div>
       </div>
 
       <ConfirmDialog
@@ -187,8 +228,8 @@ function StrengthMeter({ password }: { password: string }) {
   const colors = ["bg-border", "bg-danger", "bg-warning", "bg-success"];
 
   return (
-    <div className="-mt-2 flex items-center gap-2" aria-live="polite">
-      <div className="flex flex-1 gap-1">
+    <div className="flex items-center gap-2">
+      <div className="flex flex-1 gap-1" aria-hidden>
         {[1, 2, 3].map((step) => (
           <span
             key={step}
@@ -196,7 +237,10 @@ function StrengthMeter({ password }: { password: string }) {
           />
         ))}
       </div>
-      <span className="w-16 text-right text-xs text-muted-foreground">{labels[score]}</span>
+      <span className="w-16 text-right text-xs text-muted-foreground">
+        {score > 0 && <span className="sr-only">Password strength: </span>}
+        {labels[score]}
+      </span>
     </div>
   );
 }

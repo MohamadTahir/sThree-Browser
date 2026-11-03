@@ -30,6 +30,9 @@ import { ExportPayload, mergeImport } from "@/services/configTransfer";
 /** Lock automatically after this long without keyboard or pointer input. */
 const AUTO_LOCK_MS = 15 * 60 * 1000;
 
+/** Key for connections outside any group in `arrangeSidebar`. */
+export const UNGROUPED = "";
+
 /** Why the vault last locked, shown once on the unlock screen. */
 export const LOCK_NOTICE_KEY = "sthree-lock-notice";
 const NOTICE_IDLE = "Locked after 15 minutes of inactivity.";
@@ -55,6 +58,11 @@ type ConfigContextType = {
   toggleGroup: (groupId: string) => Promise<void>;
   saveGroup: (group: Group) => Promise<void>;
   deleteGroup: (groupId: string) => Promise<void>;
+  /**
+   * Save the sidebar arrangement: the order of groups, and for each listed
+   * group (or `UNGROUPED`) the connections it holds, in order.
+   */
+  arrangeSidebar: (groupOrder: string[] | null, members: Record<string, string[]>) => Promise<void>;
   setActiveBucket: (bucketId: string | null) => Promise<void>;
   saveBucket: (bucket: Bucket) => Promise<void>;
   deleteBucket: (bucketId: string) => Promise<void>;
@@ -260,6 +268,26 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       return { ...c, buckets, groups };
     });
 
+  const arrangeSidebar = (groupOrder: string[] | null, members: Record<string, string[]>) =>
+    update((c) => {
+      const groups = { ...c.groups };
+      groupOrder?.forEach((id, order) => {
+        if (groups[id]) groups[id] = { ...groups[id], order };
+      });
+      const buckets = { ...c.buckets };
+      for (const [groupId, ids] of Object.entries(members)) {
+        ids.forEach((id, order) => {
+          if (!buckets[id]) return;
+          buckets[id] = {
+            ...buckets[id],
+            groupId: groupId === UNGROUPED || !groups[groupId] ? null : groupId,
+            order,
+          };
+        });
+      }
+      return { ...c, groups, buckets };
+    });
+
   const setActiveBucket = (bucketId: string | null) => {
     if (configsRef.current.activeBucket === bucketId) {
       return Promise.resolve();
@@ -268,7 +296,13 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const saveBucket = (bucket: Bucket) =>
-    update((c) => ({ ...c, buckets: { ...c.buckets, [bucket.id]: bucket } }));
+    update((c) => {
+      // A connection moved to another group in the dialog goes to its end.
+      const previous = c.buckets[bucket.id];
+      const moved = previous && (previous.groupId ?? null) !== (bucket.groupId ?? null);
+      const next = moved ? { ...bucket, order: undefined } : bucket;
+      return { ...c, buckets: { ...c.buckets, [bucket.id]: next } };
+    });
 
   const deleteBucket = (bucketId: string) => {
     setSessionCredential(bucketId, null);
@@ -347,6 +381,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       toggleGroup,
       saveGroup,
       deleteGroup,
+      arrangeSidebar,
       setActiveBucket,
       saveBucket,
       deleteBucket,

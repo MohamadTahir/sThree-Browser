@@ -5,6 +5,7 @@ import { useConfig } from "@/context/config";
 import { Bucket } from "@/models/types";
 import { describeS3Error, listObjects } from "@/services/s3Service";
 import { errorMessage, parseEndpoint } from "@/lib/utils";
+import { groupColor } from "@/lib/groupColors";
 import {
   Dialog,
   DialogBody,
@@ -222,7 +223,7 @@ export default function ConnectionDialog({
                     icon: (
                       <span
                         className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: g.color || "#6b7280" }}
+                        style={{ backgroundColor: groupColor(g.color) }}
                         aria-hidden
                       />
                     ),

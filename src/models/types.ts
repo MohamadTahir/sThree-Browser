@@ -23,6 +23,8 @@ export interface Bucket {
   /** Prompt for keys on connect and keep them in memory only, never in the vault. */
   askForCredentials?: boolean;
   groupId?: string | null;
+  /** Position within its group (or among ungrouped connections) in the sidebar. */
+  order?: number;
   forcePathStyle: boolean;
 }
 
@@ -31,6 +33,8 @@ export interface Group {
   name: string;
   color?: string;
   active?: boolean;
+  /** Position among groups in the sidebar. */
+  order?: number;
 }
 
 export interface S3Object {
