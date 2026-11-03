@@ -405,7 +405,7 @@ function GroupDot({ color }: { color?: string }) {
 }
 
 const rowMenuButton =
-  "absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[opacity,background-color,color] duration-100 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:bg-foreground/[0.06] data-[state=open]:text-foreground data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100";
+  "absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[opacity,background-color,color] duration-100 hover:bg-foreground/6 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:bg-foreground/6 data-[state=open]:text-foreground data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100";
 
 function SortableGroup({
   group,
@@ -453,7 +453,7 @@ function SortableGroup({
             "flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 pr-9 text-left text-sm transition-colors duration-100",
             dropping
               ? "bg-primary-subtle text-primary-text"
-              : "text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground",
+              : "text-muted-foreground hover:bg-foreground/4 hover:text-foreground",
           )}
         >
           <ChevronRight
@@ -537,7 +537,7 @@ function SortableConnection({
           nested ? "pl-9" : "pl-2.5",
           active
             ? "bg-raised font-medium text-foreground shadow-card ring-1 ring-border"
-            : "text-foreground/90 hover:bg-foreground/[0.04]",
+            : "text-foreground/90 hover:bg-foreground/4",
         )}
       >
         {!nested && (

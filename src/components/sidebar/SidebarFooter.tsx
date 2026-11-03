@@ -41,7 +41,7 @@ export default function SidebarFooter({ onAction }: { onAction: (action: Action)
         onClick={() => lock()}
         title="Lock now and clear decrypted keys from memory"
       >
-        <Lock className="!size-3.5" /> Lock
+        <Lock className="size-3.5!" /> Lock
       </Button>
       <Menu onOpenChange={(open) => open && setTheme(getThemePreference())}>
         <MenuTrigger asChild>

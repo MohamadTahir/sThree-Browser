@@ -510,7 +510,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           ) : (
             <div className="px-2 pb-3 sm:px-3">
             <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
-              <thead className="sticky top-0 z-[5] bg-background/95 text-left text-xs text-muted-foreground backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              <thead className="sticky top-0 z-5 bg-background/95 text-left text-xs text-muted-foreground backdrop-blur-sm supports-backdrop-filter:bg-background/80">
                 <tr>
                   {sortHeader("name", "Name")}
                   {sortHeader("size", "Size", "right", "w-24 sm:w-28")}

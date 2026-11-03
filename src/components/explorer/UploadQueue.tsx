@@ -54,7 +54,7 @@ export default function UploadQueue({
                   onClick={item.cancel}
                   aria-label={`Cancel upload of ${item.name}`}
                 >
-                  <X className="!size-3.5" />
+                  <X className="size-3.5!" />
                 </Button>
               ) : (
                 <Button
@@ -64,7 +64,7 @@ export default function UploadQueue({
                   onClick={() => onDismiss(item.id)}
                   aria-label="Dismiss"
                 >
-                  <X className="!size-3.5" />
+                  <X className="size-3.5!" />
                 </Button>
               )}
             </div>
