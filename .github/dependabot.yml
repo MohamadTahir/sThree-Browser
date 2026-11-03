@@ -1,37 +1,53 @@
 version: 2
 
+# Version updates come once a month, minor and patch bumps grouped into one
+# PR per ecosystem so lockfile edits don't conflict. Major bumps stay one per
+# PR since each may need migration work. Security fixes don't wait for the
+# schedule; they are grouped per ecosystem too, instead of one PR per package.
+
 updates:
   # Web and desktop front end (pnpm uses the npm ecosystem).
-  # Minor and patch bumps come as one PR so lockfile edits don't conflict.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
+      interval: "monthly"
+    open-pull-requests-limit: 5
     groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
       npm-minor-and-patch:
+        applies-to: version-updates
         update-types: ["minor", "patch"]
 
   # Tauri shell.
   - package-ecosystem: "cargo"
     directory: "/src-tauri"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 5
     groups:
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
       cargo-minor-and-patch:
+        applies-to: version-updates
         update-types: ["minor", "patch"]
 
   # Base images in the Dockerfile.
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      docker:
+        patterns: ["*"]
 
   # Pinned action SHAs in the release workflow.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     groups:
       actions:
         patterns: ["*"]
