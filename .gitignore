@@ -43,8 +43,9 @@ src-tauri/Cargo.lock
 # TypeScript
 *.tsbuildinfo
 
-# Impeccable working files (design mocks and review captures)
+# Impeccable working files (design mocks, review captures and hook cache)
 .impeccable/mocks/
 .impeccable/review/
 .impeccable/build/
 .impeccable/questions/
+.impeccable/hook.cache.json
