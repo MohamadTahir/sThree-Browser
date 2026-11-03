@@ -48,6 +48,7 @@ Browse AWS S3, Cloudflare R2, MinIO, and any S3-compatible storage. Your keys st
 ## Security model
 
 - **Encrypted vault.** Connections, credentials and groups are stored as one AES-256-GCM ciphertext. The key is derived from your master password with scrypt (N=2¹⁷, r=8, p=1) and held in memory only as a non-extractable key. Nothing about your buckets is stored in plain text.
+- **Keychain-bound on desktop.** The desktop app also keeps a random 256-bit device key in the OS keychain (macOS Keychain, Windows Credential Manager, or Secret Service on Linux), and the vault key is HKDF-SHA256 over both the scrypt output and that device key. A copy of the stored vault is useless without the keychain item, so it can't be brute-forced offline from a backup or a copied app folder. Existing vaults are bound the next time you unlock. If the keychain can't be used (for example, Linux without a Secret Service), the vault stays password-only. The web build is always password-only.
 - **No middleman.** Every S3 request is signed on your device and sent straight to your storage endpoint: by the browser on the web, and by the Tauri HTTP plugin on desktop. The server that hosts the web version never sees your keys.
 - **Auto-lock.** The vault locks after 15 minutes without input (a running upload counts as activity), or when you press **Lock**. Locking clears every decrypted secret from the page and aborts uploads first, then reloads, so it can't be left half-open.
 - **Multiple tabs.** A tab only saves if the stored vault is still the one it unlocked. After a password change or reset in another tab, every other open tab locks itself instead of restoring the old password or deleted data; ordinary setting changes sync across tabs.
@@ -56,6 +57,8 @@ Browse AWS S3, Cloudflare R2, MinIO, and any S3-compatible storage. Your keys st
 - **Upgrading from 0.0.x:** existing data is migrated to the new vault format the first time you unlock.
 
 There is no password recovery. If you forget the master password, reset the vault and add your connections again. Your buckets are not affected.
+
+On desktop, the vault also can't be opened if the keychain item is lost (for example, after reinstalling the OS or resetting the keychain), even with the right password. Keep an encrypted export (**Export settings**) as a backup. Exports are protected by their own password only, so they open on any device.
 
 ---
 
