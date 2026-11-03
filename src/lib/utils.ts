@@ -35,3 +35,13 @@ export function parentPrefix(prefix: string): string {
 export function errorMessage(error: unknown, fallback = "Something went wrong."): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
+
+/** An http(s) URL, or null for anything else. */
+export function parseEndpoint(value: string): URL | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url : null;
+  } catch {
+    return null;
+  }
+}

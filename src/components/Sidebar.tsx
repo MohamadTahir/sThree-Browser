@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
+  ArrowDownToLine,
+  ArrowUpFromLine,
   Database,
   FolderPlus,
   KeyRound,
@@ -20,6 +22,8 @@ import ConnectionDialog from "./dialogs/ConnectionDialog";
 import CredentialsDialog from "./dialogs/CredentialsDialog";
 import GroupDialog from "./dialogs/GroupDialog";
 import ChangePasswordDialog from "./dialogs/ChangePasswordDialog";
+import ExportDialog from "./dialogs/ExportDialog";
+import ImportDialog from "./dialogs/ImportDialog";
 import ConfirmDialog from "./ConfirmDialog";
 import { ThemeToggle } from "./ui/theme-toggle";
 
@@ -28,6 +32,8 @@ type Pending =
   | { kind: "group"; group: Group | null }
   | { kind: "credentials" }
   | { kind: "password" }
+  | { kind: "export" }
+  | { kind: "import" }
   | { kind: "delete-connection"; bucket: Bucket }
   | { kind: "delete-group"; group: Group }
   | null;
@@ -186,6 +192,14 @@ export default function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         <FooterButton icon={<FolderPlus />} onClick={() => setPending({ kind: "group", group: null })}>
           New group
         </FooterButton>
+        <FooterButton icon={<ArrowDownToLine />} onClick={() => setPending({ kind: "import" })}>
+          Import settings
+        </FooterButton>
+        {buckets.length > 0 && (
+          <FooterButton icon={<ArrowUpFromLine />} onClick={() => setPending({ kind: "export" })}>
+            Export settings
+          </FooterButton>
+        )}
         <FooterButton icon={<Settings2 />} onClick={() => setPending({ kind: "password" })}>
           Change master password
         </FooterButton>
@@ -212,6 +226,14 @@ export default function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       />
       <ChangePasswordDialog
         open={pending?.kind === "password"}
+        onClose={() => setPending(null)}
+      />
+      <ExportDialog
+        open={pending?.kind === "export"}
+        onClose={() => setPending(null)}
+      />
+      <ImportDialog
+        open={pending?.kind === "import"}
         onClose={() => setPending(null)}
       />
       <ConfirmDialog

@@ -23,15 +23,23 @@ const LEGACY_CONFIGS_KEY = "bucket-configs";
 const SCRYPT = { N: 2 ** 17, r: 8, p: 1 } as const;
 const KEY_BYTES = 32;
 const SALT_BYTES = 16;
-const IV_BYTES = 12;
+export const IV_BYTES = 12;
 /** Binds the ciphertext to this format so it can't be swapped for another blob. */
 const AAD = new TextEncoder().encode("sthree-vault-v3");
 
 export const MIN_PASSWORD_LENGTH = 12;
 
+export interface KdfParams {
+  name: "scrypt";
+  N: number;
+  r: number;
+  p: number;
+  salt: string;
+}
+
 interface VaultFile {
   v: 3;
-  kdf: { name: "scrypt"; N: number; r: number; p: number; salt: string };
+  kdf: KdfParams;
   iv: string;
   ct: string;
   /** Incremented on every write; lets a tab detect writes by other tabs. */
@@ -68,7 +76,7 @@ function adoptSession(key: CryptoKey, kdf: VaultFile["kdf"], rev: number): void 
 // ---------------------------------------------------------------------------
 // Encoding helpers
 
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i += 8192) {
     binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
@@ -76,7 +84,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
+export function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) {
@@ -85,14 +93,14 @@ function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-function randomBytes(length: number): Uint8Array<ArrayBuffer> {
+export function randomBytes(length: number): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(length));
 }
 
 // ---------------------------------------------------------------------------
 // Key derivation and AES-GCM
 
-async function deriveKey(
+export async function deriveKey(
   password: string,
   kdf: VaultFile["kdf"],
 ): Promise<CryptoKey> {
@@ -115,7 +123,7 @@ async function deriveKey(
   }
 }
 
-function newKdf(): VaultFile["kdf"] {
+export function newKdf(): KdfParams {
   return { name: "scrypt", ...SCRYPT, salt: bytesToBase64(randomBytes(SALT_BYTES)) };
 }
 

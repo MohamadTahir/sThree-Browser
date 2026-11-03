@@ -25,6 +25,7 @@
     "@smithy/fetch-http-handler": "^5.8.0",
     "@smithy/protocol-http": "^5.6.2",
     "@smithy/querystring-builder": "^4.5.2",
+    "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-http": "^2.8.3",
     "@tauri-apps/plugin-opener": "^2.7.2",
     "class-variance-authority": "^0.7.0",

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useConfig } from "@/context/config";
 import { Bucket } from "@/models/types";
 import { describeS3Error, listObjects } from "@/services/s3Service";
-import { errorMessage } from "@/lib/utils";
+import { errorMessage, parseEndpoint } from "@/lib/utils";
 import {
   Dialog,
   DialogBody,
@@ -21,14 +21,6 @@ import { Checkbox } from "../ui/checkbox";
 
 const LOCAL_HOST = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\]|.*\.localhost)$/i;
 
-function parseEndpoint(value: string): URL | null {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? url : null;
-  } catch {
-    return null;
-  }
-}
 
 const schema = z.object({
   nickname: z.string().trim().min(1, "Give the connection a name."),
