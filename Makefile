@@ -24,7 +24,7 @@ build: install ## Production build: static site in out/ (web and desktop)
 	pnpm build
 
 serve: build ## Serve out/ with the production static-web-server config (PORT=3000)
-	docker run --rm -p $(PORT):3000 \
+	docker run --rm -p $(PORT):8888 \
 		-v "$(CURDIR)/out:/public:ro" \
 		-v "$(CURDIR)/sws.toml:/etc/sws.toml:ro" \
 		-e SERVER_CONFIG_FILE=/etc/sws.toml \
@@ -46,7 +46,7 @@ docker-build: ## Build the web Docker image (IMAGE=sthree-browser)
 	docker build -t $(IMAGE) .
 
 docker-run: docker-build ## Run the web Docker image (PORT=3000)
-	docker run --rm -p $(PORT):3000 --name $(IMAGE) $(IMAGE)
+	docker run --rm -p $(PORT):8888 --name $(IMAGE) $(IMAGE)
 
 minio: ## Start a throwaway local MinIO for testing (MINIO_PORT=19000)
 	docker run -d --rm --name sthree-minio -p $(MINIO_PORT):9000 \

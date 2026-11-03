@@ -39,6 +39,6 @@ COPY sws.toml /etc/sws.toml
 COPY --from=builder /app/out /public
 
 ENV SERVER_CONFIG_FILE=/etc/sws.toml
-# The base image runs as root; use an unprivileged uid (port 3000 needs none).
+# The base image runs as root; use an unprivileged uid (port 8888 needs none).
 USER 65534:65534
-EXPOSE 3000
+EXPOSE 8888
