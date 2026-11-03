@@ -14,6 +14,7 @@ import {
   FileVideo,
   Folder,
   FolderPlus,
+  KeyRound,
   Menu,
   RefreshCw,
   Copy,
@@ -35,6 +36,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import ObjectPanel from "./explorer/ObjectPanel";
 import NewFolderDialog from "./explorer/NewFolderDialog";
 import ListingError from "./explorer/ListingError";
+import CredentialPrompt from "./explorer/CredentialPrompt";
 import DeleteFolderDialog from "./explorer/DeleteFolderDialog";
 import ShareDialog from "./explorer/ShareDialog";
 import { copyToClipboard, downloadObject } from "./explorer/objectActions";
@@ -92,10 +94,15 @@ const SHOW_MODIFIED_FROM = 720;
 const SHOW_ACTIONS_FROM = 520;
 
 export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
-  const { configs, getConnection, keepAlive } = useConfig();
+  const { configs, getConnection, keepAlive, sessionCredentials, setSessionCredential } =
+    useConfig();
   const activeId = configs.activeBucket;
   const bucket = activeId ? configs.buckets[activeId] : undefined;
-  const credential = bucket ? configs.credentials[bucket.credentialId] : undefined;
+  const credential = bucket
+    ? bucket.askForCredentials
+      ? sessionCredentials[bucket.id]
+      : configs.credentials[bucket.credentialId]
+    : undefined;
   // Stable identity unless the bucket or credential themselves change.
   const connection = useMemo(
     () => getConnection(activeId),
@@ -271,6 +278,13 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
     }
   };
 
+  /** Drop keys typed in for this connection; running uploads stop with them. */
+  const forgetKeys = () => {
+    if (!activeId) return;
+    activeUploads.current.forEach((abort) => void abort());
+    setSessionCredential(activeId, null);
+  };
+
   // ---- render -----------------------------------------------------------
 
   if (!bucket) {
@@ -290,6 +304,42 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
     );
   }
 
+  const endpointHost = bucket.endpoint
+    ? (() => {
+        try {
+          return new URL(bucket.endpoint).host;
+        } catch {
+          return bucket.endpoint;
+        }
+      })()
+    : "AWS S3";
+
+  const titleBlock = (
+    <div className="min-w-0 flex-1">
+      <h1 className="truncate text-xl font-semibold tracking-[-0.015em]">{bucket.nickname}</h1>
+      <p className="truncate text-xs text-muted-foreground">
+        {bucket.bucketName} · {bucket.region} · {endpointHost}
+      </p>
+    </div>
+  );
+
+  if (!connection && bucket.askForCredentials) {
+    return (
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6">
+          <Button variant="quiet" size="icon" className="-ml-1 md:hidden" onClick={onOpenNav} aria-label="Open sidebar">
+            <Menu />
+          </Button>
+          {titleBlock}
+        </header>
+        <CredentialPrompt
+          bucket={bucket}
+          onConnect={(entered) => setSessionCredential(bucket.id, entered)}
+        />
+      </main>
+    );
+  }
+
   if (!connection) {
     return (
       <main className="flex flex-1 flex-col">
@@ -302,16 +352,6 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
       </main>
     );
   }
-
-  const endpointHost = bucket.endpoint
-    ? (() => {
-        try {
-          return new URL(bucket.endpoint).host;
-        } catch {
-          return bucket.endpoint;
-        }
-      })()
-    : "AWS S3";
 
   const crumbs = prefix
     .split("/")
@@ -389,12 +429,18 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           <Button variant="quiet" size="icon" className="-ml-1 md:hidden" onClick={onOpenNav} aria-label="Open sidebar">
             <Menu />
           </Button>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold tracking-[-0.015em]">{bucket.nickname}</h1>
-            <p className="truncate text-xs text-muted-foreground">
-              {bucket.bucketName} · {bucket.region} · {endpointHost}
-            </p>
-          </div>
+          {titleBlock}
+          {bucket.askForCredentials && (
+            <Button
+              variant="quiet"
+              onClick={forgetKeys}
+              aria-label="Forget keys"
+              title="Forget the keys entered for this session"
+              className="max-lg:w-9 max-lg:px-0"
+            >
+              <KeyRound /> <span className="hidden lg:inline">Forget keys</span>
+            </Button>
+          )}
           <Button variant="quiet" size="icon" onClick={refresh} aria-label="Refresh" title="Refresh">
             <RefreshCw className={cn(loading && "animate-spin")} />
           </Button>

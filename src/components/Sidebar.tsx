@@ -75,7 +75,7 @@ export default function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       bucket={bucket}
       nested={nested}
       active={configs.activeBucket === bucket.id}
-      missingCredential={!configs.credentials[bucket.credentialId]}
+      missingCredential={!bucket.askForCredentials && !configs.credentials[bucket.credentialId]}
       onSelect={() => select(bucket.id)}
       onEdit={() => setPending({ kind: "connection", bucket })}
       onDelete={() => setPending({ kind: "delete-connection", bucket })}
@@ -398,7 +398,15 @@ function ConnectionRow({
         )}
       >
         {!nested && <Database className={cn("size-4 shrink-0", active ? "text-primary-text" : "text-muted-foreground")} aria-hidden />}
-        <span className="min-w-0 flex-1 truncate">{bucket.nickname}</span>
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="truncate">{bucket.nickname}</span>
+          {bucket.askForCredentials && (
+            <KeyRound
+              className="size-3 shrink-0 text-muted-foreground"
+              aria-label="Asks for keys when connecting"
+            />
+          )}
+        </span>
         {missingCredential && (
           <span className="size-1.5 shrink-0 rounded-full bg-warning" title="No credential assigned" />
         )}

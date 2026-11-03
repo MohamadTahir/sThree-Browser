@@ -62,6 +62,12 @@ type ConfigContextType = {
   /** Throws if any bucket still uses the credential. */
   deleteCredential: (credentialId: string) => Promise<void>;
   getConnection: (bucketId: string | null) => Connection | null;
+  /**
+   * Keys typed in for a connection set to ask for them. Held in memory only:
+   * never written to the vault, and gone when the app locks or reloads.
+   */
+  sessionCredentials: Record<string, Credential>;
+  setSessionCredential: (bucketId: string, credential: Credential | null) => void;
   /** Merge settings from an export file; items with the same id are replaced. */
   importConfigs: (payload: ExportPayload) => Promise<void>;
 };
@@ -73,6 +79,9 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [status, setStatus] = useState<VaultStatus>("loading");
   const [configs, setConfigs] = useState<Configs>(emptyConfigs);
+  const [sessionCredentials, setSessionCredentials] = useState<
+    Record<string, Credential>
+  >({});
 
   // Latest configs and a write queue, so quick successive edits build on each
   // other instead of on a stale render, and saves land in order.
@@ -112,6 +121,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
     flushSync(() => {
       configsRef.current = emptyConfigs();
       setConfigs(configsRef.current);
+      setSessionCredentials({});
       setStatus("locked");
     });
     if (notice) {
@@ -260,8 +270,9 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const saveBucket = (bucket: Bucket) =>
     update((c) => ({ ...c, buckets: { ...c.buckets, [bucket.id]: bucket } }));
 
-  const deleteBucket = (bucketId: string) =>
-    update((c) => {
+  const deleteBucket = (bucketId: string) => {
+    setSessionCredential(bucketId, null);
+    return update((c) => {
       const buckets = { ...c.buckets };
       delete buckets[bucketId];
       return {
@@ -270,6 +281,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
         activeBucket: c.activeBucket === bucketId ? null : c.activeBucket,
       };
     });
+  };
 
   const saveCredential = (credential: Credential) =>
     update((c) => ({
@@ -297,13 +309,28 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const importConfigs = (payload: ExportPayload) =>
     update((c) => mergeImport(c, payload));
 
+  const setSessionCredential = useCallback(
+    (bucketId: string, credential: Credential | null) =>
+      setSessionCredentials((current) => {
+        const next = { ...current };
+        if (credential) next[bucketId] = credential;
+        else delete next[bucketId];
+        return next;
+      }),
+    [],
+  );
+
   const getConnection = useCallback(
     (bucketId: string | null): Connection | null => {
       const bucket = bucketId ? configs.buckets[bucketId] : undefined;
-      const credential = bucket && configs.credentials[bucket.credentialId];
+      const credential =
+        bucket &&
+        (bucket.askForCredentials
+          ? sessionCredentials[bucket.id]
+          : configs.credentials[bucket.credentialId]);
       return bucket && credential ? { bucket, credential } : null;
     },
-    [configs.buckets, configs.credentials],
+    [configs.buckets, configs.credentials, sessionCredentials],
   );
 
   const value = useMemo(
@@ -326,11 +353,22 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({
       saveCredential,
       deleteCredential,
       getConnection,
+      sessionCredentials,
+      setSessionCredential,
       importConfigs,
     }),
     // The action functions only touch refs and stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [status, configs, lock, keepAlive, getConnection, getLockDeadline],
+    [
+      status,
+      configs,
+      lock,
+      keepAlive,
+      getConnection,
+      getLockDeadline,
+      sessionCredentials,
+      setSessionCredential,
+    ],
   );
 
   return (
