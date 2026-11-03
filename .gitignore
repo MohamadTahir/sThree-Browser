@@ -7,17 +7,19 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Server (removed - now using Next.js API routes)
-# server/node_modules
-# server/dist
-
 node_modules
+.pnpm-store
 dist
 dist-ssr
 .next
 out
 standalone
 *.local
+
+# Secrets and local env files
+.env
+.env*.local
+*.pem
 
 # Editor directories and files
 .vscode/*
@@ -33,6 +35,10 @@ standalone
 # Tauri
 src-tauri/target
 src-tauri/Cargo.lock
+
+# Claude Code (local launch configs and personal settings; shared settings.json stays)
+.claude/*
+!.claude/settings.json
 
 # TypeScript
 *.tsbuildinfo

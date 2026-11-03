@@ -1,0 +1,37 @@
+version: 2
+
+updates:
+  # Web and desktop front end (pnpm uses the npm ecosystem).
+  # Minor and patch bumps come as one PR so lockfile edits don't conflict.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  # Tauri shell.
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
+    schedule:
+      interval: "weekly"
+    groups:
+      cargo-minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  # Base images in the Dockerfile.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Pinned action SHAs in the release workflow.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
