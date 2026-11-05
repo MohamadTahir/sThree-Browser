@@ -24,7 +24,7 @@ export default function UploadQueue({
 
   return (
     <div
-      className="pointer-events-auto absolute bottom-12 left-3 z-20 w-[min(360px,calc(100%-1.5rem))] overflow-hidden rounded-xl border bg-background shadow-popover"
+      className="pointer-events-auto absolute bottom-12 left-3 z-20 w-[min(360px,calc(100%-1.5rem))] overflow-hidden rounded-xl border bg-raised gloss shadow-popover"
       role="status"
       aria-live="polite"
     >

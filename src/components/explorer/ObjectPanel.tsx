@@ -151,14 +151,14 @@ export default function ObjectPanel({
 
   return (
     <aside
-      className="fixed inset-0 z-30 flex flex-col bg-background lg:static lg:z-auto lg:w-[360px] lg:shrink-0 lg:border-l"
+      className="fixed inset-0 z-30 flex flex-col bg-sidebar lg:static lg:z-auto lg:w-[360px] lg:shrink-0 lg:border-l"
       aria-label="Object details"
     >
       <div className="flex h-16 shrink-0 items-center gap-2 px-4 lg:px-5">
         <Button variant="quiet" size="icon" className="lg:hidden" onClick={onClose} aria-label="Back to list">
           <ArrowLeft />
         </Button>
-        <h2 className="min-w-0 flex-1 truncate text-base font-semibold" title={name}>
+        <h2 className="min-w-0 flex-1 truncate text-base font-semibold [font-stretch:106%]" title={name}>
           {name}
         </h2>
         <Button variant="quiet" size="icon" className="hidden lg:inline-flex" onClick={onClose} aria-label="Close details">
@@ -180,7 +180,7 @@ export default function ObjectPanel({
           </div>
         </div>
 
-        <dl className="mx-5 grid grid-cols-[112px_1fr] gap-y-2.5 border-t py-5 text-sm">
+        <dl className="mx-5 mb-5 grid grid-cols-[112px_1fr] gap-y-2.5 rounded-2xl border bg-raised gloss p-4 text-sm">
           <dt className="text-muted-foreground">Size</dt>
           <dd className="tabular">
             {prettyBytes(head?.contentLength ?? object.size)}
@@ -257,7 +257,7 @@ function PreviewArea({
   name: string;
   onOpenPdf: () => void;
 }) {
-  const frame = "mx-5 mb-5 flex min-h-44 items-center justify-center overflow-hidden rounded-xl border bg-subtle";
+  const frame = "mx-5 mb-5 flex min-h-44 items-center justify-center overflow-hidden rounded-[18px] border bg-subtle shadow-[0_20px_40px_-24px_rgb(0_0_0/0.45)]";
 
   switch (preview.kind) {
     case "loading":
@@ -287,7 +287,7 @@ function PreviewArea({
       );
     case "text":
       return (
-        <div className="mx-5 mb-5 overflow-hidden rounded-xl border bg-subtle">
+        <div className="mx-5 mb-5 overflow-hidden rounded-[18px] border bg-subtle">
           <pre className="max-h-72 overflow-auto p-3 font-mono text-xs leading-5">
             {preview.text || <span className="text-muted-foreground">Empty file</span>}
           </pre>

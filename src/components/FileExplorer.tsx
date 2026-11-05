@@ -316,9 +316,13 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
 
   const titleBlock = (
     <div className="min-w-0 flex-1">
-      <h1 className="truncate text-xl font-semibold tracking-[-0.015em]">{bucket.nickname}</h1>
-      <p className="truncate text-xs text-muted-foreground">
-        {bucket.bucketName} · {bucket.region} · {endpointHost}
+      <h1 className="truncate text-[22px] leading-7 font-[680] tracking-[-0.025em] [font-stretch:112%] sm:text-[26px] sm:leading-8">
+        {bucket.nickname}
+      </h1>
+      <p className="mt-1.5 flex min-w-0 flex-wrap gap-1.5 text-xs">
+        <IdentityChip label="Bucket" value={bucket.bucketName} mono />
+        <IdentityChip label="Region" value={bucket.region} mono className="max-sm:hidden" />
+        <IdentityChip label="Endpoint" value={endpointHost} className="max-md:hidden" />
       </p>
     </div>
   );
@@ -326,7 +330,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   if (!connection && bucket.askForCredentials) {
     return (
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6">
+        <header className="flex shrink-0 items-center gap-2 border-b px-4 pb-3.5 pt-5 sm:px-7">
           <Button variant="quiet" size="icon" className="-ml-1 md:hidden" onClick={onOpenNav} aria-label="Open sidebar">
             <Menu />
           </Button>
@@ -370,7 +374,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
         scope="col"
         aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : "none"}
         className={cn(
-          "h-10 px-3 font-medium",
+          "h-9 px-3.5 font-medium",
           align === "right" && "text-right",
           className,
         )}
@@ -425,7 +429,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           }}
         />
 
-        <header className="flex h-16 shrink-0 items-center gap-2 px-4 sm:px-6">
+        <header className="flex shrink-0 items-center gap-2 px-4 pb-3.5 pt-5 sm:px-7">
           <Button variant="quiet" size="icon" className="-ml-1 md:hidden" onClick={onOpenNav} aria-label="Open sidebar">
             <Menu />
           </Button>
@@ -452,16 +456,16 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           </Button>
         </header>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 pb-3 sm:px-6">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 pb-3.5 sm:px-7">
           <nav aria-label="Folder path" className="min-w-0 flex-1">
-            <ol className="-ml-1.5 flex min-w-0 items-center text-sm">
+            <ol className="-ml-2.5 flex min-w-0 items-center gap-0.5 text-[13.5px]">
               <li className="shrink-0">
                 <button
                   type="button"
                   onClick={() => setPrefix("")}
                   className={cn(
-                    "rounded-md px-1.5 py-1 transition-colors hover:bg-muted",
-                    crumbs.length === 0 ? "font-medium" : "text-muted-foreground",
+                    "flex h-[30px] items-center rounded-full px-2.5 transition-colors hover:bg-foreground/5",
+                    crumbs.length === 0 ? "bg-muted font-semibold" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {bucket.bucketName}
@@ -469,14 +473,14 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
               </li>
               {crumbs.map((crumb, i) => (
                 <li key={crumb.prefix} className="flex min-w-0 items-center">
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" aria-hidden />
+                  <span className="px-0.5 text-muted-foreground/60" aria-hidden>/</span>
                   <button
                     type="button"
                     onClick={() => setPrefix(crumb.prefix)}
                     aria-current={i === crumbs.length - 1 ? "location" : undefined}
                     className={cn(
-                      "truncate rounded-md px-1.5 py-1 transition-colors hover:bg-muted",
-                      i === crumbs.length - 1 ? "font-medium" : "text-muted-foreground",
+                      "flex h-[30px] min-w-0 items-center rounded-full px-2.5 transition-colors hover:bg-foreground/5",
+                      i === crumbs.length - 1 ? "bg-muted font-semibold" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {crumb.name}
@@ -492,7 +496,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
               placeholder="Filter this page"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="h-8 pl-9 text-[13px]"
+              className="h-[34px] rounded-full pl-9 text-[13px]"
               aria-label="Filter this page"
             />
           </div>
@@ -508,8 +512,8 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           {error ? (
             <ListingError message={error} errorName={listing.errorName} onRetry={refresh} />
           ) : (
-            <div className="px-2 pb-3 sm:px-3">
-            <table className="w-full table-fixed border-separate border-spacing-0 text-sm">
+            <div className="px-2 pb-3 sm:px-3.5">
+            <table className="w-full table-fixed border-separate border-spacing-x-0 border-spacing-y-[2px] text-sm">
               <thead className="sticky top-0 z-5 bg-background/95 text-left text-xs text-muted-foreground backdrop-blur-sm supports-backdrop-filter:bg-background/80">
                 <tr>
                   {sortHeader("name", "Name")}
@@ -520,12 +524,12 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
               <tbody ref={tableRef} onKeyDown={onTableKeyDown}>
                 {prefix && !filter && (
                   <tr className="group">
-                    <td colSpan={columns} className="rounded-lg p-0 transition-colors group-hover:bg-muted/70">
+                    <td colSpan={columns} className="rounded-[12px] p-0 transition-colors group-hover:bg-foreground/[0.045]">
                       <button
                         type="button"
                         data-row
                         onClick={() => setPrefix(parentPrefix(prefix))}
-                        className="flex h-[44px] w-full items-center gap-3 rounded-lg px-3 text-left text-muted-foreground sm:h-10"
+                        className="flex h-11 w-full items-center gap-3 rounded-[12px] px-3.5 text-left text-muted-foreground"
                       >
                         <Folder className="size-[18px] shrink-0" strokeWidth={1.75} /> ..
                       </button>
@@ -586,7 +590,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
         </div>
 
         {!error && (objects.length > 0 || listing.page > 0) && (
-          <footer className="flex h-11 shrink-0 items-center justify-between gap-2 border-t px-4 text-xs text-muted-foreground sm:px-6">
+          <footer className="flex h-12 shrink-0 items-center justify-between gap-2 border-t px-4 text-xs text-muted-foreground sm:px-7">
             <span className="tabular">
               {filter ? `${rows.length} of ${objects.length}` : objects.length}{" "}
               {objects.length === 1 ? "item" : "items"}
@@ -594,10 +598,10 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
             </span>
             {(listing.page > 0 || listing.hasNextPage) && (
               <div className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={listing.previousPage} disabled={listing.page === 0 || loading}>
+                <Button size="sm" variant="secondary" className="h-[30px]" onClick={listing.previousPage} disabled={listing.page === 0 || loading}>
                   <ChevronLeft /> Previous
                 </Button>
-                <Button size="sm" variant="ghost" onClick={listing.nextPage} disabled={!listing.hasNextPage || loading}>
+                <Button size="sm" variant="secondary" className="h-[30px]" onClick={listing.nextPage} disabled={!listing.hasNextPage || loading}>
                   Next <ChevronRight />
                 </Button>
               </div>
@@ -699,7 +703,12 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   );
 }
 
-const cell = "transition-colors duration-100 first:rounded-l-lg last:rounded-r-lg";
+const cell = "transition-colors duration-100 first:rounded-l-[12px] last:rounded-r-[12px]";
+// A selected row is a blue wash with a fine outline, drawn per cell so the
+// whole row reads as one rounded pill.
+// (Written out in full: Tailwind only generates classes it can read literally.)
+const selectedTone =
+  "bg-primary-subtle shadow-[inset_0_1px_0_hsl(var(--accent)/0.32),inset_0_-1px_0_hsl(var(--accent)/0.32)] first:shadow-[inset_1px_0_0_hsl(var(--accent)/0.32),inset_0_1px_0_hsl(var(--accent)/0.32),inset_0_-1px_0_hsl(var(--accent)/0.32)] last:shadow-[inset_-1px_0_0_hsl(var(--accent)/0.32),inset_0_1px_0_hsl(var(--accent)/0.32),inset_0_-1px_0_hsl(var(--accent)/0.32)]";
 
 function ObjectRow({
   object,
@@ -721,7 +730,7 @@ function ObjectRow({
   actions: RowActionHandlers;
 }) {
   const Icon = object.isFolder ? Folder : iconFor(object.key);
-  const tone = selected ? "bg-primary-subtle" : "group-hover:bg-muted/70";
+  const tone = selected ? selectedTone : "group-hover:bg-foreground/[0.045]";
   const name = baseName(object.key);
   const summary = typeof folder === "object" ? folder : null;
   return (
@@ -734,7 +743,7 @@ function ObjectRow({
           onFocus={onFocus}
           aria-pressed={object.isFolder ? undefined : selected}
           className={cn(
-            "flex h-[44px] w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left sm:h-10",
+            "flex h-11 w-full min-w-0 items-center gap-3 rounded-[12px] px-3.5 text-left",
             object.isFolder ? (showActions ? "pr-24" : "pr-12") : showActions && "pr-40",
           )}
           title={name}
@@ -743,7 +752,7 @@ function ObjectRow({
             className={cn(
               "size-[18px] shrink-0",
               object.isFolder
-                ? "fill-muted-foreground/15 text-muted-foreground"
+                ? "fill-primary/15 text-primary-text"
                 : selected
                   ? "text-primary-text"
                   : "text-muted-foreground",
@@ -757,7 +766,7 @@ function ObjectRow({
         <RowActions isFolder={object.isFolder} name={name} actions={actions} full={showActions} />
       </td>
       <td
-        className={cn(cell, tone, "px-3 text-right text-muted-foreground tabular")}
+        className={cn(cell, tone, "px-3.5 text-right text-muted-foreground tabular")}
         title={summary ? folderTitle(summary) : undefined}
       >
         {object.isFolder
@@ -769,7 +778,7 @@ function ObjectRow({
           : prettyBytes(object.size)}
       </td>
       {showModified && (
-        <td className={cn(cell, tone, "truncate px-3 text-muted-foreground tabular")}>
+        <td className={cn(cell, tone, "truncate px-3.5 text-muted-foreground tabular")}>
           {object.isFolder
             ? folder === "loading"
               ? <Pending />
@@ -911,5 +920,30 @@ function MobileBar({ onOpenNav, title }: { onOpenNav: () => void; title: string 
       </Button>
       <span className="truncate font-semibold">{title}</span>
     </header>
+  );
+}
+
+/** One fact about the connection (bucket, region, endpoint) as a small chip. */
+function IdentityChip({
+  label,
+  value,
+  mono,
+  className,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 text-muted-foreground",
+        className,
+      )}
+    >
+      <span className="shrink-0 text-muted-foreground/80">{label}</span>
+      <span className={cn("truncate text-foreground/85", mono && "font-mono text-[11.5px]")}>{value}</span>
+    </span>
   );
 }

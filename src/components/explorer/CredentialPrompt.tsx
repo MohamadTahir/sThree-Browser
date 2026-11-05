@@ -65,7 +65,7 @@ export default function CredentialPrompt({
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="rounded-xl border bg-background p-6 shadow-card"
+          className="rounded-xl border bg-raised gloss p-6 shadow-card"
         >
           <div className="mb-5 flex items-start gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-subtle text-foreground">
