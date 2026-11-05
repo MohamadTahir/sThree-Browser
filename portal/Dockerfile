@@ -16,8 +16,9 @@ LABEL org.opencontainers.image.title="sThree Browser portal" \
       org.opencontainers.image.licenses="MIT"
 
 COPY sws.toml /etc/sws.toml
-COPY index.html styles.css main.js config.js logo.svg logo-mark.svg favicon.png /public/
+COPY index.html styles.css main.js config.js figures.js logo.svg logo-mark.svg favicon.png /public/
 COPY fonts/ /public/fonts/
+COPY vendor/ /public/vendor/
 
 ENV SERVER_CONFIG_FILE=/etc/sws.toml
 USER 65534:65534
