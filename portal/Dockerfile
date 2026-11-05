@@ -15,10 +15,10 @@ LABEL org.opencontainers.image.title="sThree Browser portal" \
       org.opencontainers.image.source="https://github.com/MohamadTahir/sThree-Browser" \
       org.opencontainers.image.licenses="MIT"
 
+COPY legal.html /public/
 COPY sws.toml /etc/sws.toml
 COPY index.html styles.css main.js config.js logo.svg logo-mark.svg favicon.png /public/
 COPY fonts/ /public/fonts/
-COPY legal.html /public/
 
 ENV SERVER_CONFIG_FILE=/etc/sws.toml
 USER 65534:65534
