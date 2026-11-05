@@ -502,7 +502,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           </div>
         </div>
 
-        <div ref={listRef} className="relative min-h-0 flex-1 overflow-auto">
+        <div ref={listRef} className="relative flex min-h-0 flex-1 flex-col overflow-auto">
           {loading && objects.length > 0 && (
             <div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-primary/15">
               <div className="h-full w-1/3 animate-shimmer bg-primary" style={{ transform: "translateX(-100%)" }} />
@@ -901,10 +901,12 @@ function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto mt-12 flex max-w-sm flex-col items-center px-4 text-center">
+    // Fills the space it is given and centres itself in it, a little above
+    // the middle (pb) so it reads as centred under the header.
+    <div className="flex flex-1 flex-col items-center justify-center px-4 pt-8 pb-[12vh] text-center">
       <EmptyFigure name={figure} />
-      <h2 className="mt-3 text-base font-semibold">{title}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+      <h2 className="mt-4 text-lg font-semibold tracking-[-0.01em]">{title}</h2>
+      <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{body}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

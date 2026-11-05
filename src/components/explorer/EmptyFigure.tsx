@@ -30,5 +30,5 @@ export default function EmptyFigure({ name }: { name: EmptyFigureName }) {
     return () => figure.destroy();
   }, [name]);
 
-  return <div ref={host} aria-hidden="true" className="empty-figure aspect-[5/4] w-44 sm:w-52" />;
+  return <div ref={host} aria-hidden="true" className="empty-figure aspect-[5/4] w-64 max-w-full sm:w-80" />;
 }
