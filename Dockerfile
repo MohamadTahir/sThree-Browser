@@ -24,7 +24,8 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 COPY . .
 # Production build: static export to out/, strict CSP (see next.config.js).
 ENV NODE_ENV=production
-RUN pnpm build
+# _headers is for Cloudflare Pages; the container sends headers from sws.toml.
+RUN pnpm build && rm -f out/_headers
 
 # ---- runtime --------------------------------------------------------------
 # Scratch-based image: just the static-web-server binary, no shell or OS.

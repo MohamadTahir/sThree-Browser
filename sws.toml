@@ -1,6 +1,7 @@
 # static-web-server config for the web build (out/). There is no backend:
 # every S3 request is made by the user's browser straight to the bucket.
-# Keep the security headers in step with next.config.js (dev server) and
+# Keep the security headers in step with next.config.js (dev server),
+# public/_headers (Cloudflare Pages) and
 # src-tauri/tauri.conf.json (desktop).
 
 [general]

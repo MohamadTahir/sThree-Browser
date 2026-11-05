@@ -1,6 +1,7 @@
 # static-web-server config for the portal image. The portal loads nothing
 # from other origins, so its policy is stricter than the app's: no inline
-# scripts or styles, no third-party connections.
+# scripts or styles, no third-party connections. Keep in step with _headers
+# (Cloudflare Pages).
 
 [general]
 host = "::"
