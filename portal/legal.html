@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy &amp; terms · sThree Browser</title>
+  <meta name="description" content="What sThree Browser collects (nothing), who serves the hosted copy, and the terms you use it under." />
+  <meta name="theme-color" content="#06060b" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="referrer" content="no-referrer" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="legal wrap">
+    <a class="brand" href="./"><img src="logo.svg" alt="" width="30" height="30" /><span>sThree Browser</span></a>
+
+    <h1 class="h2">Privacy &amp; terms</h1>
+    <p class="lede">sThree Browser is a free, open-source project run by one person. This page covers this site and the hosted app at app.sthree.motahir.dev. If you host your own copy, you are the operator of that copy.</p>
+
+    <h2>What we collect</h2>
+    <p>Nothing. There are no accounts, no analytics, no telemetry and no cookies, in the app or on this site.</p>
+    <p>The app keeps your connections and credentials in one encrypted vault, in your browser's storage (or the desktop app's own storage). It is encrypted with a key derived from your master password, and it never leaves your device unless you export it. Every S3 request goes from your device straight to the storage endpoint you configured; we never receive your keys, your files or your S3 requests.</p>
+
+    <h2>Who serves the site</h2>
+    <p>This site and the hosted app are static files served by <a href="https://www.cloudflare.com/">Cloudflare</a>. Like any web host, Cloudflare processes your IP address and standard request details to deliver the pages and protect them from abuse. See <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>.</p>
+    <p>The hosted app runs code served from this domain. If you would rather not trust our copy, you can build and host the same code yourself.</p>
+
+    <h2>Your responsibilities</h2>
+    <ul>
+      <li>You are responsible for your buckets, your credentials, and what you do with them. Deleting objects in a bucket is permanent unless your provider keeps versions.</li>
+      <li>There is no password recovery. If you forget your master password, the vault cannot be opened.</li>
+      <li>In the web app, clearing your browser's site data deletes the vault. Keep an encrypted export as a backup.</li>
+      <li>Anyone with a share link can open the shared file until the link expires.</li>
+    </ul>
+
+    <h2>No warranty</h2>
+    <p>sThree Browser is provided as is, without warranty of any kind, and the authors are not liable for any claim, damages or other liability arising from its use, as set out in the <a href="https://github.com/MohamadTahir/sThree-Browser/blob/main/LICENSE">MIT license</a>. The hosted copy may change or go offline at any time.</p>
+
+    <h2>Trademarks</h2>
+    <p>Amazon S3 and AWS are trademarks of Amazon.com, Inc. or its affiliates. Cloudflare, R2, MinIO, Wasabi, GitHub and other names are trademarks of their respective owners. sThree Browser is an independent project, not affiliated with or endorsed by any of them. Mona Sans is used under the <a href="fonts/OFL.txt">SIL Open Font License</a>.</p>
+
+    <h2>Contact</h2>
+    <p>Questions and bug reports: <a href="https://github.com/MohamadTahir/sThree-Browser/issues">GitHub issues</a>. Security vulnerabilities: please follow the <a href="https://github.com/MohamadTahir/sThree-Browser/blob/main/SECURITY.md">security policy</a> instead of opening a public issue.</p>
+
+    <p class="fine">Last updated 5 November 2026.</p>
+  </main>
+</body>
+</html>
