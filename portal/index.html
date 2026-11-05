@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>sThree Browser · Your buckets, your keys</title>
+  <meta name="description" content="A safe S3 browser for AWS S3, Cloudflare R2, MinIO and any S3-compatible storage. Your keys stay encrypted on your device, and every request goes straight from your device to your bucket." />
+  <meta name="theme-color" content="#06060b" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="referrer" content="no-referrer" />
+  <meta property="og:title" content="sThree Browser · Your buckets, your keys" />
+  <meta property="og:description" content="Browse S3, R2 and MinIO with your keys encrypted on your device. No middleman, no tracking." />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="preload" href="fonts/mona-sans-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="config.js" defer></script>
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav" data-nav>
+    <div class="wrap nav__in">
+      <a class="brand" href="#top" aria-label="sThree Browser, back to top">
+        <img src="logo.svg" alt="" width="30" height="30" />
+        <span>sThree Browser</span>
+      </a>
+      <nav class="nav__links" aria-label="Sections">
+        <a href="#security">Security</a>
+        <a href="#features">Features</a>
+        <a href="#self-host">Self-host</a>
+        <a href="https://github.com/MohamadTahir/sThree-Browser" data-repo-link>GitHub</a>
+      </nav>
+      <a class="btn btn--light btn--sm" href="/app/" data-app-link>Open the app</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero__field" aria-hidden="true">
+        <canvas data-field></canvas>
+      </div>
+      <div class="wrap hero__in">
+        <div class="hero__copy">
+          <h1 id="hero-title" class="display">
+            <span class="line">Your buckets.</span>
+            <span class="line">Your keys.</span>
+            <span class="line line--soft">No one in between.</span>
+          </h1>
+          <p class="hero__lede">
+            sThree Browser is a safe, open-source S3 browser. Your credentials stay encrypted on your device,
+            and every request goes straight from you to your storage.
+          </p>
+          <div class="actions">
+            <a class="btn btn--light" href="/app/" data-app-link>
+              Open the app
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </a>
+            <a class="btn btn--ghost" href="#self-host">Host your own</a>
+          </div>
+          <p class="hero__works">Works with <strong>AWS S3</strong>, <strong>Cloudflare R2</strong>, <strong>MinIO</strong> and any S3-compatible storage.</p>
+        </div>
+
+        <div class="stack" data-stack aria-hidden="true">
+          <div class="stack__scene" data-scene>
+            <div class="slab slab--3"></div>
+            <div class="slab slab--2"></div>
+            <div class="slab slab--1"></div>
+          </div>
+          <div class="stack__shadow"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security: the direct path -->
+    <section class="band" id="security" aria-labelledby="security-title">
+      <div class="wrap">
+        <h2 id="security-title" class="h2">The shortest path<br />is the safest one.</h2>
+        <p class="lede">Most tools pass your keys through someone's server. sThree doesn't have one. The host only hands your browser some static files; after that it's just you and your bucket.</p>
+
+        <figure class="path" aria-label="Diagram: requests go from your device straight to your bucket. The route through a middleman server is not used.">
+          <svg class="path__svg" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="120" y1="0" x2="880" y2="0">
+                <stop offset="0" stop-color="#60a5fa" />
+                <stop offset="0.5" stop-color="#a78bfa" />
+                <stop offset="1" stop-color="#22d3ee" />
+              </linearGradient>
+            </defs>
+            <path class="path__detour" d="M120 200 C 300 20, 700 20, 880 200" />
+            <path class="path__line" d="M120 220 H880" />
+            <path class="path__pulse" d="M120 220 H880" />
+          </svg>
+          <div class="node node--device">
+            <span class="node__dot"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg></span>
+            <span class="node__label">Your device</span>
+            <span class="node__sub">Keys encrypted here</span>
+          </div>
+          <div class="node node--server">
+            <span class="node__dot node__dot--off"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="7" rx="2" /><rect x="4" y="14" width="16" height="7" rx="2" /><path d="M2 2l20 20" /></svg></span>
+            <span class="node__label">A middleman server</span>
+            <span class="node__sub">Not on the route</span>
+          </div>
+          <div class="node node--bucket">
+            <span class="node__dot"><svg class="i" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></svg></span>
+            <span class="node__label">Your bucket</span>
+            <span class="node__sub">S3, R2, MinIO and more</span>
+          </div>
+        </figure>
+
+        <div class="facts">
+          <div class="fact">
+            <h3>An encrypted vault</h3>
+            <p>Connections and credentials are one AES-256-GCM ciphertext, keyed from your master password with scrypt. On desktop it's also bound to the OS keychain.</p>
+          </div>
+          <div class="fact">
+            <h3>Signed on your device</h3>
+            <p>Every S3 request is signed locally and sent straight to the storage endpoint. The site's host never sees a key, a file or a request.</p>
+          </div>
+          <div class="fact">
+            <h3>Zero tracking</h3>
+            <p>No analytics, no telemetry. This page doesn't load a single file from anywhere else either.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features bento -->
+    <section class="band" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title" class="h2">Everything you do in a bucket.<br /><span class="soft">None of the console.</span></h2>
+
+        <div class="bento">
+          <article class="tile tile--browse">
+            <div class="tile__text">
+              <h3>Browse like a file manager</h3>
+              <p>Breadcrumbs, sorting by name, size and date, folder sizes worked out in the background, and full keyboard navigation.</p>
+            </div>
+            <div class="viz viz--list" aria-hidden="true">
+              <div class="crumbs"><span>my-bucket</span><span>projects</span><span>2026</span></div>
+              <ul class="files" data-files>
+                <li><i class="f f--dir"></i><span>assets/</span><em>2.4 GB</em><b>Nov 2</b></li>
+                <li><i class="f f--dir"></i><span>exports/</span><em>815 MB</em><b>Oct 30</b></li>
+                <li><i class="f f--img"></i><span>cover-final.png</span><em>4.1 MB</em><b>Oct 28</b></li>
+                <li><i class="f f--vid"></i><span>launch-cut.mp4</span><em>212 MB</em><b>Oct 27</b></li>
+                <li><i class="f f--doc"></i><span>budget-q4.xlsx</span><em>88 KB</em><b>Oct 21</b></li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="tile tile--upload">
+            <div class="tile__text">
+              <h3>Upload any size</h3>
+              <p>Large files go up in parallel parts. Cancel one, and it cleans up after itself.</p>
+            </div>
+            <div class="viz viz--parts" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </article>
+
+          <article class="tile tile--share">
+            <div class="tile__text">
+              <h3>Links that expire</h3>
+              <p>Share a file, not your keys. Links stop working on schedule.</p>
+            </div>
+            <div class="viz viz--chips" aria-hidden="true" data-chips>
+              <span>15 min</span><span>1 hour</span><span class="on">1 day</span><span>7 days</span>
+            </div>
+          </article>
+
+          <article class="tile tile--preview">
+            <div class="tile__text">
+              <h3>Look before you download</h3>
+              <p>Images, video, audio and code, previewed right beside the list.</p>
+            </div>
+            <div class="viz viz--thumbs" aria-hidden="true">
+              <span class="th th--img"></span>
+              <span class="th th--wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="th th--play"></span>
+              <span class="th th--code"><i></i><i></i><i></i><i></i></span>
+            </div>
+          </article>
+
+          <article class="tile tile--delete">
+            <div class="tile__text">
+              <h3>Delete on purpose</h3>
+              <p>Folder deletes show how many objects go and ask you to type the name.</p>
+            </div>
+            <div class="viz viz--confirm" aria-hidden="true">
+              <span class="confirm__count">Delete 1,284 objects in <code>old-logs/</code>?</span>
+              <span class="confirm__field"><span data-type>old-logs</span><i class="caret"></i></span>
+            </div>
+          </article>
+
+          <article class="tile tile--lock">
+            <div class="tile__text">
+              <h3>Locks itself</h3>
+              <p>After 15 idle minutes, or when you press Lock, every decrypted secret is cleared.</p>
+            </div>
+            <div class="viz viz--lock" aria-hidden="true">
+              <svg viewBox="0 0 120 120">
+                <circle class="ring ring--bg" cx="60" cy="60" r="50" />
+                <circle class="ring ring--fg" cx="60" cy="60" r="50" />
+                <g class="padlock" transform="translate(42 36)">
+                  <rect x="0" y="20" width="36" height="28" rx="7" />
+                  <path class="shackle" d="M8 20v-7a10 10 0 0 1 20 0v7" />
+                </g>
+              </svg>
+            </div>
+          </article>
+
+          <article class="tile tile--groups">
+            <div class="tile__text">
+              <h3>Many buckets, in order</h3>
+              <p>Connections to every provider in colour-coded groups. Or set one to ask for keys each session and never save them.</p>
+            </div>
+            <ul class="viz viz--groups" aria-hidden="true">
+              <li><i class="c-blue"></i>Production<em>4</em></li>
+              <li><i class="c-violet"></i>Media<em>3</em></li>
+              <li><i class="c-teal"></i>Backups<em>2</em></li>
+              <li><i class="c-amber"></i>Client work<em>6</em></li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Everywhere -->
+    <section class="band band--tight" aria-labelledby="everywhere-title">
+      <div class="wrap everywhere">
+        <h2 id="everywhere-title" class="h2">Any S3.<br /><span class="soft">Any screen.</span></h2>
+        <div class="everywhere__rows">
+          <p class="providers"><span>AWS S3</span><span>Cloudflare R2</span><span>MinIO</span><span>Wasabi</span><span>Any S3-compatible API</span></p>
+          <ul class="platforms">
+            <li><strong>Web</strong><span>Any modern browser, with a CORS rule on each bucket</span></li>
+            <li><strong>macOS</strong><span>Desktop app, vault bound to the Keychain</span></li>
+            <li><strong>Windows</strong><span>Desktop app, bound to Credential Manager</span></li>
+            <li><strong>Linux</strong><span>Desktop app, bound to Secret Service</span></li>
+          </ul>
+          <p class="fine">Light, dark, or follow the system. Desktop installers are built from source for now.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Self-host -->
+    <section class="band" id="self-host" aria-labelledby="host-title">
+      <div class="wrap host">
+        <div class="host__copy">
+          <h2 id="host-title" class="h2">Host it yourself<br /><span class="soft">in one line.</span></h2>
+          <p class="lede">The web version is a folder of static files in a 13&nbsp;MB image. No application server, a non-root user, and nothing that ever touches your data.</p>
+          <ul class="checks">
+            <li>Strict Content-Security-Policy and no-referrer headers</li>
+            <li><code>GET /health</code> for your orchestrator</li>
+            <li>Or any static host: nginx, Caddy, Cloudflare Pages, Netlify</li>
+          </ul>
+        </div>
+
+        <div class="term">
+          <div class="term__bar"><i></i><i></i><i></i><span>Terminal</span></div>
+          <div class="term__body">
+            <pre><code><span class="p" aria-hidden="true">$ </span><span id="cmd-run">docker run -d -p 8888:8888 --name sthree-browser ghcr.io/mohamadtahir/sthree-browser:latest</span></code></pre>
+            <button type="button" class="copy" data-copy="cmd-run">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg>
+              <span data-copy-label>Copy</span>
+            </button>
+            <p class="term__out">Open http://localhost:8888, then serve it over HTTPS.</p>
+          </div>
+          <details class="cors">
+            <summary>Bucket CORS rule for the web version</summary>
+            <p>Your browser talks to S3 directly, so each bucket must allow your site's origin. The app shows this exact rule when one is missing.</p>
+            <pre><code>[{
+  "AllowedOrigins": ["https://sthree.example.com"],
+  "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+  "AllowedHeaders": ["*"],
+  "ExposeHeaders": ["ETag", "Content-Length", "Content-Type", "Last-Modified"],
+  "MaxAgeSeconds": 3600
+}]</code></pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Close -->
+    <section class="cta" aria-labelledby="cta-title">
+      <div class="wrap">
+        <div class="cta__card">
+          <div class="cta__glow" aria-hidden="true"></div>
+          <h2 id="cta-title" class="display display--cta">Open your buckets.</h2>
+          <p>Create a master password, add a key and a bucket, and you're in. No account, no sign-up.</p>
+          <div class="actions actions--center">
+            <a class="btn btn--light" href="/app/" data-app-link>
+              Open the app
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </a>
+            <a class="btn btn--ghost" href="https://github.com/MohamadTahir/sThree-Browser" data-repo-link>
+              <svg class="i i--fill" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" /></svg>
+              Source on GitHub
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__in">
+      <span class="brand brand--sm"><img src="logo.svg" alt="" width="20" height="20" /> sThree Browser</span>
+      <span>MIT licensed · Set in Mona Sans (SIL OFL)</span>
+      <span>No password recovery: keep an encrypted export as a backup.</span>
+    </div>
+  </footer>
+</body>
+</html>

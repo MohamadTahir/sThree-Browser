@@ -1,6 +1,8 @@
 # sThree Browser — common tasks. Run `make` or `make help` to list them.
 
 IMAGE      ?= sthree-browser
+PORTAL_IMAGE ?= sthree-portal
+PORTAL_PORT  ?= 8080
 PORT       ?= 3000
 MINIO_PORT ?= 19000
 MINIO_USER ?= sthreetest
@@ -8,7 +10,7 @@ MINIO_PASS ?= sthree-test-secret-123
 
 .DEFAULT_GOAL := help
 .PHONY: help install dev build serve typecheck check tauri-dev tauri-build \
-        docker-build docker-run minio minio-stop clean
+        docker-build docker-run portal-build portal-run minio minio-stop clean
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -47,6 +49,12 @@ docker-build: ## Build the web Docker image (IMAGE=sthree-browser)
 
 docker-run: docker-build ## Run the web Docker image (PORT=3000)
 	docker run --rm -p $(PORT):8888 --name $(IMAGE) $(IMAGE)
+
+portal-build: ## Build the separate landing-portal image (PORTAL_IMAGE=sthree-portal)
+	docker build -t $(PORTAL_IMAGE) portal
+
+portal-run: portal-build ## Run the portal image (PORTAL_PORT=8080)
+	docker run --rm -p $(PORTAL_PORT):8080 --name $(PORTAL_IMAGE) $(PORTAL_IMAGE)
 
 minio: ## Start a throwaway local MinIO for testing (MINIO_PORT=19000)
 	docker run -d --rm --name sthree-minio -p $(MINIO_PORT):9000 \
