@@ -1,0 +1,22 @@
+# Security headers for Cloudflare Pages (and Netlify), which read this file
+# from the build output. Next copies it from public/ into out/.
+# Keep in step with sws.toml (container), next.config.js (dev server) and
+# src-tauri/tauri.conf.json (desktop).
+#
+# S3 endpoints are user-configured, so previews and API calls may reach any
+# http(s) origin. Scripts, frames and plugins stay locked down.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; media-src 'self' blob: https: http:; connect-src 'self' https: http:; font-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cache-Control: no-cache
+
+# Content-hashed build assets never change. "!" drops the no-cache above,
+# since Pages joins repeated headers with a comma instead of replacing them.
+/_next/static/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable

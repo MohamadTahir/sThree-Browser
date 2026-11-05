@@ -7,6 +7,6 @@
 //                                  app build must then be served from that path)
 // repoUrl: the source repository linked from the page.
 window.STHREE_PORTAL = {
-  appUrl: "/app/",
+  appUrl: "https://app.sthree.motahir.dev/",
   repoUrl: "https://github.com/MohamadTahir/sThree-Browser",
 };
