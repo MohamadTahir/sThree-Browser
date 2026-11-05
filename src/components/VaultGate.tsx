@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { PasswordInput } from "./ui/password-input";
 import ConfirmDialog from "./ConfirmDialog";
 import { ThemeToggle } from "./ui/theme-toggle";
+import VaultBackdrop, { VaultTiers } from "./vault/VaultBackdrop";
 
 /** Where an error belongs: under a field, or as a note for the whole form. */
 type FormError = { field: "password" | "confirm" | "form"; message: string };
@@ -76,26 +77,26 @@ export default function VaultGate() {
     error?.field === field ? error.message : undefined;
 
   return (
-    <main className="relative flex h-full flex-col overflow-y-auto bg-sidebar px-4 py-16">
-      <ThemeToggle className="absolute right-4 top-4" />
-      <div className="m-auto w-full max-w-[380px]">
-        <div className="mb-8 flex flex-col items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="" className="size-10" />
-          <span className="text-base font-semibold tracking-[-0.01em]">sThree Browser</span>
+    <main className="relative isolate flex h-full flex-col overflow-y-auto bg-sidebar px-4 py-12">
+      <VaultBackdrop />
+      <ThemeToggle className="absolute right-4 top-4 z-10" />
+      <div className="relative z-10 m-auto w-full max-w-[400px]">
+        <div className="mb-6 flex flex-col items-center">
+          <VaultTiers />
+          <span className="-mt-2 text-lg font-semibold tracking-[-0.015em] [font-stretch:110%]">sThree Browser</span>
         </div>
 
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="grid gap-5 rounded-xl border bg-raised p-6 shadow-card"
+          className="grid gap-5 rounded-2xl border bg-raised/80 gloss p-7 shadow-dialog backdrop-blur-xl"
         >
           <div>
             <p className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
               <span className="size-2 rounded-full bg-muted-foreground/60" aria-hidden />
               {isSetup ? "New vault" : "Vault locked"}
             </p>
-            <h1 className="text-xl font-semibold">
+            <h1 className="text-2xl font-semibold">
               {isSetup ? "Create a master password" : "Unlock your vault"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -167,7 +168,7 @@ export default function VaultGate() {
           </Button>
         </form>
 
-        <div className="mt-6 grid justify-items-center gap-3 text-center text-xs text-muted-foreground">
+        <div className="mt-6 grid justify-items-center gap-3 text-center text-xs text-foreground/75">
           <details className="group w-full">
             <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-1 rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
               <ChevronRight className="size-3.5 transition-transform duration-150 group-open:rotate-90" aria-hidden />

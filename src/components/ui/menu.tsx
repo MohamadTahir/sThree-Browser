@@ -10,7 +10,7 @@ const MenuSub = MenuPrimitive.Sub;
 const MenuRadioGroup = MenuPrimitive.RadioGroup;
 
 const surface =
-  "z-50 min-w-[200px] overflow-hidden rounded-lg border bg-background p-1 text-foreground shadow-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98] data-[state=closed]:animate-out data-[state=closed]:fade-out-0";
+  "z-50 min-w-[200px] overflow-hidden rounded-lg border bg-raised gloss p-1 text-foreground shadow-popover data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98] data-[state=closed]:animate-out data-[state=closed]:fade-out-0";
 
 const itemBase =
   "relative flex h-8 cursor-default select-none items-center gap-2.5 rounded-md px-2 text-sm outline-hidden transition-colors duration-100 data-disabled:pointer-events-none data-highlighted:bg-muted data-disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";

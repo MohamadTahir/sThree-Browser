@@ -42,8 +42,8 @@ export default function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     <aside className="flex h-full flex-col border-r bg-sidebar">
       <div className="flex h-16 shrink-0 items-center gap-2.5 pl-4 pr-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="" className="size-6" />
-        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em]">
+        <img src="/logo.svg" alt="" className="size-[26px] rounded-[7px]" />
+        <span className="min-w-0 flex-1 truncate text-[15.5px] font-semibold tracking-[-0.015em] [font-stretch:108%]">
           sThree Browser
         </span>
         <Menu>
@@ -78,7 +78,7 @@ export default function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             placeholder="Search connections"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-8 pl-9 text-[13px]"
+            className="h-[34px] rounded-full pl-9 text-[13px]"
             aria-label="Search connections"
           />
         </div>

@@ -450,7 +450,7 @@ function SortableGroup({
           aria-expanded={expanded}
           {...sortable.listeners}
           className={cn(
-            "flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 pr-9 text-left text-sm transition-colors duration-100",
+            "flex h-8 w-full items-center gap-2.5 rounded-[10px] px-2.5 pr-9 text-left text-sm transition-colors duration-100",
             dropping
               ? "bg-primary-subtle text-primary-text"
               : "text-muted-foreground hover:bg-foreground/4 hover:text-foreground",
@@ -533,19 +533,17 @@ function SortableConnection({
         title={`${bucket.bucketName} · ${bucket.region}`}
         {...listeners}
         className={cn(
-          "flex h-8 w-full items-center gap-2.5 rounded-lg pr-9 text-left text-sm transition-colors duration-100",
-          nested ? "pl-9" : "pl-2.5",
+          "flex h-[34px] w-full items-center gap-2.5 rounded-[11px] pr-9 text-left text-sm transition-colors duration-100",
+          nested ? "pl-8" : "pl-2.5",
           active
-            ? "bg-raised font-medium text-foreground shadow-card ring-1 ring-border"
+            ? "bg-raised gloss font-medium text-foreground shadow-card ring-1 ring-border"
             : "text-foreground/90 hover:bg-foreground/4",
         )}
       >
-        {!nested && (
-          <Database
-            className={cn("size-4 shrink-0", active ? "text-primary-text" : "text-muted-foreground")}
-            aria-hidden
-          />
-        )}
+        <Database
+          className={cn("size-4 shrink-0", active ? "text-primary-text" : "text-muted-foreground")}
+          aria-hidden
+        />
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
           <span className="truncate">{bucket.nickname}</span>
           {bucket.askForCredentials && (
