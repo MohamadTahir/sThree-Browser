@@ -229,12 +229,16 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
   filter: drop-shadow(0 2px 6px rgb(96 165 250 / 0.6));
 }
 @keyframes pulse { from { stroke-dashoffset: 140; } to { stroke-dashoffset: -760; } }
-.node { position: absolute; display: grid; justify-items: center; gap: 4px; text-align: center; transform: translate(-50%, -50%); width: 180px; }
-.node--device { left: 12%; top: 73%; }
-.node--bucket { left: 88%; top: 73%; }
+.node { --dot: 64px; position: absolute; display: grid; justify-items: center; gap: 4px; text-align: center; transform: translate(-50%, -50%); width: 180px; }
+/* Device and bucket hang from their icon's centre, so the route line
+   (y = 220 of the 300-unit viewBox) runs through the middle of the icon
+   whatever the label below it measures. */
+.node--device, .node--bucket { top: calc(220% / 3); transform: translate(-50%, calc(var(--dot) / -2)); }
+.node--device { left: 12%; }
+.node--bucket { left: 88%; }
 .node--server { left: 50%; top: 14%; }
 .node__dot {
-  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 20px; margin-bottom: 8px;
+  display: grid; place-items: center; width: var(--dot); height: var(--dot); border-radius: 20px; margin-bottom: 8px;
   color: #fff;
   background: linear-gradient(160deg, #2b3a66, #141a33);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), inset 0 0 0 1px rgb(147 197 253 / 0.35), 0 16px 40px -12px rgb(37 99 235 / 0.6);
@@ -245,11 +249,11 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
 .node__sub { font-size: 13.5px; color: var(--fg-3); }
 .node--server .node__label { color: var(--fg-3); text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 2px; }
 @media (max-width: 640px) {
-  .node { width: 120px; }
+  .node { --dot: 52px; width: 120px; }
   .node__sub { display: none; }
   .node--device { left: 15%; }
   .node--bucket { left: 85%; }
-  .node__dot { width: 52px; height: 52px; border-radius: 16px; }
+  .node__dot { border-radius: 16px; }
 }
 
 .facts { display: grid; gap: 36px; margin-top: 88px; }
