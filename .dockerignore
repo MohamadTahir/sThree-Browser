@@ -40,3 +40,6 @@ pnpm-debug.log*
 .git
 .gitignore
 .vercel
+
+# The public portal ships as its own image (portal/Dockerfile)
+portal

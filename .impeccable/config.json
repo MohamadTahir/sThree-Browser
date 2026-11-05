@@ -14,6 +14,72 @@
         "rule": "design-system-font-size",
         "value": "16px",
         "createdAt": "2026-11-02T15:06:46.970Z"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "mona sans",
+        "createdAt": "2026-11-05T03:51:31.524Z",
+        "reason": "user pinned a Stripe/Raycast look for the portal, separate from the app (2026-11-05)"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "portal/index.html"
+        ],
+        "createdAt": "2026-11-05T03:57:38.336Z",
+        "reason": "user pinned a Stripe/Raycast look (rich colour, animated gradients) for the portal on 2026-11-05"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "portal/styles.css"
+        ],
+        "createdAt": "2026-11-05T03:57:38.369Z",
+        "reason": "user pinned a Stripe/Raycast look (rich colour, animated gradients) for the portal on 2026-11-05"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "portal/index.html"
+        ],
+        "createdAt": "2026-11-05T03:57:38.402Z",
+        "reason": "user pinned a Stripe/Raycast look (rich colour, animated gradients) for the portal on 2026-11-05"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "portal/styles.css"
+        ],
+        "createdAt": "2026-11-05T03:57:38.439Z",
+        "reason": "user pinned a Stripe/Raycast look (rich colour, animated gradients) for the portal on 2026-11-05"
+      },
+      {
+        "rule": "nested-cards",
+        "value": "*",
+        "files": [
+          "portal/index.html"
+        ],
+        "createdAt": "2026-11-05T03:57:38.475Z",
+        "reason": "bento tiles hold small product demos (file list, previews); the inner panel is illustration, not a layout card"
+      },
+      {
+        "rule": "overused-font",
+        "value": "mona sans",
+        "createdAt": "2026-11-05T03:57:38.509Z",
+        "reason": "Claude's pick for the portal: variable width axis for the wide display cuts, GitHub-native face for a developer audience"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "portal/index.html"
+        ],
+        "createdAt": "2026-11-05T04:03:45.017Z",
+        "reason": "false positives: confirm__field and term__bar are fixed-height flex rows with vertically centred content; cta__card has 64-120px padding and the flagged child is its absolutely positioned glow layer"
       }
     ]
   }
