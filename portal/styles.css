@@ -127,6 +127,14 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
 .nav__links a:hover { color: var(--fg); background: rgb(255 255 255 / 0.06); }
 .nav .btn { margin-left: auto; }
 @media (min-width: 860px) { .nav__links { display: flex; } .nav .btn { margin-left: 8px; } }
+/* The brand and the button never wrap; on the narrowest phones they shrink
+   a little so both still fit on one row. */
+.brand, .btn { white-space: nowrap; }
+@media (max-width: 359px) {
+  .nav__in { gap: 12px; }
+  .brand { gap: 8px; font-size: 15.5px; }
+  .nav .btn--sm { padding: 0 13px; font-size: 14px; }
+}
 
 /* ---------------- Hero ---------------- */
 .hero { position: relative; isolation: isolate; min-height: min(100svh, 980px); display: flex; align-items: center; padding: 120px 0 80px; overflow: hidden; }
@@ -205,7 +213,12 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
   filter: blur(8px);
 }
 @media (max-width: 999px) {
-  .stack { height: 300px; order: -1; margin-top: -10px; }
+  /* The tiers rise ~165px out of the scene (translateZ plus the bob), so the
+     drawing reaches well above the scene's box. Drop the scene so the top
+     tier clears the fixed nav, and keep the shadow under the bottom tier. */
+  .stack { height: 360px; order: -1; margin-top: -10px; }
+  .stack__scene { top: 48px; }
+  .stack__shadow { bottom: 0; }
   .hero__in { gap: 8px; }
   .hero { padding-top: 92px; }
 }
@@ -230,13 +243,15 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
 }
 @keyframes pulse { from { stroke-dashoffset: 140; } to { stroke-dashoffset: -760; } }
 .node { --dot: 64px; position: absolute; display: grid; justify-items: center; gap: 4px; text-align: center; transform: translate(-50%, -50%); width: 180px; }
-/* Device and bucket hang from their icon's centre, so the route line
-   (y = 220 of the 300-unit viewBox) runs through the middle of the icon
-   whatever the label below it measures. */
-.node--device, .node--bucket { top: calc(220% / 3); transform: translate(-50%, calc(var(--dot) / -2)); }
+/* Each node hangs from its icon's centre, placed on the SVG paths (300-unit
+   viewBox): the route line at y = 220 runs through device and bucket, and
+   the detour peaks at y = 50, behind the server icon, so neither path
+   crosses a label whatever the labels measure. */
+.node--device, .node--bucket, .node--server { transform: translate(-50%, calc(var(--dot) / -2)); }
+.node--device, .node--bucket { top: calc(220% / 3); }
 .node--device { left: 12%; }
 .node--bucket { left: 88%; }
-.node--server { left: 50%; top: 14%; }
+.node--server { left: 50%; top: calc(50% / 3); }
 .node__dot {
   display: grid; place-items: center; width: var(--dot); height: var(--dot); border-radius: 20px; margin-bottom: 8px;
   color: #fff;
@@ -249,6 +264,14 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
 .node__sub { font-size: 13.5px; color: var(--fg-3); }
 .node--server .node__label { color: var(--fg-3); text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 2px; }
 @media (max-width: 640px) {
+  /* On phones the server label is nearly as wide as the detour, whose sides
+     would cut through it. Put the label above the icon instead: the detour
+     peaks behind the icon, so nothing crosses above it. The node now hangs
+     from the bottom, where the icon is. */
+  .node--server { transform: translate(-50%, calc(-100% + var(--dot) / 2)); }
+  .node--server .node__label { order: -1; margin-bottom: 6px; }
+  .node--server .node__dot { margin-bottom: 0; }
+  .path { margin-top: 96px; }
   .node { --dot: 52px; width: 120px; }
   .node__sub { display: none; }
   .node--device { left: 15%; }
