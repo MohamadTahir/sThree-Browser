@@ -4,7 +4,6 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
-  Database,
   File as FileIcon,
   FileArchive,
   FileAudio,
@@ -36,6 +35,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import ObjectPanel from "./explorer/ObjectPanel";
 import NewFolderDialog from "./explorer/NewFolderDialog";
 import ListingError from "./explorer/ListingError";
+import EmptyFigure, { EmptyFigureName } from "./explorer/EmptyFigure";
 import CredentialPrompt from "./explorer/CredentialPrompt";
 import DeleteFolderDialog from "./explorer/DeleteFolderDialog";
 import ShareDialog from "./explorer/ShareDialog";
@@ -292,7 +292,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
       <main className="flex flex-1 flex-col">
         <MobileBar onOpenNav={onOpenNav} title="sThree Browser" />
         <EmptyState
-          icon={<Database />}
+          figure={Object.keys(configs.buckets).length ? "relay" : "hub"}
           title={Object.keys(configs.buckets).length ? "Choose a connection" : "Add your first connection"}
           body={
             Object.keys(configs.buckets).length
@@ -349,7 +349,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
       <main className="flex flex-1 flex-col">
         <MobileBar onOpenNav={onOpenNav} title={bucket.nickname} />
         <EmptyState
-          icon={<Database />}
+          figure="padlock"
           title="This connection has no credential"
           body="Edit the connection in the sidebar and choose a credential to use."
         />
@@ -570,13 +570,13 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           {!error && !loading && rows.length === 0 && (
             filter ? (
               <EmptyState
-                icon={<Search />}
+                figure="sieve"
                 title="No matches"
                 body={`Nothing on this page matches “${filter.trim()}”.`}
               />
             ) : (
               <EmptyState
-                icon={<UploadCloud />}
+                figure="drawer"
                 title="This folder is empty"
                 body="Drop files here or use Upload."
                 action={
@@ -890,22 +890,20 @@ function SkeletonRow({ showModified }: { showModified: boolean }) {
 }
 
 function EmptyState({
-  icon,
+  figure,
   title,
   body,
   action,
 }: {
-  icon: React.ReactNode;
+  figure: EmptyFigureName;
   title: string;
   body: string;
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto mt-20 flex max-w-sm flex-col items-center px-4 text-center">
-      <div className="flex size-12 items-center justify-center rounded-xl border bg-subtle text-muted-foreground shadow-xs [&_svg]:size-6">
-        {icon}
-      </div>
-      <h2 className="mt-4 text-base font-semibold">{title}</h2>
+    <div className="mx-auto mt-12 flex max-w-sm flex-col items-center px-4 text-center">
+      <EmptyFigure name={figure} />
+      <h2 className="mt-3 text-base font-semibold">{title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{body}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>

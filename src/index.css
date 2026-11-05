@@ -195,6 +195,17 @@
     --shadow-cta: inset 0 1px 0 hsl(0 0% 100% / 0.6), 0 8px 24px -10px rgb(0 0 0 / 0.7);
   }
 
+  /* hairline empty-state figures (explorer/EmptyFigure.tsx). The plate must
+     be the colour the figure sits on; the lit stroke is the accent. */
+  .empty-figure {
+    --hairline-plate: hsl(var(--bg));
+    --hairline-hi: hsl(var(--accent-text));
+    --hairline-edge: hsl(var(--fg-muted) / 0.75);
+    --hairline-mid: hsl(var(--border-strong));
+    --hairline-lo: hsl(var(--border));
+    --hairline-stroke: 1;
+  }
+
   html,
   body {
     @apply h-full bg-background text-foreground antialiased;
