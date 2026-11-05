@@ -4,12 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>sThree Browser · Your buckets, your keys</title>
-  <meta name="description" content="A safe S3 browser for AWS S3, Cloudflare R2, MinIO and any S3-compatible storage. Your keys stay encrypted on your device, and every request goes straight from your device to your bucket." />
+  <meta name="description" content="A security-focused browser for Amazon S3, Cloudflare R2, MinIO and other S3-compatible storage. Your keys stay encrypted on your device, and every request goes straight from your device to your bucket." />
   <meta name="theme-color" content="#06060b" />
   <meta name="color-scheme" content="dark" />
   <meta name="referrer" content="no-referrer" />
   <meta property="og:title" content="sThree Browser · Your buckets, your keys" />
-  <meta property="og:description" content="Browse S3, R2 and MinIO with your keys encrypted on your device. No middleman, no tracking." />
+  <meta property="og:description" content="Browse S3, R2 and MinIO with your keys encrypted on your device. No middleman server, no analytics." />
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="preload" href="fonts/mona-sans-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="styles.css" />
@@ -49,7 +49,7 @@
             <span class="line line--soft">No one in between.</span>
           </h1>
           <p class="hero__lede">
-            sThree Browser is a safe, open-source S3 browser. Your credentials stay encrypted on your device,
+            sThree Browser is a security-focused, open-source browser for S3 buckets. Your credentials stay encrypted on your device,
             and every request goes straight from you to your storage.
           </p>
           <div class="actions">
@@ -77,7 +77,7 @@
     <section class="band" id="security" aria-labelledby="security-title">
       <div class="wrap">
         <h2 id="security-title" class="h2">The shortest path<br />is the safest one.</h2>
-        <p class="lede">Most tools pass your keys through someone's server. sThree doesn't have one. The host only hands your browser some static files; after that it's just you and your bucket.</p>
+        <p class="lede">Some web-based S3 tools route your keys through their own server. sThree doesn't have one. The host only hands your browser some static files; after that it's just you and your bucket.</p>
 
         <figure class="path" aria-label="Diagram: requests go from your device straight to your bucket. The route through a middleman server is not used.">
           <svg class="path__svg" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
@@ -112,15 +112,15 @@
         <div class="facts">
           <div class="fact">
             <h3>An encrypted vault</h3>
-            <p>Connections and credentials are one AES-256-GCM ciphertext, keyed from your master password with scrypt. On desktop it's also bound to the OS keychain.</p>
+            <p>Connections and credentials are one AES-256-GCM ciphertext, keyed from your master password with scrypt. On desktop it's also bound to a key in the OS keychain, when one is available.</p>
           </div>
           <div class="fact">
             <h3>Signed on your device</h3>
-            <p>Every S3 request is signed locally and sent straight to the storage endpoint. The site's host never sees a key, a file or a request.</p>
+            <p>Every S3 request is signed locally and sent straight to the storage endpoint. The site's host only serves the app's files; it never receives your keys, your files or your S3 requests. Rather not trust our copy? Host your own: it's the same code.</p>
           </div>
           <div class="fact">
             <h3>Zero tracking</h3>
-            <p>No analytics, no telemetry. This page doesn't load a single file from anywhere else either.</p>
+            <p>No analytics, no telemetry, no cookies, in the app or on this page, which loads nothing from anywhere else. The hosted copies are served through Cloudflare, which keeps standard request logs.</p>
           </div>
         </div>
       </div>
@@ -162,7 +162,7 @@
           <article class="tile tile--share">
             <div class="tile__text">
               <h3>Links that expire</h3>
-              <p>Share a file, not your keys. Links stop working on schedule.</p>
+              <p>Share a file, not your keys. Anyone with the link can open it until it expires on schedule.</p>
             </div>
             <div class="viz viz--chips" aria-hidden="true" data-chips>
               <span>15 min</span><span>1 hour</span><span class="on">1 day</span><span>7 days</span>
@@ -196,7 +196,7 @@
           <article class="tile tile--lock">
             <div class="tile__text">
               <h3>Locks itself</h3>
-              <p>After 15 idle minutes, or when you press Lock, every decrypted secret is cleared.</p>
+              <p>After 15 idle minutes, or when you press Lock, the app drops its decrypted settings and reloads.</p>
             </div>
             <div class="viz viz--lock" aria-hidden="true">
               <svg viewBox="0 0 120 120">
@@ -231,12 +231,12 @@
       <div class="wrap everywhere">
         <h2 id="everywhere-title" class="h2">Any S3.<br /><span class="soft">Any screen.</span></h2>
         <div class="everywhere__rows">
-          <p class="providers"><span>AWS S3</span><span>Cloudflare R2</span><span>MinIO</span><span>Wasabi</span><span>Any S3-compatible API</span></p>
+          <p class="providers"><span>Amazon S3</span><span>Cloudflare R2</span><span>MinIO</span><span>Wasabi</span><span>Other S3-compatible APIs</span></p>
           <ul class="platforms">
             <li><strong>Web</strong><span>Any modern browser, with a CORS rule on each bucket</span></li>
-            <li><strong>macOS</strong><span>Desktop app, vault bound to the Keychain</span></li>
-            <li><strong>Windows</strong><span>Desktop app, bound to Credential Manager</span></li>
-            <li><strong>Linux</strong><span>Desktop app, bound to Secret Service</span></li>
+            <li><strong>macOS</strong><span>Desktop app, vault bound to the Keychain where available</span></li>
+            <li><strong>Windows</strong><span>Desktop app, bound to Credential Manager where available</span></li>
+            <li><strong>Linux</strong><span>Desktop app, bound to Secret Service where available</span></li>
           </ul>
           <p class="fine">Light, dark, or follow the system. Desktop installers are built from source for now.</p>
         </div>
@@ -248,11 +248,11 @@
       <div class="wrap host">
         <div class="host__copy">
           <h2 id="host-title" class="h2">Host it yourself<br /><span class="soft">in one line.</span></h2>
-          <p class="lede">The web version is a folder of static files in a 13&nbsp;MB image. No application server, a non-root user, and nothing that ever touches your data.</p>
+          <p class="lede">The web version is a folder of static files in an image of about 13&nbsp;MB. No application server, a non-root user, and the server never handles your keys or your files.</p>
           <ul class="checks">
-            <li>Strict Content-Security-Policy and no-referrer headers</li>
+            <li>A Content-Security-Policy that blocks third-party scripts, frames and plugins, plus no-referrer headers</li>
             <li><code>GET /health</code> for your orchestrator</li>
-            <li>Or any static host: nginx, Caddy, Cloudflare Pages, Netlify</li>
+            <li>Or any static host: nginx, Caddy, Cloudflare Pages, Netlify (copy the headers from <code>public/_headers</code>)</li>
           </ul>
         </div>
 
@@ -294,7 +294,7 @@
               <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </a>
             <a class="btn btn--ghost" href="https://github.com/MohamadTahir/sThree-Browser" data-repo-link>
-              <svg class="i i--fill" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" /></svg>
+              <svg class="i i--fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" /></svg>
               Source on GitHub
             </a>
           </div>
@@ -306,9 +306,10 @@
   <footer class="foot">
     <div class="wrap foot__in">
       <span class="brand brand--sm"><img src="logo.svg" alt="" width="20" height="20" /> sThree Browser</span>
-      <span>MIT licensed · Set in Mona Sans (SIL OFL)</span>
+      <span>MIT licensed · Set in Mona Sans (<a href="fonts/OFL.txt">SIL OFL</a>) · <a href="legal.html">Privacy &amp; terms</a></span>
       <span>No password recovery: keep an encrypted export as a backup.</span>
     </div>
+    <p class="wrap foot__tm">Amazon S3 and AWS are trademarks of Amazon.com, Inc. or its affiliates. Cloudflare, R2, MinIO, Wasabi, GitHub and other names are trademarks of their respective owners. sThree Browser is an independent project, not affiliated with or endorsed by any of them.</p>
   </footer>
 </body>
 </html>
