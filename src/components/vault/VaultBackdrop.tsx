@@ -35,7 +35,10 @@ void main(){
   float glow = 1.0 - smoothstep(0.0, 0.95, d);
   vec3 darkGround = vec3(0.022, 0.022, 0.04);
   vec3 lightGround = vec3(0.965, 0.968, 0.985);
-  vec3 dark = mix(darkGround, col * 1.1, pow(glow, 0.8));
+  // Dark: a muted, partly desaturated field behind the card, so the ground
+  // stays near-black and the colour reads as a glow, not a wash.
+  vec3 muted = mix(col, vec3(dot(col, vec3(0.299, 0.587, 0.114))), 0.3) * 0.5;
+  vec3 dark = mix(darkGround, muted, pow(glow, 1.4) * 0.8);
   vec3 lite = mix(lightGround, mix(col, vec3(1.0), 0.35), glow * 0.55);
   gl_FragColor = vec4(mix(dark, lite, light), 1.0);
 }`;
