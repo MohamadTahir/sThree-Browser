@@ -14,6 +14,7 @@
   <link rel="preload" href="fonts/mona-sans-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="styles.css" />
   <script src="config.js" defer></script>
+  <script src="figures.js" type="module"></script>
   <script src="main.js" defer></script>
 </head>
 <body>
@@ -111,14 +112,17 @@
 
         <div class="facts">
           <div class="fact">
+            <div class="fact__fig" data-figure="vault" aria-hidden="true"></div>
             <h3>An encrypted vault</h3>
             <p>Connections and credentials are one AES-256-GCM ciphertext, keyed from your master password with scrypt. On desktop it's also bound to the OS keychain.</p>
           </div>
           <div class="fact">
+            <div class="fact__fig" data-figure="laptop" aria-hidden="true"></div>
             <h3>Signed on your device</h3>
             <p>Every S3 request is signed locally and sent straight to the storage endpoint. The site's host never sees a key, a file or a request.</p>
           </div>
           <div class="fact">
+            <div class="fact__fig" data-figure="plug" aria-hidden="true"></div>
             <h3>Zero tracking</h3>
             <p>No analytics, no telemetry. This page doesn't load a single file from anywhere else either.</p>
           </div>

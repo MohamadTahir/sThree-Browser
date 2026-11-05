@@ -281,6 +281,14 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
 
 .facts { display: grid; gap: 36px; margin-top: 88px; }
 .fact { padding-top: 22px; border-top: 1px solid var(--line-2); }
+/* hairline figures: greys from the page, the lit stroke in pale blue.
+   --hairline-plate must match what the figure sits on. */
+.facts {
+  --hairline-plate: var(--ink-0); --hairline-hi: #93c5fd; --hairline-edge: #5b6b9a;
+  --hairline-mid: #343c5c; --hairline-lo: #1c2036; --hairline-stroke: 1;
+}
+.fact__fig { width: 100%; max-width: 260px; aspect-ratio: 5 / 4; margin: 4px 0 14px -12px; }
+@media (max-width: 859px) { .fact__fig { max-width: 200px; margin-bottom: 8px; } }
 .fact h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 10px; }
 .fact p { font-size: 16px; color: var(--fg-2); }
 @media (min-width: 860px) { .facts { grid-template-columns: repeat(3, 1fr); gap: 40px; } }
