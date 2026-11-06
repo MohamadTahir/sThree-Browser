@@ -1,0 +1,6 @@
+# Crawlers may index the app. If you host your own copy, change the Sitemap
+# host below (and the URL in sitemap.xml) before you build.
+User-agent: *
+Allow: /
+
+Sitemap: https://app.sthree.motahir.dev/sitemap.xml

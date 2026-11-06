@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sitemap for the hosted app at app.sthree.motahir.dev. The app is a single
+  page. If you host your own copy and want it indexed, replace the host below
+  and in robots.txt before you build.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://app.sthree.motahir.dev/</loc>
+    <lastmod>2026-11-05</lastmod>
+  </url>
+</urlset>
