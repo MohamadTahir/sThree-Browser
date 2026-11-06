@@ -1,0 +1,6 @@
+# Crawlers may index the whole portal. If you deploy the portal on your own
+# domain, change the Sitemap host below (and the URLs in sitemap.xml).
+User-agent: *
+Allow: /
+
+Sitemap: https://sthree.motahir.dev/sitemap.xml
