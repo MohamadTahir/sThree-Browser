@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/logo.png" alt="sThree Browser" width="112" height="112" />
+<img src="public/app-icon.png" alt="sThree Browser" width="112" height="112" />
 
 # sThree Browser
 
