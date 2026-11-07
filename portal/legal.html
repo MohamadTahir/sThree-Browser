@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Privacy &amp; terms · sThree Browser</title>
-  <meta name="description" content="What sThree Browser collects (nothing), who serves the hosted copy, and the terms you use it under." />
+  <meta name="description" content="What sThree Browser stores and counts, who serves the hosted copy, and the terms you use it under." />
   <meta name="theme-color" content="#06060b" />
   <meta name="color-scheme" content="dark" />
   <meta name="referrer" content="no-referrer" />
@@ -19,12 +19,23 @@
     <h1 class="h2">Privacy &amp; terms</h1>
     <p class="lede">sThree Browser is a free, open-source project run by one person. This page covers this site and the hosted app at app.sthree.motahir.dev. If you host your own copy, you are the operator of that copy.</p>
 
-    <h2>What we collect</h2>
-    <p>Nothing. There are no accounts, no analytics, no telemetry and no cookies, in the app or on this site.</p>
-    <p>The app keeps your connections and credentials in one encrypted vault, in your browser's storage (or the desktop app's own storage). It is encrypted with a key derived from your master password, and it never leaves your device unless you export it. Every S3 request goes from your device straight to the storage endpoint you configured; we never receive your keys, your files or your S3 requests.</p>
+    <h2>Your buckets and keys</h2>
+    <p>There is no sThree server or API between you and your storage. Every S3 request is signed on your device and goes straight to the endpoint you configured, so we never receive, see or log your keys, your files or your S3 requests. The app has no accounts, no analytics and no telemetry.</p>
+
+    <h2>What the app stores on your device</h2>
+    <p>The app saves a few things in your browser's storage (or the desktop app's own storage). They stay on your device and are never sent to us:</p>
+    <ul>
+      <li>Your vault: your connections and credentials, encrypted with a key derived from your master password. It never leaves your device unless you export it.</li>
+      <li>Your theme choice and the sidebar width, so the app looks the way you left it.</li>
+      <li>A short notice telling you why the vault locked. It is cleared when you close the tab.</li>
+    </ul>
+    <p>The app needs this storage to work, so it doesn't ask first. Clearing your browser's site data removes all of it.</p>
+
+    <h2>Visit counts on this site</h2>
+    <p>This site, but not the app, counts visits with <a href="https://www.cloudflare.com/web-analytics/">Cloudflare Web Analytics</a>. It sets no cookies, stores nothing on your device and doesn't follow you to other sites. We only see totals, such as page views, referring sites and countries.</p>
 
     <h2>Who serves the site</h2>
-    <p>This site and the hosted app are static files served by <a href="https://www.cloudflare.com/">Cloudflare</a>. Like any web host, Cloudflare processes your IP address and standard request details to deliver the pages and protect them from abuse. See <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>.</p>
+    <p>This site and the hosted app are static files served by <a href="https://www.cloudflare.com/">Cloudflare</a>. Like any web host, Cloudflare processes your IP address and standard request details to deliver the pages and protect them from abuse. Its bot protection may add a small check script to a page, and can set a short-lived security cookie to tell people from bots. See <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>.</p>
     <p>The hosted app runs code served from this domain. If you would rather not trust our copy, you can build and host the same code yourself.</p>
 
     <h2>Your responsibilities</h2>
@@ -44,7 +55,7 @@
     <h2>Contact</h2>
     <p>Questions and bug reports: <a href="https://github.com/MohamadTahir/sThree-Browser/issues">GitHub issues</a>. Security vulnerabilities: please follow the <a href="https://github.com/MohamadTahir/sThree-Browser/blob/main/SECURITY.md">security policy</a> instead of opening a public issue.</p>
 
-    <p class="fine">Last updated 5 November 2026.</p>
+    <p class="fine">Last updated 7 November 2026.</p>
   </main>
 </body>
 </html>

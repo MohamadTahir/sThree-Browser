@@ -7,9 +7,11 @@ import {
   Moon,
   Settings2,
   LockKeyhole,
+  ShieldCheck,
   Sun,
 } from "lucide-react";
 import { useConfig } from "@/context/config";
+import { openExternal, PRIVACY_URL } from "@/lib/tauri";
 import { getThemePreference, setThemePreference, ThemePreference } from "@/lib/theme";
 import { Button } from "../ui/button";
 import {
@@ -80,6 +82,10 @@ export default function SidebarFooter({ onAction }: { onAction: (action: Action)
               <Moon /> Dark
             </MenuRadioItem>
           </MenuRadioGroup>
+          <MenuSeparator />
+          <MenuItem onSelect={() => void openExternal(PRIVACY_URL)}>
+            <ShieldCheck /> Privacy &amp; terms
+          </MenuItem>
         </MenuContent>
       </Menu>
     </div>
