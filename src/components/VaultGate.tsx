@@ -3,7 +3,7 @@ import { ChevronRight, TriangleAlert } from "lucide-react";
 import { LOCK_NOTICE_KEY, useConfig } from "@/context/config";
 import { MIN_PASSWORD_LENGTH, validateNewPassword } from "@/services/vault";
 import { errorMessage } from "@/lib/utils";
-import { isTauri } from "@/lib/tauri";
+import { isTauri, openExternal, PRIVACY_URL } from "@/lib/tauri";
 import { Button } from "./ui/button";
 import { PasswordInput } from "./ui/password-input";
 import ConfirmDialog from "./ConfirmDialog";
@@ -196,6 +196,19 @@ export default function VaultGate() {
               and add your connections again.
             </p>
           )}
+
+          <a
+            href={PRIVACY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              void openExternal(PRIVACY_URL);
+            }}
+            className="rounded-sm underline-offset-2 transition-colors hover:text-foreground hover:underline"
+          >
+            Privacy &amp; terms
+          </a>
         </div>
       </div>
 
