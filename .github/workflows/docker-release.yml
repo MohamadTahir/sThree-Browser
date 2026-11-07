@@ -13,6 +13,9 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: mohamadtahir/sthree-browser
+  # build-push-action otherwise uploads a build-record artifact per run, which
+  # any signed-in GitHub user can download from a public repo.
+  DOCKER_BUILD_RECORD_UPLOAD: false
 
 jobs:
   build-and-push:
