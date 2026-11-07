@@ -1,25 +1,16 @@
 # Icons
 
-Place your application icons here. Tauri requires icons in the following formats:
+Every file here is generated from [`app-icon.svg`](app-icon.svg): the portal
+hero's three stacked tiers with the logo's S on the top one.
 
-- `32x32.png`
-- `128x128.png`
-- `128x128@2x.png`
-- `icon.icns` (macOS)
-- `icon.ico` (Windows)
+To regenerate after changing the SVG:
 
-You can generate these icons using tools like:
-- [Tauri Icon Generator](https://github.com/tauri-apps/tauri-icon)
-- Online icon generators
-- Image editing software
-
-**Note**: Placeholder empty files have been created for development. For production builds, you'll need to replace these with actual icon files.
-
-To generate icons from a source image:
-```bash
-# Install tauri-icon if you haven't already
-pnpm add -g @tauri-apps/cli
-
-# Generate icons from a source image (e.g., icon.png)
-tauri icon icon.png
-```
+1. Render `app-icon.svg` to a 1024×1024 PNG with a transparent background
+   (any browser does it; the rounded tile has transparent corners).
+2. Run `pnpm tauri icon <that PNG> -o src-tauri/icons`.
+3. iOS icons must be opaque and square-cornered (iOS rounds them itself).
+   Render the SVG again without its `clip-path` on a `#0b0b14` background,
+   run `tauri icon` on that into a scratch folder, copy its `ios/` PNGs over
+   these, and strip their alpha channel.
+4. Keep `android/values/ic_launcher_background.xml` as it is; `tauri icon`
+   rewrites it.

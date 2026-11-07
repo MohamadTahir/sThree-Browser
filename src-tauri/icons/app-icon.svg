@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
+  <!-- sThree Browser app icon: the portal hero's three glossy tiers, with the
+       logo's S on the top one, tilted like the hero (rotateZ -42deg, rotateX 58deg). Source for every file in src-tauri/icons
+       (render at 1024px, then `tauri icon`). Colours match portal/styles.css. -->
+  <defs>
+    <clipPath id="tile"><rect width="1024" height="1024" rx="232"/></clipPath>
+
+    <radialGradient id="glow" cx="0.62" cy="0.34" r="0.78">
+      <stop offset="0" stop-color="#4f46e5" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#3730a3" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#3730a3" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="floor">
+      <stop offset="0" stop-color="#000" stop-opacity="0.6"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- one tier, flat and centred on the origin; tilted by its <use> -->
+    <rect id="sq" x="-270" y="-270" width="540" height="540" rx="119"/>
+
+    <linearGradient id="top1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#93c5fd"/><stop offset="0.7" stop-color="#3b82f6"/><stop offset="1" stop-color="#2459b0"/>
+    </linearGradient>
+    <linearGradient id="top2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c9cf8"/><stop offset="0.7" stop-color="#4f46e5"/><stop offset="1" stop-color="#302a8a"/>
+    </linearGradient>
+    <linearGradient id="top3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b7cf6"/><stop offset="0.7" stop-color="#2d1f8f"/><stop offset="1" stop-color="#1b1356"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.2" cy="0.1" r="0.75">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="side1" gradientUnits="userSpaceOnUse" x1="-333" y1="0" x2="333" y2="0">
+      <stop offset="0" stop-color="#295bac"/><stop offset="1" stop-color="#183462"/>
+    </linearGradient>
+    <linearGradient id="side2" gradientUnits="userSpaceOnUse" x1="-333" y1="0" x2="333" y2="0">
+      <stop offset="0" stop-color="#3731a0"/><stop offset="1" stop-color="#201c5c"/>
+    </linearGradient>
+    <linearGradient id="side3" gradientUnits="userSpaceOnUse" x1="-333" y1="0" x2="333" y2="0">
+      <stop offset="0" stop-color="#2a1f80"/><stop offset="1" stop-color="#140d40"/>
+    </linearGradient>
+
+    <!-- the extruded edge: copies of the tier stepped down 2px at a time -->
+    <g id="edge">
+      <use xlink:href="#sq" transform="translate(0 36) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 32) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 28) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 24) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 20) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 16) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 12) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 8) scale(1 .53) rotate(-42)"/>
+      <use xlink:href="#sq" transform="translate(0 4) scale(1 .53) rotate(-42)"/>
+    </g>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect width="1024" height="1024" fill="#0b0b14"/>
+    <rect width="1024" height="1024" fill="url(#glow)"/>
+    <g transform="translate(512 512) scale(1.08) translate(-512 -512)">
+    <ellipse cx="512" cy="870" rx="300" ry="50" fill="url(#floor)"/>
+    <g transform="translate(512 610)">
+      <use xlink:href="#edge" fill="url(#side3)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="url(#top3)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="url(#sheen)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="5"/>
+    </g>
+    <g transform="translate(512 495)">
+      <use xlink:href="#edge" fill="url(#side2)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="url(#top2)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="url(#sheen)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="5"/>
+    </g>
+    <g transform="translate(512 380)">
+      <use xlink:href="#edge" fill="url(#side1)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="url(#top1)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="url(#sheen)"/>
+      <use xlink:href="#sq" transform="scale(1 .53) rotate(-42)" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="5"/>
+      <g transform="scale(1 .53) rotate(-42) scale(1.02) translate(-256 -256)" fill="none" opacity="0.94" stroke="#fff" stroke-width="64" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M342 152H198a28 28 0 0 0-28 28v76"/>
+        <path d="M170 256h144a28 28 0 0 1 28 28v76"/>
+        <path d="M342 360H170"/>
+      </g>
+    </g>
+    </g>
+  </g>
+</svg>
