@@ -15,7 +15,7 @@
 
 Browse AWS S3, Cloudflare R2, MinIO, and any S3-compatible storage. Your keys stay encrypted on your device, and every request goes straight from your device to your bucket.
 
-**[Try it in your browser at sthree.dev.krd](https://sthree.dev.krd)** (needs a [CORS rule](#bucket-cors-web-only) on each bucket)
+**[Try it in your browser at app.sthree.motahir.dev](https://app.sthree.motahir.dev/)** (needs a [CORS rule](#bucket-cors-web-only) on each bucket)
 
 [Report a bug](https://github.com/MohamadTahir/sThree-Browser/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/MohamadTahir/sThree-Browser/issues/new?template=feature_request.yml)
 
