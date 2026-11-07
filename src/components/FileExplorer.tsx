@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   ChevronLeft,
   ChevronRight,
   File as FileIcon,
@@ -15,6 +16,7 @@ import {
   FolderPlus,
   KeyRound,
   Menu,
+  Minus,
   RefreshCw,
   Copy,
   Download,
@@ -23,6 +25,7 @@ import {
   Trash2,
   Upload,
   UploadCloud,
+  X,
 } from "lucide-react";
 import prettyBytes from "pretty-bytes";
 import { useConfig } from "@/context/config";
@@ -39,6 +42,7 @@ import EmptyFigure, { EmptyFigureName } from "./explorer/EmptyFigure";
 import CredentialPrompt from "./explorer/CredentialPrompt";
 import DeleteFolderDialog from "./explorer/DeleteFolderDialog";
 import ShareDialog from "./explorer/ShareDialog";
+import BatchDeleteDialog from "./explorer/BatchDeleteDialog";
 import { copyToClipboard, downloadObject } from "./explorer/objectActions";
 import { toast } from "react-toastify";
 import UploadQueue, { UploadItem } from "./explorer/UploadQueue";
@@ -142,6 +146,12 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
   const [objectToShare, setObjectToShare] = useState<string | null>(null);
   const [objectToDelete, setObjectToDelete] = useState<string | null>(null);
+  // Rows ticked for a batch action, by key. Separate from `selectedKey`,
+  // which is the one object open in the details panel.
+  const [checked, setChecked] = useState<ReadonlySet<string>>(() => new Set());
+  const [batchToDelete, setBatchToDelete] = useState<S3Object[] | null>(null);
+  // Last row ticked, the start of a shift-click range.
+  const checkAnchor = useRef<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -151,7 +161,19 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   useEffect(() => {
     setSelectedKey(null);
     setFilter("");
+    setChecked(new Set());
+    checkAnchor.current = null;
   }, [prefix, connection]);
+
+  // Drop ticks for rows that left the listing (deleted, or another page).
+  useEffect(() => {
+    setChecked((prev) => {
+      if (prev.size === 0) return prev;
+      const present = new Set(objects.map((o) => o.key));
+      const next = new Set([...prev].filter((key) => present.has(key)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [objects]);
 
   const rows = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -180,6 +202,61 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   }, [objects, filter, sort, folderStats]);
 
   const selected = rows.find((o) => o.key === selectedKey && !o.isFolder) ?? null;
+
+  // ---- multi-select -----------------------------------------------------
+
+  const checkedItems = useMemo(
+    () => objects.filter((o) => checked.has(o.key)),
+    [objects, checked],
+  );
+  const allVisibleChecked = rows.length > 0 && rows.every((o) => checked.has(o.key));
+  const someVisibleChecked = rows.some((o) => checked.has(o.key));
+
+  /** Tick or untick a row; with shift, every row between it and the last one ticked. */
+  const toggleChecked = (key: string, range: boolean) => {
+    const anchor = checkAnchor.current;
+    const from = anchor ? rows.findIndex((o) => o.key === anchor) : -1;
+    const to = rows.findIndex((o) => o.key === key);
+    setChecked((prev) => {
+      const next = new Set(prev);
+      const tick = !prev.has(key);
+      const keys =
+        range && from !== -1 && to !== -1
+          ? rows.slice(Math.min(from, to), Math.max(from, to) + 1).map((o) => o.key)
+          : [key];
+      for (const k of keys) {
+        if (tick) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
+    checkAnchor.current = key;
+  };
+
+  const toggleAllVisible = () => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (allVisibleChecked) rows.forEach((o) => next.delete(o.key));
+      else rows.forEach((o) => next.add(o.key));
+      return next;
+    });
+  };
+
+  const clearChecked = () => {
+    setChecked(new Set());
+    checkAnchor.current = null;
+  };
+
+  const downloadChecked = async () => {
+    const files = checkedItems.filter((o) => !o.isFolder);
+    if (files.length === 0) return;
+    if (files.length > 1) toast.info(`Downloading ${files.length} files`, { autoClose: 2000 });
+    for (const [i, file] of files.entries()) {
+      // A short gap so the browser treats them as separate downloads.
+      if (i > 0) await new Promise((resolve) => window.setTimeout(resolve, 350));
+      await downloadObject(connection!, file.key);
+    }
+  };
 
   // ---- uploads ----------------------------------------------------------
 
@@ -262,10 +339,24 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
   };
 
   const onTableKeyDown = (event: React.KeyboardEvent) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      setChecked((prev) => new Set([...prev, ...rows.map((o) => o.key)]));
+      return;
+    }
+    if (event.key === "Escape" && checked.size > 0) {
+      event.preventDefault();
+      clearChecked();
+      return;
+    }
     const buttons = Array.from(
       tableRef.current?.querySelectorAll<HTMLButtonElement>("button[data-row]") ?? [],
     );
-    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    // Focus may be on a row's tick box or quick action; count from its row.
+    const focusedRow = (document.activeElement as HTMLElement | null)
+      ?.closest("tr")
+      ?.querySelector<HTMLButtonElement>("button[data-row]");
+    const index = focusedRow ? buttons.indexOf(focusedRow) : -1;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const next = buttons[Math.min(buttons.length - 1, Math.max(0, index + (event.key === "ArrowDown" ? 1 : -1)))];
@@ -367,6 +458,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
     label: string,
     align: "left" | "right" = "left",
     className?: string,
+    leading?: React.ReactNode,
   ) => {
     const active = sort.key === key;
     return (
@@ -379,6 +471,7 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
           className,
         )}
       >
+        {leading && <span className="inline-flex align-middle">{leading}</span>}
         <button
           type="button"
           onClick={() => setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : 1 }))}
@@ -516,7 +609,20 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
             <table className="w-full table-fixed border-separate border-spacing-x-0 border-spacing-y-[2px] text-sm">
               <thead className="sticky top-0 z-5 bg-background/95 text-left text-xs text-muted-foreground backdrop-blur-sm supports-backdrop-filter:bg-background/80">
                 <tr>
-                  {sortHeader("name", "Name")}
+                  {sortHeader(
+                    "name",
+                    "Name",
+                    "left",
+                    undefined,
+                    rows.length > 0 && !(loading && objects.length === 0) && (
+                      <SelectBox
+                        checked={allVisibleChecked ? true : someVisibleChecked ? "mixed" : false}
+                        onToggle={toggleAllVisible}
+                        label={allVisibleChecked ? "Deselect all" : "Select all"}
+                        className="-ml-[7px] mr-[5px]"
+                      />
+                    ),
+                  )}
                   {sortHeader("size", "Size", "right", "w-24 sm:w-28")}
                   {showModified && sortHeader("modified", "Modified", "left", "w-52")}
                 </tr>
@@ -543,10 +649,19 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
                         key={object.key}
                         object={object}
                         selected={object.key === selected?.key}
+                        checked={checked.has(object.key)}
+                        selecting={checked.size > 0}
+                        onToggleChecked={(range) => toggleChecked(object.key, range)}
                         showModified={showModified}
                         showActions={showActions}
                         folder={object.isFolder ? folderStats[object.key] : undefined}
-                        onOpen={() => openRow(object)}
+                        onOpen={(event) => {
+                          if (event.metaKey || event.ctrlKey || event.shiftKey) {
+                            toggleChecked(object.key, event.shiftKey);
+                          } else {
+                            openRow(object);
+                          }
+                        }}
                         onFocus={() => {
                           if (!object.isFolder && selectedKey) setSelectedKey(object.key);
                         }}
@@ -591,6 +706,24 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
 
         {!error && (objects.length > 0 || listing.page > 0) && (
           <footer className="flex h-12 shrink-0 items-center justify-between gap-2 border-t px-4 text-xs text-muted-foreground sm:px-7">
+            {checkedItems.length > 0 ? (
+              <BatchBar
+                compact={!showActions}
+                hidden={checkedItems.filter((o) => !rows.includes(o)).length}
+                count={checkedItems.length}
+                fileCount={checkedItems.filter((o) => !o.isFolder).length}
+                onClear={clearChecked}
+                onDownload={() => void downloadChecked()}
+                onCopy={() =>
+                  copyToClipboard(
+                    checkedItems.map((o) => o.key).join("\n"),
+                    checkedItems.length === 1 ? "Key" : `${checkedItems.length} keys`,
+                  )
+                }
+                onDelete={() => setBatchToDelete(checkedItems)}
+              />
+            ) : (
+            <>
             <span className="tabular">
               {filter ? `${rows.length} of ${objects.length}` : objects.length}{" "}
               {objects.length === 1 ? "item" : "items"}
@@ -605,6 +738,8 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
                   Next <ChevronRight />
                 </Button>
               </div>
+            )}
+            </>
             )}
           </footer>
         )}
@@ -669,6 +804,23 @@ export default function FileExplorer({ onOpenNav }: { onOpenNav: () => void }) {
         }}
         onClose={() => setObjectToDelete(null)}
       />
+      <BatchDeleteDialog
+        connection={connection}
+        items={batchToDelete}
+        onClose={() => setBatchToDelete(null)}
+        onDeleted={(complete) => {
+          // Some objects may be gone even when the delete stopped part way, so
+          // always refresh; ticks on rows that disappear are dropped then.
+          refresh();
+          if (!complete) return;
+          const items = batchToDelete ?? [];
+          if (selectedKey && items.some((o) => selectedKey === o.key || (o.isFolder && selectedKey.startsWith(o.key)))) {
+            setSelectedKey(null);
+          }
+          clearChecked();
+          toast.success(`Deleted ${items.length} ${items.length === 1 ? "item" : "items"}`);
+        }}
+      />
       <DeleteFolderDialog
         connection={connection}
         prefix={folderToDelete}
@@ -713,6 +865,9 @@ const selectedTone =
 function ObjectRow({
   object,
   selected,
+  checked,
+  selecting,
+  onToggleChecked,
   showModified,
   showActions,
   folder,
@@ -722,25 +877,47 @@ function ObjectRow({
 }: {
   object: S3Object;
   selected: boolean;
+  checked: boolean;
+  /** Some row is ticked, so every row shows its box. */
+  selecting: boolean;
+  onToggleChecked: (range: boolean) => void;
   showModified: boolean;
   showActions: boolean;
   folder?: FolderState;
-  onOpen: () => void;
+  onOpen: (event: React.MouseEvent) => void;
   onFocus: () => void;
   actions: RowActionHandlers;
 }) {
   const Icon = object.isFolder ? Folder : iconFor(object.key);
-  const tone = selected ? selectedTone : "group-hover:bg-foreground/[0.045]";
+  const tone = selected || checked ? selectedTone : "group-hover:bg-foreground/[0.045]";
+  // The tick box sits over the file icon; it shows on hover, on focus, on
+  // touch screens, and on every row once something is ticked.
+  const boxShown = checked || selecting;
   const name = baseName(object.key);
   const summary = typeof folder === "object" ? folder : null;
   return (
     <tr className="group">
       <td className={cn(cell, tone, "relative p-0")}>
+        <SelectBox
+          checked={checked}
+          onToggle={(event) => onToggleChecked(event.shiftKey)}
+          label={`Select ${name}`}
+          className={cn(
+            // z-[1]: the faded icon underneath forms its own layer and would
+            // otherwise take the click. Stays under the sticky header (z-5).
+            "absolute left-[7px] top-1/2 z-[1] -translate-y-1/2 transition-opacity duration-100",
+            boxShown
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100",
+          )}
+        />
         <button
           type="button"
           data-row
           onClick={onOpen}
           onFocus={onFocus}
+          // Shift-click ticks a range; don't also select the text in between.
+          onMouseDown={(e) => e.shiftKey && e.preventDefault()}
           aria-pressed={object.isFolder ? undefined : selected}
           className={cn(
             "flex h-11 w-full min-w-0 items-center gap-3 rounded-[12px] px-3.5 text-left",
@@ -750,7 +927,10 @@ function ObjectRow({
         >
           <Icon
             className={cn(
-              "size-[18px] shrink-0",
+              "size-[18px] shrink-0 transition-opacity duration-100",
+              boxShown
+                ? "opacity-0"
+                : "group-hover:opacity-0 group-focus-within:opacity-0 pointer-coarse:opacity-0",
               object.isFolder
                 ? "fill-primary/15 text-primary-text"
                 : selected
@@ -759,7 +939,7 @@ function ObjectRow({
             )}
             strokeWidth={1.75}
           />
-          <span className={cn("truncate", object.isFolder && "font-medium", selected && "font-medium text-primary-text")}>
+          <span className={cn("truncate", object.isFolder && "font-medium", (selected || checked) && "font-medium text-primary-text")}>
             {name}
           </span>
         </button>
@@ -848,6 +1028,105 @@ function RowActions({
         </div>
         )
       )}
+    </div>
+  );
+}
+
+/** A row's tick box: a 32px hit area around an 18px box, with a mixed state for select-all. */
+function SelectBox({
+  checked,
+  onToggle,
+  label,
+  className,
+}: {
+  checked: boolean | "mixed";
+  onToggle: (event: React.MouseEvent) => void;
+  label: string;
+  className?: string;
+}) {
+  const on = checked !== false;
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      title={label}
+      onClick={onToggle}
+      // Shift-click would otherwise select the text between rows.
+      onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+      className={cn("group/box inline-flex size-8 items-center justify-center rounded-md", className)}
+    >
+      <span
+        className={cn(
+          "flex size-[18px] items-center justify-center rounded-[5px] border shadow-xs transition-[background-color,border-color] duration-150",
+          on
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-border-strong bg-background group-hover/box:border-muted-foreground/60",
+        )}
+      >
+        {checked === "mixed" ? (
+          <Minus className="size-3.5" strokeWidth={3} aria-hidden />
+        ) : (
+          <Check
+            className={cn("size-3.5 transition-transform duration-150", on ? "scale-100" : "scale-0")}
+            strokeWidth={3}
+            aria-hidden
+          />
+        )}
+      </span>
+    </button>
+  );
+}
+
+/** Replaces the footer while rows are ticked: the count and what can be done to them. */
+function BatchBar({
+  compact,
+  hidden,
+  count,
+  fileCount,
+  onClear,
+  onDownload,
+  onCopy,
+  onDelete,
+}: {
+  /** The list is narrow (phone, or details panel open): icons only. */
+  compact: boolean;
+  /** Ticked items the filter currently hides. */
+  hidden: number;
+  count: number;
+  fileCount: number;
+  onClear: () => void;
+  onDownload: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div role="toolbar" aria-label="Selected items" className="flex w-full min-w-0 items-center gap-1">
+      <Button variant="quiet" size="icon-sm" className="-ml-2 size-[30px]" onClick={onClear} aria-label="Clear selection" title="Clear selection (Esc)">
+        <X />
+      </Button>
+      <span className="min-w-0 truncate tabular" aria-live="polite">
+        <span className="font-medium text-foreground">{count.toLocaleString()} selected</span>
+        {hidden > 0 && (
+          <span title="Ticked items the filter hides are still included">
+            {" "}· {hidden.toLocaleString()} hidden by filter
+          </span>
+        )}
+      </span>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {fileCount > 0 && (
+          <Button size="sm" variant="secondary" className={cn("h-[30px]", compact && "w-[30px] px-0")} onClick={onDownload} aria-label={`Download ${fileCount} ${fileCount === 1 ? "file" : "files"}`} title={fileCount < count ? `Download ${fileCount} ${fileCount === 1 ? "file" : "files"} (folders are skipped)` : "Download"}>
+            <Download /> {!compact && "Download"}
+          </Button>
+        )}
+        <Button size="sm" variant="secondary" className={cn("h-[30px]", compact && "w-[30px] px-0")} onClick={onCopy} aria-label="Copy keys" title="Copy keys">
+          <Copy /> {!compact && "Copy keys"}
+        </Button>
+        <Button size="sm" variant="secondary" className={cn("h-[30px] hover:text-danger", compact && "w-[30px] px-0")} onClick={onDelete} aria-label={`Delete ${count} selected`} title="Delete selected">
+          <Trash2 /> {!compact && "Delete"}
+        </Button>
+      </div>
     </div>
   );
 }
