@@ -18,7 +18,7 @@ LABEL org.opencontainers.image.title="sThree Browser portal" \
 COPY legal.html /public/
 COPY robots.txt sitemap.xml /public/
 COPY sws.toml /etc/sws.toml
-COPY index.html styles.css main.js config.js figures.js logo.svg logo-mark.svg favicon.png /public/
+COPY index.html styles.css boot.js main.js config.js figures.js logo.svg logo-mark.svg favicon.png /public/
 COPY fonts/ /public/fonts/
 COPY vendor/ /public/vendor/
 
