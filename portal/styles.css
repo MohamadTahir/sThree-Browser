@@ -166,12 +166,15 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
   .hero__in { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); }
 }
 
-/* entrance */
-.hero__copy > * { animation: rise 900ms var(--ease) both; }
+/* entrance: opacity and transform only, so it runs on the compositor and
+   main-thread work can't make it stutter (an animated blur repaints the
+   text every frame). boot.js holds it until the font and setup are done. */
+.js .hero__copy > * { animation: rise 900ms var(--ease) both paused; }
+.js.is-ready .hero__copy > * { animation-play-state: running; }
 .hero__copy > :nth-child(2) { animation-delay: 80ms; }
 .hero__copy > :nth-child(3) { animation-delay: 160ms; }
 .hero__copy > :nth-child(4) { animation-delay: 240ms; }
-@keyframes rise { from { opacity: 0; transform: translateY(18px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 
 /* The tiers: the logo's three strokes as floating glossy slabs. */
 .stack { position: relative; height: clamp(300px, 40vw, 480px); perspective: 1400px; display: grid; place-items: center; }
