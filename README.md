@@ -19,6 +19,8 @@ Browse AWS S3, Cloudflare R2, MinIO, and any S3-compatible storage. Your keys st
 
 [Report a bug](https://github.com/MohamadTahir/sThree-Browser/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/MohamadTahir/sThree-Browser/issues/new?template=feature_request.yml)
 
+<img src="docs/demo.gif" alt="sThree Browser demo: unlocking the vault, browsing a bucket, previewing images, creating a share link, and uploading by drag and drop" width="900" />
+
 </div>
 
 ---
