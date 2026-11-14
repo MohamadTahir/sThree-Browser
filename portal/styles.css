@@ -143,7 +143,10 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
 .nav.is-scrolled { background: rgb(6 6 11 / 0.72); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); border-bottom-color: var(--line); }
 .nav__in { display: flex; align-items: center; gap: 28px; height: 68px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; font-weight: 650; font-stretch: 105%; font-size: 17px; letter-spacing: -0.01em; }
-.brand img { border-radius: 8px; }
+/* The plain white S from the hero's top tier, not the full 3D icon: the hero
+   already shows the tiers, and the render turns to mush at nav size. */
+.brand img { display: block; }
+.brand--sm img { opacity: 0.75; }
 .brand--sm { font-size: 15px; color: var(--fg-2); }
 .nav__links { display: none; gap: 4px; margin-left: auto; }
 .nav__links a { padding: 8px 12px; border-radius: 8px; color: var(--fg-2); text-decoration: none; font-size: 15px; font-weight: 500; transition: color 160ms var(--ease), background-color 160ms var(--ease); }
