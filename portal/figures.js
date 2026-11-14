@@ -10,5 +10,19 @@ var play = window.matchMedia("(hover: none)").matches;
 
 document.querySelectorAll("[data-figure]").forEach(function (el) {
   var draw = figures[el.dataset.figure];
-  if (draw) draw(el, { intensity: 0.6, theme: "dark", play: play });
+  if (!draw) return;
+  draw(el, { intensity: 0.6, theme: "dark", play: play });
+  centre(el);
 });
+
+// Centre the drawing's ink, measured at rest, rather than its box: the
+// percentage is of the figure's own width, which is 400 viewBox units.
+function centre(el) {
+  var svg = el.querySelector("svg");
+  if (!svg || !svg.getBBox) return;
+  var b;
+  try { b = svg.getBBox(); } catch (e) { return; }
+  if (!b.width) return;
+  var shift = (200 - (b.x + b.width / 2)) / 4;
+  el.style.setProperty("--ink-x", shift.toFixed(2));
+}

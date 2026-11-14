@@ -330,7 +330,11 @@ code { font: 500 0.88em/1.5 var(--mono); color: var(--fg); background: rgb(255 2
   --hairline-plate: var(--ink-0); --hairline-hi: #93c5fd; --hairline-edge: #5b6b9a;
   --hairline-mid: #343c5c; --hairline-lo: #1c2036; --hairline-stroke: 1;
 }
-.fact__fig { width: 100%; max-width: 260px; aspect-ratio: 5 / 4; margin: 4px 0 14px -12px; }
+/* Each figure is centred over its column. The drawings sit off-centre in
+   their own 400x320 boxes, each by a different amount, so figures.js measures
+   the ink at rest and sets --ink-x to shift the box by that much. The box moves
+   with the drawing, so the figure's pointer mapping stays right. */
+.fact__fig { width: 100%; max-width: 260px; aspect-ratio: 5 / 4; margin: 4px auto 14px; transform: translateX(calc(var(--ink-x, 0) * 1%)); }
 /* One column below 860px: centre each fact so the figure doesn't hang off
    the left edge with empty space beside it. */
 @media (max-width: 859px) {
