@@ -80,6 +80,12 @@
         ],
         "createdAt": "2026-11-05T04:03:45.017Z",
         "reason": "false positives: confirm__field and term__bar are fixed-height flex rows with vertically centred content; cta__card has 64-120px padding and the flagged child is its absolutely positioned glow layer"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "mona sans display",
+        "createdAt": "2026-11-14T06:42:37.551Z",
+        "reason": "Claude: same Mona Sans file aliased with trimmed vertical metrics for display line boxes, not a new typeface"
       }
     ]
   }
